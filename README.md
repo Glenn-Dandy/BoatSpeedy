@@ -5,7 +5,7 @@ the low range (~5–10 km/h). Large, easy-to-read digital readout, trip tracking
 a clean light/dark design.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.1.1-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
 ![targetSdk](https://img.shields.io/badge/targetSdk-35-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -23,6 +23,7 @@ a clean light/dark design.
 - **Smoothing** of the raw GPS value (important at slow speeds)
 - **Light / dark theme** (Light / Dark / System)
 - **Bilingual**: English and German (per-app language on Android 13+)
+- **About screen** with in-app update check (queries GitHub releases)
 - **Keep screen on** (optional)
 
 ## Tech
@@ -61,8 +62,9 @@ The APK is written to `app/build/outputs/apk/`.
 - `ACCESS_FINE_LOCATION` – precise GPS location for speed & satellites
 - `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION` – keep measuring during a trip
 - `POST_NOTIFICATIONS` – trip notification (Android 13+)
+- `INTERNET` – only for the in-app update check (GitHub releases)
 
-No internet, no `ACCESS_BACKGROUND_LOCATION` (the service starts from the foreground).
+No `ACCESS_BACKGROUND_LOCATION` (the service starts from the foreground).
 
 ## License
 

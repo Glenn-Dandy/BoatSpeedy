@@ -45,4 +45,19 @@
     <string name="stat_max">Max</string>
     <string name="stat_avg">Ø</string>
     <string name="stat_time">Zeit</string>
+
+    <!-- Über -->
+    <string name="about">Über</string>
+    <string name="version">Version</string>
+    <string name="source_code">Quellcode (GitHub)</string>
+    <string name="open_on_github">Auf GitHub öffnen</string>
+    <string name="license_label">Lizenz</string>
+    <string name="license_value">MIT</string>
+    <string name="check_update">Nach Updates suchen</string>
+    <string name="checking">Suche …</string>
+    <string name="up_to_date">Du hast die neueste Version.</string>
+    <string name="update_available">Update verfügbar: %1$s</string>
+    <string name="download">Herunterladen</string>
+    <string name="open_release">Release-Seite öffnen</string>
+    <string name="update_check_failed">Update-Prüfung fehlgeschlagen. Bitte erneut versuchen.</string>
 </resources>

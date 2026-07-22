@@ -38,11 +38,14 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.kewl.boatspeedy.data.ThemeMode
+import de.kewl.boatspeedy.ui.AboutScreen
 import de.kewl.boatspeedy.ui.SettingsScreen
 import de.kewl.boatspeedy.ui.SpeedScreen
 import de.kewl.boatspeedy.ui.SpeedViewModel
 import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import androidx.compose.foundation.isSystemInDarkTheme
+
+private enum class Screen { SPEED, SETTINGS, ABOUT }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -117,14 +120,14 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                 }
             }
 
-            var showSettings by rememberSaveable { mutableStateOf(false) }
+            var screen by rememberSaveable { mutableStateOf(Screen.SPEED) }
             val gps by vm.gps.collectAsStateWithLifecycle()
             val speedText by vm.displaySpeed.collectAsStateWithLifecycle()
             val tracking by vm.tracking.collectAsStateWithLifecycle()
             val tripStats by vm.tripStats.collectAsStateWithLifecycle()
 
-            if (showSettings) {
-                SettingsScreen(
+            when (screen) {
+                Screen.SETTINGS -> SettingsScreen(
                     settings = settings,
                     onUnit = vm::setUnit,
                     onDecimals = vm::setDecimals,
@@ -132,10 +135,13 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                     onKeepScreenOn = vm::setKeepScreenOn,
                     onSmoothing = vm::setSmoothing,
                     onShowSatDetails = vm::setShowSatDetails,
-                    onBack = { showSettings = false },
+                    onAbout = { screen = Screen.ABOUT },
+                    onBack = { screen = Screen.SPEED },
                 )
-            } else {
-                SpeedScreen(
+
+                Screen.ABOUT -> AboutScreen(onBack = { screen = Screen.SETTINGS })
+
+                Screen.SPEED -> SpeedScreen(
                     speedText = speedText,
                     gps = gps,
                     settings = settings,
@@ -143,7 +149,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                     tripStats = tripStats,
                     onStartTrip = vm::startTrip,
                     onStopTrip = vm::stopTrip,
-                    onOpenSettings = { showSettings = true },
+                    onOpenSettings = { screen = Screen.SETTINGS },
                 )
             }
         }
