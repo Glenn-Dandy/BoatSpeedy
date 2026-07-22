@@ -10,6 +10,9 @@ import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.ThemeMode
 import de.kewl.boatspeedy.location.GpsState
 import de.kewl.boatspeedy.location.LocationProvider
+import de.kewl.boatspeedy.trip.LocationService
+import de.kewl.boatspeedy.trip.TripRepository
+import de.kewl.boatspeedy.trip.TripStats
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -33,6 +36,10 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     private val _gps = MutableStateFlow(GpsState())
     val gps: StateFlow<GpsState> = _gps.asStateFlow()
 
+    // Fahrt-Zustand aus dem prozessweiten TripRepository (vom Dienst gespeist).
+    val tracking: StateFlow<Boolean> = TripRepository.tracking
+    val tripStats: StateFlow<TripStats> = TripRepository.stats
+
     // Gleitender Mittelwert der rohen Geschwindigkeit (m/s).
     private val speedWindow = ArrayDeque<Float>()
 
@@ -52,11 +59,17 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** GPS-Updates stoppen (onPause) – keine Hintergrundmessung. */
+    /** GPS-Updates für den Vordergrund-Tacho stoppen (onPause). */
     fun stopUpdates() {
         collectJob?.cancel()
         collectJob = null
     }
+
+    /** Fahrt starten (Vordergrunddienst, misst auch im Hintergrund weiter). */
+    fun startTrip() = LocationService.start(getApplication<Application>())
+
+    /** Fahrt stoppen – Kennzahlen bleiben stehen. */
+    fun stopTrip() = LocationService.stop(getApplication<Application>())
 
     // --- Settings-Schreibzugriffe ---
     fun setUnit(v: SpeedUnit) = viewModelScope.launch { settingsRepo.setUnit(v) }

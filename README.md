@@ -1,53 +1,69 @@
 # BoatSpeedy
 
-Ein schlichter, GPS-basierter **Geschwindigkeitsmesser für Android**, gebaut für
-die Geschwindigkeitskontrolle eines Bootes im niedrigen Bereich (ca. 5–10 km/h).
+A simple **GPS speedometer for Android**, built for **speed control on a boat** in
+the low range (~5–10 km/h). Large, easy-to-read digital readout, trip tracking and
+a clean light/dark design.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
-![Version](https://img.shields.io/badge/version-0.0.1-blue)
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
 ![targetSdk](https://img.shields.io/badge/targetSdk-35-green)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-## Funktionen
+## Features
 
-- **Große, gut ablesbare Geschwindigkeitsanzeige** (digitaler Zahlen-Tacho)
-- **Einheit umschaltbar**: km/h ↔ Knoten
-- **Nachkommastellen einstellbar**: `xx` / `xx.x` / `xx.xx`
-- **Satelliten- & GPS-Status**: verwendete/sichtbare Satelliten, Genauigkeit, Fix-Status
-- **Glättung** des GPS-Werts (wichtig bei langsamer Fahrt)
-- **Hell-/Dunkelmodus** (Hell / Dunkel / System)
-- **Display bleibt an** (optional)
-- Misst **nur im Vordergrund** – keine Hintergrundortung, minimale Berechtigungen
+- **Large, easy-to-read speed display** (digital numeric speedometer)
+- **Start/Stop trip**: keeps measuring via a foreground service, even with the
+  screen off or the app in the background (persistent notification)
+- **Trip distance** and **session stats** (max, average, elapsed time); values
+  stay on screen after you stop
+- **Switchable unit**: km/h ↔ knots
+- **Configurable decimals**: `xx` / `xx.x` / `xx.xx`
+- **Satellite & GPS status**: satellites used/visible, accuracy, fix status
+- **Smoothing** of the raw GPS value (important at slow speeds)
+- **Light / dark theme** (Light / Dark / System)
+- **Bilingual**: English and German (per-app language on Android 13+)
+- **Keep screen on** (optional)
 
-## Technik
+## Tech
 
 | | |
 |---|---|
-| Sprache | Kotlin |
+| Language | Kotlin |
 | UI | Jetpack Compose (Material 3) |
 | minSdk / targetSdk | 33 (Android 13) / 35 (Android 15) |
-| Geschwindigkeit | `FusedLocationProviderClient` |
-| Satelliten | `GnssStatus.Callback` |
-| Einstellungen | Jetpack DataStore |
-| Architektur | MVVM (ViewModel + StateFlow) |
+| Speed | `FusedLocationProviderClient` |
+| Satellites | `GnssStatus.Callback` |
+| Background trip | Foreground service (`foregroundServiceType=location`) |
+| Settings | Jetpack DataStore |
+| Architecture | MVVM (ViewModel + StateFlow) |
 
-## Bauen
+## Install
 
-Voraussetzung: Android Studio (aktuell) oder JDK 17+ und Android SDK.
+Grab the signed APK from the [latest release](https://github.com/Glenn-Dandy/BoatSpeedy/releases/latest)
+and install it on your Android device (13+). Since it does not come from the Play
+Store, allow installation from this source when prompted. On first launch, grant the
+**location** permission.
+
+## Build
+
+Requires Android Studio (recent) or JDK 17+ and the Android SDK.
 
 ```bash
-./gradlew assembleDebug      # Debug-APK bauen
-./gradlew installDebug       # auf angeschlossenes Gerät installieren
+./gradlew assembleDebug      # debug APK
+./gradlew assembleRelease    # signed release APK (needs keystore.properties)
 ```
 
-Die APK liegt danach unter `app/build/outputs/apk/debug/`.
+The APK is written to `app/build/outputs/apk/`.
 
-## Berechtigungen
+## Permissions
 
-- `ACCESS_FINE_LOCATION` – präziser GPS-Standort für Geschwindigkeit & Satelliten.
+- `ACCESS_FINE_LOCATION` – precise GPS location for speed & satellites
+- `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION` – keep measuring during a trip
+- `POST_NOTIFICATIONS` – trip notification (Android 13+)
 
-Kein Internet, kein Hintergrunddienst.
+No internet, no `ACCESS_BACKGROUND_LOCATION` (the service starts from the foreground).
 
-## Lizenz
+## License
 
-MIT – siehe [LICENSE](LICENSE).
+MIT – see [LICENSE](LICENSE).

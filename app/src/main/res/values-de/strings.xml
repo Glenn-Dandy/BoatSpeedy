@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings">Einstellungen</string>
+    <string name="back">Zurück</string>
+
+    <string name="unit">Einheit</string>
+    <string name="unit_kmh">km/h</string>
+    <string name="unit_kn">Knoten</string>
+
+    <string name="decimals">Nachkommastellen</string>
+    <string name="decimals_0">xx</string>
+    <string name="decimals_1">xx.x</string>
+    <string name="decimals_2">xx.xx</string>
+
+    <string name="theme">Design</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+
+    <string name="keep_screen_on">Display anlassen</string>
+    <string name="smoothing">Glättung</string>
+    <string name="smoothing_off">Aus</string>
+    <string name="smoothing_light">Leicht</string>
+    <string name="smoothing_strong">Stark</string>
+
+    <string name="show_sat_details">Satelliten-Details anzeigen</string>
+
+    <string name="status_fix">Fix</string>
+    <string name="status_no_fix">kein Fix</string>
+    <string name="sat_label">Sat %1$d/%2$d</string>
+    <string name="accuracy_label">±%1$d m</string>
+
+    <string name="permission_needed">BoatSpeedy braucht die Standortberechtigung, um die
+        Geschwindigkeit per GPS zu messen.</string>
+    <string name="grant_permission">Berechtigung erteilen</string>
+
+    <!-- Fahrt / Tracking -->
+    <string name="trip_start">Fahrt starten</string>
+    <string name="trip_stop">Stopp</string>
+    <string name="trip_running">Fahrt läuft</string>
+    <string name="trip_starting">Fahrt gestartet …</string>
+    <string name="trip_channel_name">Fahrt-Aufzeichnung</string>
+
+    <string name="stat_distance">Distanz</string>
+    <string name="stat_max">Max</string>
+    <string name="stat_avg">Ø</string>
+    <string name="stat_time">Zeit</string>
+</resources>
