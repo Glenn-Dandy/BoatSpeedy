@@ -14,6 +14,17 @@
     <!-- Nur für die Update-Prüfung (GitHub Releases API). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Bluetooth LE für die Batterie-Anbindung (JBD-BMS). Ab Android 12
+         reichen SCAN/CONNECT; neverForLocation, da keine Standortableitung. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="false" />
+
     <uses-feature
         android:name="android.hardware.location.gps"
         android:required="true" />

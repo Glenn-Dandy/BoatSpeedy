@@ -13,8 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -50,16 +50,16 @@ fun SpeedScreen(
     tripStats: TripStats,
     onStartTrip: () -> Unit,
     onStopTrip: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenMenu: () -> Unit,
 ) {
     Scaffold { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
 
             IconButton(
-                onClick = onOpenSettings,
-                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                onClick = onOpenMenu,
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
             ) {
-                Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.settings))
+                Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.menu))
             }
 
             // Große Geschwindigkeitszahl mittig.

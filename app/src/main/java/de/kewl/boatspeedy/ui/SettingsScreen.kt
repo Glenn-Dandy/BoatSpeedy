@@ -1,6 +1,5 @@
 package de.kewl.boatspeedy.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,8 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -45,18 +43,17 @@ fun SettingsScreen(
     onKeepScreenOn: (Boolean) -> Unit,
     onSmoothing: (Smoothing) -> Unit,
     onShowSatDetails: (Boolean) -> Unit,
-    onAbout: () -> Unit,
-    onBack: () -> Unit,
+    onOpenMenu: () -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onOpenMenu) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
+                            Icons.Filled.Menu,
+                            contentDescription = stringResource(R.string.menu),
                         )
                     }
                 },
@@ -142,23 +139,6 @@ fun SettingsScreen(
                 checked = settings.showSatDetails,
                 onCheckedChange = onShowSatDetails,
             )
-            Divider()
-
-            // Über
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onAbout)
-                    .padding(vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(text = stringResource(R.string.about), style = MaterialTheme.typography.titleMedium)
-                Icon(
-                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                )
-            }
         }
     }
 }

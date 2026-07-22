@@ -2,6 +2,24 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.2.0] – 2026-07-23
+
+### Neu
+- **Batterie-Anbindung** an das JBD-BMS per Bluetooth LE (EcoWorthy LiFePO4 100 Ah,
+  Gerät „DP04S007L4S100A"): Verbinden, zyklisches Auslesen von Spannung, **Strom**,
+  **State of Charge**, Restkapazität, Temperatur und Zellspannungen
+- **Reichweiten-/Zeitschätzung**: aus Restkapazität ÷ Entladestrom × aktueller
+  Geschwindigkeit
+- **Seitliches Navigationsmenü** (Drawer): Tacho / Batterie / Einstellungen / Über
+- Batterie-Konfiguration (Hersteller / Typ / Größe) in den Einstellungen persistiert
+
+### Geändert
+- Neue Berechtigungen `BLUETOOTH_SCAN` (neverForLocation) und `BLUETOOTH_CONNECT`
+- Navigation von Zahnrad/Zurück auf ein Hamburger-Menü umgestellt
+
+> Hinweis: BLE nur build-verifiziert; Strom-Vorzeichen und Reichweiten-Rechnung
+> müssen mit laufendem Trolling-Motor im Feldtest geprüft werden.
+
 ## [0.1.1] – 2026-07-22
 
 ### Neu

@@ -8,6 +8,8 @@ import de.kewl.boatspeedy.data.SettingsRepository
 import de.kewl.boatspeedy.data.SpeedUnit
 import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.ThemeMode
+import de.kewl.boatspeedy.battery.BatteryRepository
+import de.kewl.boatspeedy.battery.BatteryState
 import de.kewl.boatspeedy.location.GpsState
 import de.kewl.boatspeedy.location.LocationProvider
 import de.kewl.boatspeedy.trip.LocationService
@@ -39,6 +41,9 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     // Fahrt-Zustand aus dem prozessweiten TripRepository (vom Dienst gespeist).
     val tracking: StateFlow<Boolean> = TripRepository.tracking
     val tripStats: StateFlow<TripStats> = TripRepository.stats
+
+    // Batterie-Zustand (BLE).
+    val battery: StateFlow<BatteryState> = BatteryRepository.state
 
     // Gleitender Mittelwert der rohen Geschwindigkeit (m/s).
     private val speedWindow = ArrayDeque<Float>()
@@ -78,6 +83,13 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setKeepScreenOn(v: Boolean) = viewModelScope.launch { settingsRepo.setKeepScreenOn(v) }
     fun setSmoothing(v: Smoothing) = viewModelScope.launch { settingsRepo.setSmoothing(v) }
     fun setShowSatDetails(v: Boolean) = viewModelScope.launch { settingsRepo.setShowSatDetails(v) }
+    fun setBatteryManufacturer(v: String) = viewModelScope.launch { settingsRepo.setBatteryManufacturer(v) }
+    fun setBatteryType(v: String) = viewModelScope.launch { settingsRepo.setBatteryType(v) }
+    fun setBatteryCapacityAh(v: Int) = viewModelScope.launch { settingsRepo.setBatteryCapacityAh(v) }
+
+    // --- Batterie BLE ---
+    fun connectBattery() = BatteryRepository.connect(getApplication<Application>())
+    fun disconnectBattery() = BatteryRepository.disconnect()
 
     private fun smoothAndFormat(gps: GpsState, settings: Settings): String {
         val speedMs = gps.speedMs ?: run {

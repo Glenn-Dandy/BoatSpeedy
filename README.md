@@ -5,7 +5,7 @@ the low range (~5–10 km/h). Large, easy-to-read digital readout, trip tracking
 a clean light/dark design.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
-![Version](https://img.shields.io/badge/version-0.1.1-blue)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
 ![targetSdk](https://img.shields.io/badge/targetSdk-35-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -17,6 +17,9 @@ a clean light/dark design.
   screen off or the app in the background (persistent notification)
 - **Trip distance** and **session stats** (max, average, elapsed time); values
   stay on screen after you stop
+- **Battery link** over Bluetooth LE (JBD BMS, e.g. Eco-Worthy LiFePO4): live
+  voltage, current, state of charge, remaining capacity — plus an estimated range
+  and time at the current speed
 - **Switchable unit**: km/h ↔ knots
 - **Configurable decimals**: `xx` / `xx.x` / `xx.xx`
 - **Satellite & GPS status**: satellites used/visible, accuracy, fix status
@@ -63,6 +66,7 @@ The APK is written to `app/build/outputs/apk/`.
 - `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION` – keep measuring during a trip
 - `POST_NOTIFICATIONS` – trip notification (Android 13+)
 - `INTERNET` – only for the in-app update check (GitHub releases)
+- `BLUETOOTH_SCAN` (neverForLocation), `BLUETOOTH_CONNECT` – battery link (BLE)
 
 No `ACCESS_BACKGROUND_LOCATION` (the service starts from the foreground).
 
