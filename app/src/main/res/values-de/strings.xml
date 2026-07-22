@@ -46,6 +46,34 @@
     <string name="stat_avg">Ø</string>
     <string name="stat_time">Zeit</string>
 
+    <!-- Navigations-Menü -->
+    <string name="menu">Menü</string>
+    <string name="nav_speed">Tacho</string>
+    <string name="nav_battery">Batterie</string>
+
+    <!-- Batterie -->
+    <string name="battery">Batterie</string>
+    <string name="connect">Verbinden</string>
+    <string name="disconnect">Trennen</string>
+    <string name="bat_scanning">Suche Batterie …</string>
+    <string name="bat_connecting">Verbinde …</string>
+    <string name="bat_connected">Verbunden</string>
+    <string name="bat_disconnected">Getrennt</string>
+    <string name="bat_voltage">Spannung</string>
+    <string name="bat_current">Strom</string>
+    <string name="bat_soc">Ladung</string>
+    <string name="bat_remaining">Rest</string>
+    <string name="bat_temp">Temperatur</string>
+    <string name="bat_cells">Zellen</string>
+    <string name="bat_manufacturer">Hersteller</string>
+    <string name="bat_type">Typ</string>
+    <string name="bat_capacity">Größe</string>
+    <string name="bat_est_range">Reichweite</string>
+    <string name="bat_est_time">Restzeit</string>
+    <string name="bat_range_title">Reichweite bei aktueller Geschwindigkeit</string>
+    <string name="bat_range_hint">Braucht Entladestrom und Bootsgeschwindigkeit &gt; 0.</string>
+    <string name="bat_permission_needed">Für die Verbindung zur Batterie wird die Bluetooth-Berechtigung benötigt.</string>
+
     <!-- Über -->
     <string name="about">Über</string>
     <string name="version">Version</string>

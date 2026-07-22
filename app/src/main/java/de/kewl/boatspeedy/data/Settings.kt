@@ -24,4 +24,8 @@ data class Settings(
     val keepScreenOn: Boolean = true,
     val smoothing: Smoothing = Smoothing.LIGHT,
     val showSatDetails: Boolean = true,
+    // Batterie (Anzeige/Fallback; Kapazität kommt live vom BMS)
+    val batteryManufacturer: String = "Eco-Worthy",
+    val batteryType: String = "LiFePO4",
+    val batteryCapacityAh: Int = 100,
 )

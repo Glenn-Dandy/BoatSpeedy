@@ -49,6 +49,34 @@
     <string name="stat_avg">Avg</string>
     <string name="stat_time">Time</string>
 
+    <!-- Navigation drawer -->
+    <string name="menu">Menu</string>
+    <string name="nav_speed">Speedometer</string>
+    <string name="nav_battery">Battery</string>
+
+    <!-- Battery -->
+    <string name="battery">Battery</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="bat_scanning">Searching for battery …</string>
+    <string name="bat_connecting">Connecting …</string>
+    <string name="bat_connected">Connected</string>
+    <string name="bat_disconnected">Disconnected</string>
+    <string name="bat_voltage">Voltage</string>
+    <string name="bat_current">Current</string>
+    <string name="bat_soc">Charge</string>
+    <string name="bat_remaining">Remaining</string>
+    <string name="bat_temp">Temperature</string>
+    <string name="bat_cells">Cells</string>
+    <string name="bat_manufacturer">Manufacturer</string>
+    <string name="bat_type">Type</string>
+    <string name="bat_capacity">Capacity</string>
+    <string name="bat_est_range">Est. range</string>
+    <string name="bat_est_time">Est. time</string>
+    <string name="bat_range_title">Range at current speed</string>
+    <string name="bat_range_hint">Needs a discharge current and boat speed &gt; 0.</string>
+    <string name="bat_permission_needed">Bluetooth permission is required to connect to the battery.</string>
+
     <!-- About -->
     <string name="about">About</string>
     <string name="version">Version</string>

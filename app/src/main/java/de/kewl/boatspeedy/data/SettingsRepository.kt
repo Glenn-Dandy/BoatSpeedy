@@ -23,6 +23,9 @@ class SettingsRepository(private val context: Context) {
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val SMOOTHING = stringPreferencesKey("smoothing")
         val SHOW_SAT_DETAILS = booleanPreferencesKey("show_sat_details")
+        val BAT_MANUFACTURER = stringPreferencesKey("bat_manufacturer")
+        val BAT_TYPE = stringPreferencesKey("bat_type")
+        val BAT_CAPACITY = intPreferencesKey("bat_capacity")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -33,6 +36,9 @@ class SettingsRepository(private val context: Context) {
             keepScreenOn = p[Keys.KEEP_SCREEN_ON] ?: true,
             smoothing = p[Keys.SMOOTHING]?.let { enumOrNull<Smoothing>(it) } ?: Smoothing.LIGHT,
             showSatDetails = p[Keys.SHOW_SAT_DETAILS] ?: true,
+            batteryManufacturer = p[Keys.BAT_MANUFACTURER] ?: "Eco-Worthy",
+            batteryType = p[Keys.BAT_TYPE] ?: "LiFePO4",
+            batteryCapacityAh = p[Keys.BAT_CAPACITY] ?: 100,
         )
     }
 
@@ -42,6 +48,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setKeepScreenOn(value: Boolean) = edit { it[Keys.KEEP_SCREEN_ON] = value }
     suspend fun setSmoothing(value: Smoothing) = edit { it[Keys.SMOOTHING] = value.name }
     suspend fun setShowSatDetails(value: Boolean) = edit { it[Keys.SHOW_SAT_DETAILS] = value }
+    suspend fun setBatteryManufacturer(value: String) = edit { it[Keys.BAT_MANUFACTURER] = value }
+    suspend fun setBatteryType(value: String) = edit { it[Keys.BAT_TYPE] = value }
+    suspend fun setBatteryCapacityAh(value: Int) = edit { it[Keys.BAT_CAPACITY] = value }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.dataStore.edit(block)
