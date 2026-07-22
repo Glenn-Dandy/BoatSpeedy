@@ -1,7 +1,18 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+}
+
+// Signier-Zugangsdaten aus einer gitignorierten Datei laden (falls vorhanden).
+// Ohne diese Datei baut der Release-Typ unsigniert weiter – z. B. für Forks.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val hasKeystore = keystorePropertiesFile.exists()
+val keystoreProperties = Properties().apply {
+    if (hasKeystore) FileInputStream(keystorePropertiesFile).use { load(it) }
 }
 
 android {
@@ -16,13 +27,28 @@ android {
         versionName = "0.0.1"
     }
 
+    signingConfigs {
+        if (hasKeystore) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (hasKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

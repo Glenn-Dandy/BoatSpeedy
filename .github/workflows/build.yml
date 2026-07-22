@@ -36,21 +36,52 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      # --- Debug-Build: bei Push auf main, PRs und manuell ---
       - name: Build debug APK
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Rename APK
+      - name: Rename debug APK
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: cp app/build/outputs/apk/debug/app-debug.apk "BoatSpeedy-${{ github.ref_name }}-debug.apk"
 
-      - name: Upload APK artifact
+      - name: Upload debug APK artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: BoatSpeedy-debug-apk
           path: BoatSpeedy-*-debug.apk
           if-no-files-found: error
 
-      - name: Attach APK to release
+      # --- Signierter Release-Build: nur bei v*-Tags ---
+      - name: Restore keystore
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Create keystore.properties
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cat > keystore.properties <<EOF
+          storeFile=$RUNNER_TEMP/release.jks
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+      - name: Build signed release APK
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Rename release APK
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: cp app/build/outputs/apk/release/app-release.apk "BoatSpeedy-${{ github.ref_name }}-release.apk"
+
+      - name: Attach release APK to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: BoatSpeedy-*-debug.apk
+          files: BoatSpeedy-*-release.apk
+
+      - name: Clean up secrets on runner
+        if: always()
+        run: rm -f keystore.properties "$RUNNER_TEMP/release.jks"
