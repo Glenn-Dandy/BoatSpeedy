@@ -76,6 +76,15 @@
     <string name="bat_range_title">Range at current speed</string>
     <string name="bat_range_hint">Needs a discharge current and boat speed &gt; 0.</string>
     <string name="bat_permission_needed">Bluetooth permission is required to connect to the battery.</string>
+    <string name="bms">BMS</string>
+    <string name="bms_experimental">%1$s is experimental and untested.</string>
+    <string name="experimental">experimental</string>
+    <string name="scan">Scan</string>
+    <string name="rescan">Scan again</string>
+    <string name="switch_battery">Switch battery</string>
+    <string name="no_devices">No batteries found.</string>
+    <string name="scan_hint">Select your BMS, then scan and tap the right battery.</string>
+    <string name="soc_short">SoC</string>
 
     <!-- About -->
     <string name="about">About</string>

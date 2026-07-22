@@ -2,6 +2,19 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.2.1] – 2026-07-23
+
+### Neu
+- **SoC, Restreichweite und Restzeit** werden bei verbundener Batterie direkt auf
+  dem Tacho-Screen eingeblendet
+- **Neuer Batterie-Flow**: BMS-Typ wählen → scannen → gefundene Batterien in einer
+  Liste → die richtige antippen → verbinden. Unterwegs über „Batterie wechseln"
+  neu scannen und eine andere Batterie wählen (mehrere in der Nähe möglich)
+- **Mehrere BMS-Typen**: JBD (getestet) sowie **Daly** und **JK** (experimentell,
+  nach öffentlichen Protokoll-Docs, ungetestet)
+- Reichweite fällt auf „konfigurierte Kapazität × SoC" zurück, wenn das BMS keine
+  Restkapazität liefert (Daly/JK)
+
 ## [0.2.0] – 2026-07-23
 
 ### Neu

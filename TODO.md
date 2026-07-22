@@ -18,13 +18,14 @@ Geparkte Aufgaben / Ideen für BoatSpeedy.
 - [ ] Track-Aufzeichnung + GPX-Export
 - [ ] Uhr + Fahrtzeit-Anzeige
 
-## Batterie (v0.2.0) – noch zu prüfen/erweitern
-- [ ] **Feldtest mit laufendem Motor**: Strom-Vorzeichen (Laden/Entladen) und Reichweiten-/Zeitrechnung verifizieren
-- [ ] Auto-Reconnect bei Verbindungsabbruch; MAC merken (schnellerer Reconnect ohne Scan)
+## Batterie – noch zu prüfen/erweitern
+- [ ] **Feldtest JBD mit laufendem Motor**: Strom-Vorzeichen (Laden/Entladen) und Reichweiten-/Zeitrechnung verifizieren
+- [ ] **Daly & JK am echten Gerät testen** (experimentell): UUIDs/Offsets kalibrieren, v. a. JK02-Offsets und SOC-Position
+- [ ] Auto-Reconnect bei Verbindungsabbruch; zuletzt verbundene MAC merken (Reconnect ohne Scan)
 - [ ] Reichweite mit geglättetem Strom (schwankt) rechnen
-- [ ] Batterie-Kurzinfo (SoC) evtl. auf dem Tacho-Screen einblenden
 
 ## Erledigt
 - [x] v0.1.0: Fahrt Start/Stopp (Hintergrund), Trip-Distanz, Session-Statistik
 - [x] v0.1.1: „Über"-Screen mit GitHub-Infos, Versionsanzeige und Update-Prüfung (Download bei neuer Version)
 - [x] v0.2.0: Batterie-Anbindung (JBD-BLE), Reichweite/Zeit, seitliches Drawer-Menü
+- [x] v0.2.1: SoC/Reichweite/Zeit am Tacho; BMS-Auswahl + Scan/Liste/Wechsel-Flow; Daly & JK (experimentell)

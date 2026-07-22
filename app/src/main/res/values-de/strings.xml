@@ -73,6 +73,15 @@
     <string name="bat_range_title">Reichweite bei aktueller Geschwindigkeit</string>
     <string name="bat_range_hint">Braucht Entladestrom und Bootsgeschwindigkeit &gt; 0.</string>
     <string name="bat_permission_needed">Für die Verbindung zur Batterie wird die Bluetooth-Berechtigung benötigt.</string>
+    <string name="bms">BMS</string>
+    <string name="bms_experimental">%1$s ist experimentell und ungetestet.</string>
+    <string name="experimental">experimentell</string>
+    <string name="scan">Scannen</string>
+    <string name="rescan">Erneut scannen</string>
+    <string name="switch_battery">Batterie wechseln</string>
+    <string name="no_devices">Keine Batterien gefunden.</string>
+    <string name="scan_hint">BMS wählen, dann scannen und die richtige Batterie antippen.</string>
+    <string name="soc_short">SoC</string>
 
     <!-- Über -->
     <string name="about">Über</string>

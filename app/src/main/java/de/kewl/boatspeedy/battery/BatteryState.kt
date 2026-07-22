@@ -19,11 +19,15 @@ data class BatteryData(
     val dischargeA: Float get() = if (currentA < 0) -currentA else 0f
 }
 
+/** Ein beim Scan gefundenes BLE-Gerät. */
+data class ScanDevice(val name: String?, val address: String, val rssi: Int)
+
 data class BatteryState(
     val connection: ConnectionState = ConnectionState.DISCONNECTED,
     val deviceName: String? = null,
     val data: BatteryData? = null,
     val error: String? = null,
+    val scanResults: List<ScanDevice> = emptyList(),
 )
 
 /**
