@@ -2,6 +2,7 @@ package de.kewl.boatspeedy
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,9 +103,25 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
 
             KeepScreenOn(settings.keepScreenOn)
 
+            // Notification-Berechtigung (Android 13+) für die Fahrt-Benachrichtigung.
+            val notifLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { /* Ergebnis ist unkritisch – der Dienst läuft auch ohne sichtbare Notification. */ }
+            LaunchedEffect(Unit) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.POST_NOTIFICATIONS,
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+
             var showSettings by rememberSaveable { mutableStateOf(false) }
             val gps by vm.gps.collectAsStateWithLifecycle()
             val speedText by vm.displaySpeed.collectAsStateWithLifecycle()
+            val tracking by vm.tracking.collectAsStateWithLifecycle()
+            val tripStats by vm.tripStats.collectAsStateWithLifecycle()
 
             if (showSettings) {
                 SettingsScreen(
@@ -121,6 +139,10 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                     speedText = speedText,
                     gps = gps,
                     settings = settings,
+                    tracking = tracking,
+                    tripStats = tripStats,
+                    onStartTrip = vm::startTrip,
+                    onStopTrip = vm::stopTrip,
                     onOpenSettings = { showSettings = true },
                 )
             }

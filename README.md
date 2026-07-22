@@ -11,13 +11,15 @@ die Geschwindigkeitskontrolle eines Bootes im niedrigen Bereich (ca. 5–10 km/h
 ## Funktionen
 
 - **Große, gut ablesbare Geschwindigkeitsanzeige** (digitaler Zahlen-Tacho)
+- **Fahrt Start/Stopp**: misst über einen Vordergrunddienst weiter, auch bei
+  ausgeschaltetem Bildschirm / App im Hintergrund (dauerhafte Benachrichtigung)
+- **Trip-Distanz** und **Session-Statistik** (Max, Ø, Fahrtzeit); nach „Stopp" bleiben die Werte stehen
 - **Einheit umschaltbar**: km/h ↔ Knoten
 - **Nachkommastellen einstellbar**: `xx` / `xx.x` / `xx.xx`
 - **Satelliten- & GPS-Status**: verwendete/sichtbare Satelliten, Genauigkeit, Fix-Status
 - **Glättung** des GPS-Werts (wichtig bei langsamer Fahrt)
 - **Hell-/Dunkelmodus** (Hell / Dunkel / System)
 - **Display bleibt an** (optional)
-- Misst **nur im Vordergrund** – keine Hintergrundortung, minimale Berechtigungen
 
 ## Technik
 
@@ -44,9 +46,11 @@ Die APK liegt danach unter `app/build/outputs/apk/debug/`.
 
 ## Berechtigungen
 
-- `ACCESS_FINE_LOCATION` – präziser GPS-Standort für Geschwindigkeit & Satelliten.
+- `ACCESS_FINE_LOCATION` – präziser GPS-Standort für Geschwindigkeit & Satelliten
+- `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION` – Weitermessen während einer Fahrt
+- `POST_NOTIFICATIONS` – Fahrt-Benachrichtigung (Android 13+)
 
-Kein Internet, kein Hintergrunddienst.
+Kein Internet, keine `ACCESS_BACKGROUND_LOCATION` (der Dienst startet aus dem Vordergrund).
 
 ## Lizenz
 

@@ -8,5 +8,15 @@ Geparkte Aufgaben / Ideen für BoatSpeedy.
   - CI: bei `v*`-Tags zusätzlich `.aab` bauen (Play-Upload ggf. via `r0adkll/upload-google-play` später)
   - Hinweis: für den Play Store „Play App Signing" beachten (Upload-Key vs. App-Signing-Key)
 
-## Features
-- Siehe Vorschlagsliste (wird nach Auswahl hier als konkrete Punkte eingetragen)
+## Feature-Ideen (noch offen)
+- [ ] Visuelle Tempo-Warnschwelle (Zahl wird rot ab konfigurierbarer Grenze, kein Ton)
+- [ ] Bildschirm-Ausrichtung sperren (Quer/Hoch)
+- [ ] Kurs/Heading + Himmelsrichtung
+- [ ] Mini-Verlaufsdiagramm (Sparkline)
+- [ ] Nachtmodus (gedimmte rote Anzeige)
+- [ ] Zusätzliche Einheit mph; GPS-Intervall in den Einstellungen
+- [ ] Track-Aufzeichnung + GPX-Export
+- [ ] Uhr + Fahrtzeit-Anzeige
+
+## Erledigt
+- [x] v0.1.0: Fahrt Start/Stopp (Hintergrund), Trip-Distanz, Session-Statistik

@@ -36,4 +36,16 @@
     <string name="permission_needed">BoatSpeedy braucht die Standortberechtigung, um die
         Geschwindigkeit per GPS zu messen.</string>
     <string name="grant_permission">Berechtigung erteilen</string>
+
+    <!-- Fahrt / Tracking -->
+    <string name="trip_start">Fahrt starten</string>
+    <string name="trip_stop">Stopp</string>
+    <string name="trip_running">Fahrt läuft</string>
+    <string name="trip_starting">Fahrt gestartet …</string>
+    <string name="trip_channel_name">Fahrt-Aufzeichnung</string>
+
+    <string name="stat_distance">Distanz</string>
+    <string name="stat_max">Max</string>
+    <string name="stat_avg">Ø</string>
+    <string name="stat_time">Zeit</string>
 </resources>

@@ -2,6 +2,20 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.1.0] – 2026-07-22
+
+### Neu
+- **Fahrt Start/Stopp** über Vordergrunddienst: misst weiter bei ausgeschaltetem
+  Bildschirm / App im Hintergrund, mit dauerhafter Benachrichtigung (Live-Tempo + Distanz)
+- **Trip-Distanz** – zurückgelegte Strecke während der Fahrt
+- **Session-Statistik** – Max- & Durchschnittsgeschwindigkeit sowie Fahrtzeit;
+  nach „Stopp" bleiben die Werte stehen
+
+### Geändert
+- Kehrt die ursprüngliche „nur Vordergrund"-Entscheidung um. Neue Berechtigungen:
+  `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS`.
+  `ACCESS_BACKGROUND_LOCATION` wird bewusst **nicht** genutzt (Dienst startet aus dem Vordergrund).
+
 ## [0.0.1] – 2026-07-22
 
 Erste Version (Grundgerüst).

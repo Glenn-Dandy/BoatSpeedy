@@ -29,8 +29,16 @@ class LocationProvider(private val context: Context) {
     private val locationManager =
         context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
+    /** Reduzierter Location-Snapshot aus dem FusedLocationProvider. */
+    private data class LocSample(
+        val speedMs: Float?,
+        val accuracyM: Float?,
+        val latitude: Double?,
+        val longitude: Double?,
+    )
+
     @SuppressLint("MissingPermission")
-    private val locationFlow: Flow<Pair<Float?, Float?>> = callbackFlow {
+    private val locationFlow: Flow<LocSample> = callbackFlow {
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
             .setMinUpdateIntervalMillis(500L)
             .build()
@@ -38,9 +46,14 @@ class LocationProvider(private val context: Context) {
         val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 val loc = result.lastLocation ?: return
-                val speed = if (loc.hasSpeed()) loc.speed else null
-                val acc = if (loc.hasAccuracy()) loc.accuracy else null
-                trySend(speed to acc)
+                trySend(
+                    LocSample(
+                        speedMs = if (loc.hasSpeed()) loc.speed else null,
+                        accuracyM = if (loc.hasAccuracy()) loc.accuracy else null,
+                        latitude = loc.latitude,
+                        longitude = loc.longitude,
+                    ),
+                )
             }
         }
 
@@ -66,13 +79,15 @@ class LocationProvider(private val context: Context) {
     }
 
     /** Zusammengeführter Zustand aus Location- und GNSS-Quelle. */
-    val state: Flow<GpsState> = combine(locationFlow, gnssFlow) { (speed, acc), (used, visible) ->
+    val state: Flow<GpsState> = combine(locationFlow, gnssFlow) { loc, (used, visible) ->
         GpsState(
-            speedMs = speed,
-            accuracyM = acc,
+            speedMs = loc.speedMs,
+            accuracyM = loc.accuracyM,
+            latitude = loc.latitude,
+            longitude = loc.longitude,
             satellitesUsed = used,
             satellitesVisible = visible,
-            hasFix = speed != null,
+            hasFix = loc.speedMs != null,
         )
     }
 }
