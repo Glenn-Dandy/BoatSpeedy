@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.1.1] – 2026-07-22
+
+### Neu
+- **„Über"-Screen** in den Einstellungen: App-Version, Link zum GitHub-Repo, Lizenz
+- **Update-Prüfung**: fragt das neueste GitHub-Release ab; bei neuerer Version
+  Hinweis „Update verfügbar" mit Direkt-Download der APK bzw. Link zur Release-Seite
+
+### Geändert
+- Neue Berechtigung `INTERNET` (ausschließlich für die Update-Prüfung)
+
 ## [0.1.0] – 2026-07-22
 
 ### Neu

@@ -48,4 +48,19 @@
     <string name="stat_max">Max</string>
     <string name="stat_avg">Avg</string>
     <string name="stat_time">Time</string>
+
+    <!-- About -->
+    <string name="about">About</string>
+    <string name="version">Version</string>
+    <string name="source_code">Source code (GitHub)</string>
+    <string name="open_on_github">Open on GitHub</string>
+    <string name="license_label">License</string>
+    <string name="license_value">MIT</string>
+    <string name="check_update">Check for updates</string>
+    <string name="checking">Checking …</string>
+    <string name="up_to_date">You have the latest version.</string>
+    <string name="update_available">Update available: %1$s</string>
+    <string name="download">Download</string>
+    <string name="open_release">Open release page</string>
+    <string name="update_check_failed">Update check failed. Please try again.</string>
 </resources>

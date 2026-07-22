@@ -20,3 +20,4 @@ Geparkte Aufgaben / Ideen für BoatSpeedy.
 
 ## Erledigt
 - [x] v0.1.0: Fahrt Start/Stopp (Hintergrund), Trip-Distanz, Session-Statistik
+- [x] v0.1.1: „Über"-Screen mit GitHub-Infos, Versionsanzeige und Update-Prüfung (Download bei neuer Version)
