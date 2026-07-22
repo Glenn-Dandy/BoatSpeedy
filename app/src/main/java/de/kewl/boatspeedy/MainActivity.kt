@@ -53,6 +53,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import de.kewl.boatspeedy.battery.ConnectionState
+import de.kewl.boatspeedy.battery.estimateRange
 import de.kewl.boatspeedy.data.ThemeMode
 import de.kewl.boatspeedy.ui.AboutScreen
 import de.kewl.boatspeedy.ui.BatteryScreen
@@ -145,17 +147,22 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             val battery by vm.battery.collectAsStateWithLifecycle()
 
             // Bluetooth-Berechtigungen für die Batterie-Verbindung.
+            var pendingBt by remember { mutableStateOf<(() -> Unit)?>(null) }
             val btLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions(),
-            ) { result -> if (result.values.all { it }) vm.connectBattery() }
-            val connectBattery = {
+            ) { result ->
+                if (result.values.all { it }) pendingBt?.invoke()
+                pendingBt = null
+            }
+            val withBt: (() -> Unit) -> Unit = { action ->
                 val need = arrayOf(
                     Manifest.permission.BLUETOOTH_SCAN,
                     Manifest.permission.BLUETOOTH_CONNECT,
                 )
                 if (need.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) {
-                    vm.connectBattery()
+                    action()
                 } else {
+                    pendingBt = action
                     btLauncher.launch(need)
                 }
             }
@@ -203,8 +210,10 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         state = battery,
                         settings = settings,
                         currentSpeedMs = gps.speedMs,
-                        onConnect = { connectBattery() },
+                        onScan = { withBt { vm.scanBattery() } },
+                        onConnect = { address -> withBt { vm.connectBattery(address) } },
                         onDisconnect = vm::disconnectBattery,
+                        onBms = vm::setBms,
                         onManufacturer = vm::setBatteryManufacturer,
                         onType = vm::setBatteryType,
                         onCapacity = vm::setBatteryCapacityAh,
@@ -217,6 +226,9 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         settings = settings,
                         tracking = tracking,
                         tripStats = tripStats,
+                        batterySoc = if (battery.connection == ConnectionState.CONNECTED) battery.data?.soc else null,
+                        range = if (battery.connection == ConnectionState.CONNECTED)
+                            estimateRange(battery.data, settings.batteryCapacityAh, gps.speedMs) else null,
                         onStartTrip = vm::startTrip,
                         onStopTrip = vm::stopTrip,
                         onOpenMenu = { openDrawer() },

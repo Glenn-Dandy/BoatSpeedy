@@ -5,7 +5,7 @@ the low range (~5–10 km/h). Large, easy-to-read digital readout, trip tracking
 a clean light/dark design.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.1-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
 ![targetSdk](https://img.shields.io/badge/targetSdk-35-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -17,9 +17,11 @@ a clean light/dark design.
   screen off or the app in the background (persistent notification)
 - **Trip distance** and **session stats** (max, average, elapsed time); values
   stay on screen after you stop
-- **Battery link** over Bluetooth LE (JBD BMS, e.g. Eco-Worthy LiFePO4): live
-  voltage, current, state of charge, remaining capacity — plus an estimated range
-  and time at the current speed
+- **Battery link** over Bluetooth LE: pick your BMS, scan, choose the right pack
+  from the list, connect (swap batteries on the go). Live voltage, current, state of
+  charge, remaining capacity — plus estimated range & time at the current speed,
+  also shown on the speedometer. BMS support: **JBD** (tested), **Daly** and **JK**
+  (experimental)
 - **Switchable unit**: km/h ↔ knots
 - **Configurable decimals**: `xx` / `xx.x` / `xx.xx`
 - **Satellite & GPS status**: satellites used/visible, accuracy, fix status

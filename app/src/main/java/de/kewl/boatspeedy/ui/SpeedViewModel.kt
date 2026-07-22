@@ -10,6 +10,7 @@ import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.ThemeMode
 import de.kewl.boatspeedy.battery.BatteryRepository
 import de.kewl.boatspeedy.battery.BatteryState
+import de.kewl.boatspeedy.battery.BmsType
 import de.kewl.boatspeedy.location.GpsState
 import de.kewl.boatspeedy.location.LocationProvider
 import de.kewl.boatspeedy.trip.LocationService
@@ -86,9 +87,12 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setBatteryManufacturer(v: String) = viewModelScope.launch { settingsRepo.setBatteryManufacturer(v) }
     fun setBatteryType(v: String) = viewModelScope.launch { settingsRepo.setBatteryType(v) }
     fun setBatteryCapacityAh(v: Int) = viewModelScope.launch { settingsRepo.setBatteryCapacityAh(v) }
+    fun setBms(v: BmsType) = viewModelScope.launch { settingsRepo.setBatteryBms(v) }
 
     // --- Batterie BLE ---
-    fun connectBattery() = BatteryRepository.connect(getApplication<Application>())
+    fun scanBattery() = BatteryRepository.scan(getApplication<Application>(), settings.value.batteryBms)
+    fun connectBattery(address: String) =
+        BatteryRepository.connectTo(getApplication<Application>(), address, settings.value.batteryBms)
     fun disconnectBattery() = BatteryRepository.disconnect()
 
     private fun smoothAndFormat(gps: GpsState, settings: Settings): String {

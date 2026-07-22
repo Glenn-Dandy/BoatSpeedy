@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.kewl.boatspeedy.R
+import de.kewl.boatspeedy.battery.RangeEstimate
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.location.GpsState
 import de.kewl.boatspeedy.trip.TripStats
@@ -48,6 +49,8 @@ fun SpeedScreen(
     settings: Settings,
     tracking: Boolean,
     tripStats: TripStats,
+    batterySoc: Int? = null,
+    range: RangeEstimate? = null,
     onStartTrip: () -> Unit,
     onStopTrip: () -> Unit,
     onOpenMenu: () -> Unit,
@@ -79,6 +82,22 @@ fun SpeedScreen(
                     fontSize = 28.sp,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                 )
+
+                if (batterySoc != null) {
+                    val parts = buildList {
+                        add("${stringResource(R.string.soc_short)} $batterySoc %")
+                        range?.let {
+                            add(formatDistance(it.km * 1000.0))
+                            add(formatDuration((it.hours * 3600_000).toLong()))
+                        }
+                    }
+                    Text(
+                        text = parts.joinToString("  ·  "),
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
             }
 
             // Unterer Bereich: Statistik, Fahrt-Knopf, Status.

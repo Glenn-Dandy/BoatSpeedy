@@ -48,3 +48,15 @@ Verified commands:
 - Current sign (charge vs. discharge) is firmware-dependent — verify in the field
   with the motor running. The app treats negative current as discharge.
 - Range/time estimate: `remainingAh ÷ dischargeA` → hours; `× speed` → distance.
+  When the BMS reports no remaining Ah, the app falls back to `configured capacity × SoC`.
+
+## Other BMS types (experimental, untested)
+The app abstracts the protocol (`BmsProtocol`) so other BMS can be added. Implemented
+from public docs but **not verified against hardware**:
+
+- **Daly** — service `FFF0`, notify `FFF1`, write `FFF2`. Fixed 13-byte frames
+  (`A5 40 <id> 08 …`), checksum = sum of first 12 bytes. `0x90` = voltage/current/SOC
+  (current offset 30000, ×0.1), `0x92` = temperature (−40), `0x94` = status.
+- **JK (Jikong, JK02)** — service `FFE0`, notify/write `FFE1`. 300-byte records with
+  header `55 AA EB 90`, little-endian; type `0x02` = cell info. Offsets per the
+  JK02_32S layout — likely need field calibration.

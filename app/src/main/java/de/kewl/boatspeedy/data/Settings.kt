@@ -1,5 +1,7 @@
 package de.kewl.boatspeedy.data
 
+import de.kewl.boatspeedy.battery.BmsType
+
 /** Anzeige-Einheit der Geschwindigkeit. */
 enum class SpeedUnit(val factorFromMs: Double, val label: String) {
     KMH(3.6, "km/h"),
@@ -28,4 +30,5 @@ data class Settings(
     val batteryManufacturer: String = "Eco-Worthy",
     val batteryType: String = "LiFePO4",
     val batteryCapacityAh: Int = 100,
+    val batteryBms: BmsType = BmsType.JBD,
 )
