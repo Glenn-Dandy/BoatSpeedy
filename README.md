@@ -3,6 +3,7 @@
 Ein schlichter, GPS-basierter **Geschwindigkeitsmesser für Android**, gebaut für
 die Geschwindigkeitskontrolle eines Bootes im niedrigen Bereich (ca. 5–10 km/h).
 
+[![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
 ![Version](https://img.shields.io/badge/version-0.0.1-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
 ![targetSdk](https://img.shields.io/badge/targetSdk-35-green)
