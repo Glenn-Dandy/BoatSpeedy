@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Basis-Theme; das eigentliche Aussehen kommt aus Compose (Material 3).
+         Dieses Theme sorgt nur für einen sauberen Start ohne ActionBar. -->
+    <style name="Theme.BoatSpeedy" parent="android:Theme.Material.NoActionBar" />
+</resources>
