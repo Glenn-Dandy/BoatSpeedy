@@ -57,15 +57,18 @@ import de.kewl.boatspeedy.battery.ConnectionState
 import de.kewl.boatspeedy.battery.estimateRange
 import de.kewl.boatspeedy.data.ThemeMode
 import de.kewl.boatspeedy.ui.AboutScreen
+import de.kewl.boatspeedy.ui.AppearanceSettingsScreen
 import de.kewl.boatspeedy.ui.BatteryScreen
 import de.kewl.boatspeedy.ui.DashboardScreen
-import de.kewl.boatspeedy.ui.SettingsScreen
+import de.kewl.boatspeedy.ui.DashboardSettingsScreen
+import de.kewl.boatspeedy.ui.LanguageSettingsScreen
+import de.kewl.boatspeedy.ui.SettingsHomeScreen
 import de.kewl.boatspeedy.ui.SpeedViewModel
 import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, BATTERY, SETTINGS, ABOUT }
+private enum class Screen { SPEED, BATTERY, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_APPEARANCE, SETTINGS_LANGUAGE, ABOUT }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -175,7 +178,12 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             val goTo: (Screen) -> Unit = { s -> screen = s; scope.launch { drawerState.close() } }
 
             BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
-            BackHandler(enabled = !drawerState.isOpen && screen != Screen.SPEED) { screen = Screen.SPEED }
+            BackHandler(enabled = !drawerState.isOpen && screen != Screen.SPEED) {
+                screen = when (screen) {
+                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_APPEARANCE, Screen.SETTINGS_LANGUAGE -> Screen.SETTINGS
+                    else -> Screen.SPEED
+                }
+            }
 
             ModalNavigationDrawer(
                 drawerState = drawerState,
@@ -189,25 +197,41 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         HorizontalDivider()
                         DrawerItem(R.string.nav_speed, Icons.Filled.Speed, screen == Screen.SPEED) { goTo(Screen.SPEED) }
                         DrawerItem(R.string.nav_battery, Icons.Filled.BatteryFull, screen == Screen.BATTERY) { goTo(Screen.BATTERY) }
-                        DrawerItem(R.string.settings, Icons.Filled.Settings, screen == Screen.SETTINGS) { goTo(Screen.SETTINGS) }
+                        DrawerItem(R.string.settings, Icons.Filled.Settings, screen.name.startsWith("SETTINGS")) { goTo(Screen.SETTINGS) }
                         DrawerItem(R.string.about, Icons.Filled.Info, screen == Screen.ABOUT) { goTo(Screen.ABOUT) }
                     }
                 },
             ) {
                 when (screen) {
-                    Screen.SETTINGS -> SettingsScreen(
+                    Screen.SETTINGS -> SettingsHomeScreen(
+                        onDashboard = { screen = Screen.SETTINGS_DASHBOARD },
+                        onAppearance = { screen = Screen.SETTINGS_APPEARANCE },
+                        onLanguage = { screen = Screen.SETTINGS_LANGUAGE },
+                        onOpenMenu = { openDrawer() },
+                    )
+
+                    Screen.SETTINGS_DASHBOARD -> DashboardSettingsScreen(
                         settings = settings,
-                        language = LanguageHelper.current(context),
                         onUnit = vm::setUnit,
                         onDecimals = vm::setDecimals,
-                        onTheme = vm::setTheme,
-                        onKeepScreenOn = vm::setKeepScreenOn,
                         onSmoothing = vm::setSmoothing,
-                        onShowSatDetails = vm::setShowSatDetails,
                         onShowBatteryTile = vm::setShowBatteryTile,
                         onShowRangeTile = vm::setShowRangeTile,
+                        onShowSatDetails = vm::setShowSatDetails,
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_APPEARANCE -> AppearanceSettingsScreen(
+                        settings = settings,
+                        onTheme = vm::setTheme,
+                        onKeepScreenOn = vm::setKeepScreenOn,
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_LANGUAGE -> LanguageSettingsScreen(
+                        language = LanguageHelper.current(context),
                         onLanguage = { LanguageHelper.set(context, it) },
-                        onOpenMenu = { openDrawer() },
+                        onBack = { screen = Screen.SETTINGS },
                     )
 
                     Screen.ABOUT -> AboutScreen(onOpenMenu = { openDrawer() })
