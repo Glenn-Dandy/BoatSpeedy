@@ -53,11 +53,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import de.kewl.boatspeedy.battery.ConnectionState
-import de.kewl.boatspeedy.battery.estimateRange
+import de.kewl.boatspeedy.data.COMBINED_SELECTION
 import de.kewl.boatspeedy.data.ThemeMode
 import de.kewl.boatspeedy.ui.AboutScreen
 import de.kewl.boatspeedy.ui.AppearanceSettingsScreen
+import de.kewl.boatspeedy.ui.BatteryOption
 import de.kewl.boatspeedy.ui.BatteryScreen
 import de.kewl.boatspeedy.ui.DashboardScreen
 import de.kewl.boatspeedy.ui.DashboardSettingsScreen
@@ -150,6 +150,8 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             val tracking by vm.tracking.collectAsStateWithLifecycle()
             val tripStats by vm.tripStats.collectAsStateWithLifecycle()
             val battery by vm.battery.collectAsStateWithLifecycle()
+            val dashBattery by vm.dashboardBattery.collectAsStateWithLifecycle()
+            val dashRange by vm.dashboardRange.collectAsStateWithLifecycle()
 
             // Bluetooth-Berechtigungen für die Batterie-Verbindung.
             var pendingBt by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -237,29 +239,45 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                     Screen.ABOUT -> AboutScreen(onOpenMenu = { openDrawer() })
 
                     Screen.BATTERY -> BatteryScreen(
-                        state = battery,
                         settings = settings,
+                        hub = battery,
                         currentSpeedMs = gps.speedMs,
                         onScan = { withBt { vm.scanBattery() } },
+                        onStopScan = vm::stopScan,
+                        onAdd = { device -> withBt { vm.addBattery(device) } },
                         onConnect = { address -> withBt { vm.connectBattery(address) } },
                         onDisconnect = vm::disconnectBattery,
+                        onToggleActive = vm::setBatteryActive,
+                        onRemove = vm::removeBattery,
                         onBms = vm::setBms,
+                        onBankMode = vm::setBankMode,
                         onOpenMenu = { openDrawer() },
                     )
 
-                    Screen.SPEED -> DashboardScreen(
-                        speedText = speedText,
-                        gps = gps,
-                        settings = settings,
-                        tracking = tracking,
-                        tripStats = tripStats,
-                        batteryData = if (battery.connection == ConnectionState.CONNECTED) battery.data else null,
-                        range = if (battery.connection == ConnectionState.CONNECTED)
-                            estimateRange(battery.data, gps.speedMs) else null,
-                        onStartTrip = vm::startTrip,
-                        onStopTrip = vm::stopTrip,
-                        onOpenMenu = { openDrawer() },
-                    )
+                    Screen.SPEED -> {
+                        val activeBatteries = settings.batteries.filter { it.active }
+                        val batteryOptions = if (activeBatteries.size >= 2) {
+                            activeBatteries.map { BatteryOption(it.address, it.name) } +
+                                BatteryOption(COMBINED_SELECTION, stringResource(R.string.combined_short))
+                        } else {
+                            emptyList()
+                        }
+                        DashboardScreen(
+                            speedText = speedText,
+                            gps = gps,
+                            settings = settings,
+                            tracking = tracking,
+                            tripStats = tripStats,
+                            batteryData = dashBattery,
+                            range = dashRange,
+                            batteryOptions = batteryOptions,
+                            selectedBattery = settings.dashboardBattery,
+                            onSelectBattery = vm::setDashboardBattery,
+                            onStartTrip = vm::startTrip,
+                            onStopTrip = vm::stopTrip,
+                            onOpenMenu = { openDrawer() },
+                        )
+                    }
                 }
             }
         }

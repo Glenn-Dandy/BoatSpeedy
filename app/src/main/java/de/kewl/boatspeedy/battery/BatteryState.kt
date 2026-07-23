@@ -1,6 +1,7 @@
 package de.kewl.boatspeedy.battery
 
-enum class ConnectionState { DISCONNECTED, SCANNING, CONNECTING, CONNECTED }
+/** Verbindungszustand einer einzelnen Batterie. */
+enum class LinkState { DISCONNECTED, CONNECTING, CONNECTED }
 
 /** Aufbereitete Live-Werte der Batterie. */
 data class BatteryData(
@@ -22,12 +23,24 @@ data class BatteryData(
 /** Ein beim Scan gefundenes BLE-Gerät. */
 data class ScanDevice(val name: String?, val address: String, val rssi: Int)
 
-data class BatteryState(
-    val connection: ConnectionState = ConnectionState.DISCONNECTED,
-    val deviceName: String? = null,
+/** Laufzeit-Zustand einer verbundenen/verbindenden Batterie (nach Adresse). */
+data class BatteryLive(
+    val address: String,
+    val name: String,
+    val link: LinkState,
     val data: BatteryData? = null,
-    val error: String? = null,
+)
+
+/**
+ * Prozessweiter Laufzeitzustand aller Batterie-Verbindungen und des Scanners.
+ * Die *gespeicherte* Liste (mit Aktiv-Flag/Name) liegt in den Settings; hier stehen
+ * nur die aktuell offenen BLE-Links samt Live-Werten.
+ */
+data class BatteryHub(
+    val scanning: Boolean = false,
     val scanResults: List<ScanDevice> = emptyList(),
+    val error: String? = null,
+    val links: Map<String, BatteryLive> = emptyMap(),
 )
 
 /**

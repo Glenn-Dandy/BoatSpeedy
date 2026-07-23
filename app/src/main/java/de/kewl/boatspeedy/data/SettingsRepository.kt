@@ -8,8 +8,11 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import de.kewl.boatspeedy.battery.BmsType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
+import org.json.JSONObject
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -26,6 +29,9 @@ class SettingsRepository(private val context: Context) {
         val SHOW_BATTERY_TILE = booleanPreferencesKey("show_battery_tile")
         val SHOW_RANGE_TILE = booleanPreferencesKey("show_range_tile")
         val BAT_BMS = stringPreferencesKey("bat_bms")
+        val BANK_MODE = stringPreferencesKey("bank_mode")
+        val BATTERIES = stringPreferencesKey("batteries") // JSON-Array
+        val DASH_BATTERY = stringPreferencesKey("dashboard_battery")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -38,8 +44,10 @@ class SettingsRepository(private val context: Context) {
             showSatDetails = p[Keys.SHOW_SAT_DETAILS] ?: true,
             showBatteryTile = p[Keys.SHOW_BATTERY_TILE] ?: true,
             showRangeTile = p[Keys.SHOW_RANGE_TILE] ?: true,
-            batteryBms = p[Keys.BAT_BMS]?.let { enumOrNull<de.kewl.boatspeedy.battery.BmsType>(it) }
-                ?: de.kewl.boatspeedy.battery.BmsType.JBD,
+            batteryBms = p[Keys.BAT_BMS]?.let { enumOrNull<BmsType>(it) } ?: BmsType.JBD,
+            bankMode = p[Keys.BANK_MODE]?.let { enumOrNull<BankMode>(it) } ?: BankMode.SINGLE,
+            batteries = p[Keys.BATTERIES]?.let { decodeBatteries(it) } ?: emptyList(),
+            dashboardBattery = p[Keys.DASH_BATTERY] ?: COMBINED_SELECTION,
         )
     }
 
@@ -51,11 +59,39 @@ class SettingsRepository(private val context: Context) {
     suspend fun setShowSatDetails(value: Boolean) = edit { it[Keys.SHOW_SAT_DETAILS] = value }
     suspend fun setShowBatteryTile(value: Boolean) = edit { it[Keys.SHOW_BATTERY_TILE] = value }
     suspend fun setShowRangeTile(value: Boolean) = edit { it[Keys.SHOW_RANGE_TILE] = value }
-    suspend fun setBatteryBms(value: de.kewl.boatspeedy.battery.BmsType) = edit { it[Keys.BAT_BMS] = value.name }
+    suspend fun setBatteryBms(value: BmsType) = edit { it[Keys.BAT_BMS] = value.name }
+    suspend fun setBankMode(value: BankMode) = edit { it[Keys.BANK_MODE] = value.name }
+    suspend fun setDashboardBattery(value: String) = edit { it[Keys.DASH_BATTERY] = value }
+    suspend fun setBatteries(value: List<SavedBattery>) = edit { it[Keys.BATTERIES] = encodeBatteries(value) }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.dataStore.edit(block)
     }
+
+    private fun encodeBatteries(list: List<SavedBattery>): String {
+        val arr = JSONArray()
+        for (b in list) {
+            arr.put(
+                JSONObject()
+                    .put("address", b.address)
+                    .put("name", b.name)
+                    .put("active", b.active),
+            )
+        }
+        return arr.toString()
+    }
+
+    private fun decodeBatteries(json: String): List<SavedBattery> = runCatching {
+        val arr = JSONArray(json)
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            SavedBattery(
+                address = o.getString("address"),
+                name = o.optString("name", o.getString("address")),
+                active = o.optBoolean("active", true),
+            )
+        }
+    }.getOrDefault(emptyList())
 }
 
 private inline fun <reified T : Enum<T>> enumOrNull(name: String): T? =

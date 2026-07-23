@@ -3,14 +3,22 @@ package de.kewl.boatspeedy.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import de.kewl.boatspeedy.battery.BatteryData
+import de.kewl.boatspeedy.battery.BatteryHub
+import de.kewl.boatspeedy.battery.BatteryRepository
+import de.kewl.boatspeedy.battery.BmsType
+import de.kewl.boatspeedy.battery.RangeEstimate
+import de.kewl.boatspeedy.battery.ScanDevice
+import de.kewl.boatspeedy.battery.estimateRange
+import de.kewl.boatspeedy.battery.selectedBatteryData
+import de.kewl.boatspeedy.data.BankMode
+import de.kewl.boatspeedy.data.COMBINED_SELECTION
+import de.kewl.boatspeedy.data.SavedBattery
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.SettingsRepository
 import de.kewl.boatspeedy.data.SpeedUnit
 import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.ThemeMode
-import de.kewl.boatspeedy.battery.BatteryRepository
-import de.kewl.boatspeedy.battery.BatteryState
-import de.kewl.boatspeedy.battery.BmsType
 import de.kewl.boatspeedy.location.GpsState
 import de.kewl.boatspeedy.location.LocationProvider
 import de.kewl.boatspeedy.trip.LocationService
@@ -43,8 +51,19 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     val tracking: StateFlow<Boolean> = TripRepository.tracking
     val tripStats: StateFlow<TripStats> = TripRepository.stats
 
-    // Batterie-Zustand (BLE).
-    val battery: StateFlow<BatteryState> = BatteryRepository.state
+    // Batterie-Laufzeitzustand (alle offenen BLE-Links + Scan).
+    val battery: StateFlow<BatteryHub> = BatteryRepository.state
+
+    /** Auf dem Dashboard anzuzeigende Werte (einzelne Batterie oder kombiniert). */
+    val dashboardBattery: StateFlow<BatteryData?> =
+        combine(settings, battery) { s, hub -> selectedBatteryData(s, hub) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Reichweite/Restzeit aus den ausgewählten Batterie-Werten + aktueller Geschwindigkeit. */
+    val dashboardRange: StateFlow<RangeEstimate?> =
+        combine(settings, battery, _gps) { s, hub, gps ->
+            estimateRange(selectedBatteryData(s, hub), gps.speedMs)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // Gleitender Mittelwert der rohen Geschwindigkeit (m/s).
     private val speedWindow = ArrayDeque<Float>()
@@ -87,12 +106,51 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowBatteryTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowBatteryTile(v) }
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }
     fun setBms(v: BmsType) = viewModelScope.launch { settingsRepo.setBatteryBms(v) }
+    fun setBankMode(v: BankMode) = viewModelScope.launch { settingsRepo.setBankMode(v) }
+    fun setDashboardBattery(v: String) = viewModelScope.launch { settingsRepo.setDashboardBattery(v) }
 
-    // --- Batterie BLE ---
+    // --- Batterie BLE / Verwaltung ---
     fun scanBattery() = BatteryRepository.scan(getApplication<Application>(), settings.value.batteryBms)
-    fun connectBattery(address: String) =
-        BatteryRepository.connectTo(getApplication<Application>(), address, settings.value.batteryBms)
-    fun disconnectBattery() = BatteryRepository.disconnect()
+    fun stopScan() = BatteryRepository.stopScan()
+
+    /** Gefundenes Gerät dauerhaft übernehmen (aktiv) und gleich verbinden. */
+    fun addBattery(device: ScanDevice) {
+        val name = device.name?.takeIf { it.isNotBlank() } ?: device.address
+        val current = settings.value.batteries
+        if (current.none { it.address == device.address }) {
+            viewModelScope.launch {
+                settingsRepo.setBatteries(current + SavedBattery(device.address, name, active = true))
+            }
+        }
+        connectBattery(device.address)
+    }
+
+    fun removeBattery(address: String) {
+        BatteryRepository.disconnect(address)
+        val s = settings.value
+        viewModelScope.launch {
+            settingsRepo.setBatteries(s.batteries.filterNot { it.address == address })
+            if (s.dashboardBattery == address) settingsRepo.setDashboardBattery(COMBINED_SELECTION)
+        }
+    }
+
+    fun setBatteryActive(address: String, active: Boolean) {
+        val s = settings.value
+        viewModelScope.launch {
+            settingsRepo.setBatteries(
+                s.batteries.map { if (it.address == address) it.copy(active = active) else it },
+            )
+        }
+    }
+
+    fun connectBattery(address: String) {
+        val name = settings.value.batteries.firstOrNull { it.address == address }?.name
+            ?: battery.value.scanResults.firstOrNull { it.address == address }?.name
+            ?: address
+        BatteryRepository.connect(getApplication<Application>(), address, name, settings.value.batteryBms)
+    }
+
+    fun disconnectBattery(address: String) = BatteryRepository.disconnect(address)
 
     private fun smoothAndFormat(gps: GpsState, settings: Settings): String {
         val speedMs = gps.speedMs ?: run {

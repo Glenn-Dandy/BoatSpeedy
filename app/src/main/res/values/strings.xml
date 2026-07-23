@@ -102,6 +102,17 @@
     <string name="scan_hint">Select your BMS, then scan and tap the right battery.</string>
     <string name="soc_short">SoC</string>
 
+    <!-- Multi-battery management -->
+    <string name="bat_list_title">Batteries</string>
+    <string name="bat_none">No batteries added yet. Tap “Add” to scan and add one.</string>
+    <string name="add_battery">Add</string>
+    <string name="remove">Remove</string>
+    <string name="bank_mode">Wiring</string>
+    <string name="mode_single">Single</string>
+    <string name="mode_parallel">Parallel</string>
+    <string name="mode_series">Series</string>
+    <string name="combined_short">Σ</string>
+
     <!-- About -->
     <string name="about">About</string>
     <string name="version">Version</string>

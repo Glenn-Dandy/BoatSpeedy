@@ -99,6 +99,17 @@
     <string name="scan_hint">BMS wählen, dann scannen und die richtige Batterie antippen.</string>
     <string name="soc_short">SoC</string>
 
+    <!-- Mehrere Batterien -->
+    <string name="bat_list_title">Batterien</string>
+    <string name="bat_none">Noch keine Batterie hinzugefügt. Auf „Hinzufügen“ tippen zum Scannen.</string>
+    <string name="add_battery">Hinzufügen</string>
+    <string name="remove">Entfernen</string>
+    <string name="bank_mode">Verschaltung</string>
+    <string name="mode_single">Einzeln</string>
+    <string name="mode_parallel">Parallel</string>
+    <string name="mode_series">Reihe</string>
+    <string name="combined_short">Σ</string>
+
     <!-- Über -->
     <string name="about">Über</string>
     <string name="version">Version</string>

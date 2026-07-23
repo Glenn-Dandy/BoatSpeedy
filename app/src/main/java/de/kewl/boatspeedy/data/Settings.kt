@@ -20,6 +20,24 @@ enum class Smoothing(val window: Int) {
     STRONG(6),
 }
 
+/**
+ * Wie mehrere aktive Batterien elektrisch zusammengerechnet werden.
+ *  - [SINGLE]   physisch getrennte Akkus, nacheinander genutzt → Kapazität summiert sich
+ *  - [PARALLEL] parallel verschaltet → mehr Ah (Kapazität summiert, Spannung gleich)
+ *  - [SERIES]   in Reihe verschaltet → mehr Volt (Spannung summiert, Ah bleibt)
+ */
+enum class BankMode { SINGLE, PARALLEL, SERIES }
+
+/** Eine dauerhaft gespeicherte Batterie (Adresse ist der stabile Schlüssel). */
+data class SavedBattery(
+    val address: String,
+    val name: String,
+    val active: Boolean = true,
+)
+
+/** Kennung für „kombinierte" Auswahl auf dem Dashboard (statt einer einzelnen Adresse). */
+const val COMBINED_SELECTION = ""
+
 /** Alle persistierten Einstellungen als unveränderliches Bündel. */
 data class Settings(
     val unit: SpeedUnit = SpeedUnit.KMH,
@@ -33,4 +51,8 @@ data class Settings(
     val showRangeTile: Boolean = true,
     // Batterie
     val batteryBms: BmsType = BmsType.JBD,
+    val bankMode: BankMode = BankMode.SINGLE,
+    val batteries: List<SavedBattery> = emptyList(),
+    /** Ausgewählte Anzeige auf dem Dashboard: Adresse einer Batterie oder [COMBINED_SELECTION]. */
+    val dashboardBattery: String = COMBINED_SELECTION,
 )
