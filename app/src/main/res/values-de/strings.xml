@@ -51,12 +51,16 @@
     <string name="nav_speed">Dashboard</string>
     <string name="nav_battery">Batterie</string>
 
-    <!-- Einstellungs-Gruppen -->
+    <!-- Einstellungs-Kategorien -->
     <string name="group_speed">Geschwindigkeit</string>
     <string name="group_dashboard">Dashboard</string>
     <string name="group_display">Anzeige</string>
     <string name="group_language">Sprache</string>
     <string name="group_gps">GPS</string>
+    <string name="appearance">Darstellung</string>
+    <string name="cat_dashboard_desc">Einheit, Nachkommastellen, Glättung, Kacheln</string>
+    <string name="cat_appearance_desc">Theme, Display anlassen</string>
+    <string name="cat_language_desc">English / Deutsch</string>
     <string name="language">Sprache</string>
     <string name="language_english">English</string>
     <string name="language_german">Deutsch</string>

@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.3.1] – 2026-07-23
+
+### Geändert
+- **Einstellungen neu strukturiert**: Übersicht mit Kategorien, die jeweils eine
+  eigene Unterseite öffnen — **Dashboard** (Einheit, Nachkommastellen, Glättung,
+  Kacheln, Satelliten), **Darstellung** (Theme, Display anlassen) und **Sprache**.
+  Trennt Dashboard-spezifische von app-weiten Einstellungen.
+
 ## [0.3.0] – 2026-07-23
 
 ### Neu
