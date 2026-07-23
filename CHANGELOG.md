@@ -2,6 +2,23 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.0] – 2026-07-23
+
+### Neu
+- **Mehrere Batterien**: Akkus dauerhaft hinzufügen, verwalten und **gleichzeitig**
+  verbinden. Neuer Batterie-Screen mit Liste (Aktiv-Häkchen, Live-Werte,
+  Verbinden/Trennen, Entfernen) statt Einzel-Verbindung.
+- **Verschaltungs-Modus** (Einzeln / Parallel / Reihe): bestimmt, wie die aktiven
+  Akkus zusammengerechnet werden — **Parallel/Einzeln** summiert Kapazität & Strom,
+  **Reihe** summiert die Spannung. Nicht aktive Akkus werden ignoriert.
+- **Dashboard-Auswahl** (dezent): zwischen einzelnen aktiven Batterien und der
+  kombinierten Ansicht (Σ) umschalten; Reichweite/Restzeit rechnet mit der Auswahl.
+
+### Geändert
+- **Batterie- und Reichweiten-Kachel sind jetzt immer sichtbar** (Platzhalter ohne
+  Werte), sofern nicht in den Einstellungen ausgeblendet. Neue Reihenfolge:
+  Geschwindigkeit → Reichweite → Batterie.
+
 ## [0.3.1] – 2026-07-23
 
 ### Geändert

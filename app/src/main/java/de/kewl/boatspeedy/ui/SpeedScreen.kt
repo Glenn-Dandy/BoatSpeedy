@@ -1,6 +1,7 @@
 package de.kewl.boatspeedy.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
@@ -20,6 +22,7 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +49,11 @@ import de.kewl.boatspeedy.ui.theme.StatusNone
 import de.kewl.boatspeedy.ui.theme.StatusWeak
 import java.util.Locale
 
+private const val PLACEHOLDER = "--"
+
+/** Eine wählbare Batterie-Anzeige auf dem Dashboard (id == Adresse, oder leer für „kombiniert"). */
+data class BatteryOption(val id: String, val label: String)
+
 @Composable
 fun DashboardScreen(
     speedText: String,
@@ -55,6 +63,9 @@ fun DashboardScreen(
     tripStats: TripStats,
     batteryData: BatteryData?,
     range: RangeEstimate?,
+    batteryOptions: List<BatteryOption>,
+    selectedBattery: String,
+    onSelectBattery: (String) -> Unit,
     onStartTrip: () -> Unit,
     onStopTrip: () -> Unit,
     onOpenMenu: () -> Unit,
@@ -90,13 +101,15 @@ fun DashboardScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // Zuschaltbare Kacheln.
-                if (settings.showBatteryTile && batteryData != null) {
-                    BatteryTile(batteryData)
+                // Reihenfolge: Reichweite, dann Batterie-Status. Beide immer sichtbar
+                // (Platzhalter ohne Werte), außer in den Einstellungen ausgeblendet.
+                if (settings.showRangeTile) {
+                    RangeTile(range)
                     Spacer(Modifier.height(12.dp))
                 }
-                if (settings.showRangeTile && range != null) {
-                    RangeTile(range)
+                if (settings.showBatteryTile) {
+                    BatterySelectorRow(batteryOptions, selectedBattery, onSelectBattery)
+                    BatteryTile(batteryData)
                     Spacer(Modifier.height(12.dp))
                 }
 
@@ -116,32 +129,63 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun BatteryTile(d: BatteryData) {
+private fun BatterySelectorRow(options: List<BatteryOption>, selected: String, onSelect: (String) -> Unit) {
+    if (options.size < 2) return
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+    ) {
+        options.forEach { opt ->
+            FilterChip(
+                selected = opt.id == selected,
+                onClick = { onSelect(opt.id) },
+                label = { Text(opt.label) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun BatteryTile(d: BatteryData?) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.battery), style = MaterialTheme.typography.titleSmall)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                TileStat(stringResource(R.string.soc_short), "${d.soc} %")
-                TileStat(stringResource(R.string.bat_voltage), num(d.voltage, "V"))
-                TileStat(stringResource(R.string.bat_current), num(d.currentA, "A"))
+                TileStat(stringResource(R.string.soc_short), d?.let { "${it.soc} %" } ?: PLACEHOLDER)
+                TileStat(stringResource(R.string.bat_voltage), d?.let { num(it.voltage, "V") } ?: PLACEHOLDER)
+                TileStat(stringResource(R.string.bat_current), d?.let { num(it.currentA, "A") } ?: PLACEHOLDER)
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                if (d.remainingAh > 0f) TileStat(stringResource(R.string.bat_remaining), num(d.remainingAh, "Ah"))
-                d.tempC?.let { TileStat(stringResource(R.string.bat_temp), num(it, "°C")) }
+                TileStat(
+                    stringResource(R.string.bat_remaining),
+                    d?.takeIf { it.remainingAh > 0f }?.let { num(it.remainingAh, "Ah") } ?: PLACEHOLDER,
+                )
+                TileStat(
+                    stringResource(R.string.bat_temp),
+                    d?.tempC?.let { num(it, "°C") } ?: PLACEHOLDER,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun RangeTile(range: RangeEstimate) {
+private fun RangeTile(range: RangeEstimate?) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            TileStat(stringResource(R.string.bat_est_range), formatDistance(range.km * 1000.0), big = true)
-            TileStat(stringResource(R.string.bat_est_time), formatDuration((range.hours * 3600_000).toLong()), big = true)
+            TileStat(
+                stringResource(R.string.bat_est_range),
+                range?.let { formatDistance(it.km * 1000.0) } ?: PLACEHOLDER,
+                big = true,
+            )
+            TileStat(
+                stringResource(R.string.bat_est_time),
+                range?.let { formatDuration((it.hours * 3600_000).toLong()) } ?: PLACEHOLDER,
+                big = true,
+            )
         }
     }
 }

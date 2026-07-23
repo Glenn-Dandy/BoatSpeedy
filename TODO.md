@@ -21,8 +21,9 @@ Geparkte Aufgaben / Ideen für BoatSpeedy.
 ## Batterie – noch zu prüfen/erweitern
 - [ ] **Feldtest JBD mit laufendem Motor**: Strom-Vorzeichen (Laden/Entladen) und Reichweiten-/Zeitrechnung verifizieren
 - [ ] **Daly & JK am echten Gerät testen** (experimentell): UUIDs/Offsets kalibrieren, v. a. JK02-Offsets und SOC-Position
-- [ ] Auto-Reconnect bei Verbindungsabbruch; zuletzt verbundene MAC merken (Reconnect ohne Scan)
+- [ ] Auto-Reconnect bei Verbindungsabbruch; aktive gespeicherte Akkus beim Start automatisch verbinden (Reconnect ohne Scan)
 - [ ] Reichweite mit geglättetem Strom (schwankt) rechnen
+- [ ] Reihen-/Parallel-Kombination am echten Mehr-Akku-Aufbau verifizieren (v0.4.0 ist ungetestet)
 
 ## Erledigt
 - [x] v0.1.0: Fahrt Start/Stopp (Hintergrund), Trip-Distanz, Session-Statistik
@@ -30,3 +31,5 @@ Geparkte Aufgaben / Ideen für BoatSpeedy.
 - [x] v0.2.0: Batterie-Anbindung (JBD-BLE), Reichweite/Zeit, seitliches Drawer-Menü
 - [x] v0.2.1: SoC/Reichweite/Zeit am Tacho; BMS-Auswahl + Scan/Liste/Wechsel-Flow; Daly & JK (experimentell)
 - [x] v0.3.0: Dashboard-Kacheln (Batterie/Reichweite zuschaltbar), Sprache EN/DE (EN Standard), Settings gruppiert, „Batterie wechseln"-Scanfehler behoben, Batterie-Konfig entfernt
+- [x] v0.3.1: Einstellungen in Kategorien mit Unterseiten (Dashboard/Darstellung/Sprache)
+- [x] v0.4.0: Mehrere Batterien gleichzeitig (Liste, hinzufügen/verbinden/entfernen), Verschaltungs-Modus (Einzeln/Parallel/Reihe) mit Kombi-Rechnung, Dashboard-Auswahl A/B/Σ, Kacheln immer sichtbar
