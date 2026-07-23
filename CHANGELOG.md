@@ -2,6 +2,25 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.3.0] – 2026-07-23
+
+### Neu
+- **Dashboard mit Kacheln**: km/h ist die Haupt-Kachel; zusätzlich zuschaltbare
+  Kacheln für **Batterie** (SoC, Spannung, Strom, Rest-Ah, Temp) und
+  **Reichweite/Restzeit** (an/aus in den Einstellungen unter „Dashboard")
+- **Sprache umschaltbar** (English/Deutsch) in den Einstellungen; **Englisch ist
+  jetzt Standard** (per-App-Sprache über LocaleManager)
+- **Einstellungen gruppiert**: Speed / Dashboard / Display / Language / GPS
+
+### Geändert
+- „Tacho" heißt jetzt **Dashboard**
+- Batterie-Konfiguration (Hersteller/Typ/Größe) **entfernt** — Kapazität kommt vom BMS
+- Reichweiten-Fallback nutzt jetzt die BMS-Nennkapazität × SoC
+
+### Behoben
+- **„Scan-Fehler 1" beim „Batterie wechseln"** (SCAN_FAILED_ALREADY_STARTED):
+  vor jedem Scan wird nun sauber getrennt und ein alter Scan gestoppt
+
 ## [0.2.1] – 2026-07-23
 
 ### Neu

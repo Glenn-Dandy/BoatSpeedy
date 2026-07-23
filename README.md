@@ -5,14 +5,15 @@ the low range (~5–10 km/h). Large, easy-to-read digital readout, trip tracking
 a clean light/dark design.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
-![Version](https://img.shields.io/badge/version-0.2.1-blue)
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
 ![targetSdk](https://img.shields.io/badge/targetSdk-35-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 ## Features
 
-- **Large, easy-to-read speed display** (digital numeric speedometer)
+- **Dashboard** with a large speed readout as the main tile, plus optional
+  **battery** and **range/time** tiles (toggled in Settings)
 - **Start/Stop trip**: keeps measuring via a foreground service, even with the
   screen off or the app in the background (persistent notification)
 - **Trip distance** and **session stats** (max, average, elapsed time); values
@@ -27,7 +28,7 @@ a clean light/dark design.
 - **Satellite & GPS status**: satellites used/visible, accuracy, fix status
 - **Smoothing** of the raw GPS value (important at slow speeds)
 - **Light / dark theme** (Light / Dark / System)
-- **Bilingual**: English and German (per-app language on Android 13+)
+- **Bilingual**: English (default) and German, switchable in Settings
 - **About screen** with in-app update check (queries GitHub releases)
 - **Keep screen on** (optional)
 

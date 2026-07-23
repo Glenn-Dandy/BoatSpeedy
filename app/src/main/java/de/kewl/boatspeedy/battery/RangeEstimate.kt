@@ -5,17 +5,19 @@ data class RangeEstimate(val km: Double, val hours: Double)
 
 /**
  * Schätzt Reichweite/Zeit aus Restkapazität ÷ Entladestrom × Geschwindigkeit.
- * Fällt auf `konfigurierte Kapazität × SoC` zurück, wenn das BMS keine
- * Restkapazität liefert (z. B. Daly/JK). Null, wenn kein Verbrauch/keine Fahrt.
+ * Fällt auf `Nennkapazität × SoC` zurück, wenn das BMS keine Restkapazität liefert.
+ * Null, wenn kein Verbrauch/keine Fahrt oder keine Kapazitätsangabe vorliegt.
  */
-fun estimateRange(data: BatteryData?, capacityAh: Int, speedMs: Float?): RangeEstimate? {
+fun estimateRange(data: BatteryData?, speedMs: Float?): RangeEstimate? {
     if (data == null) return null
     val speedKmh = (speedMs ?: 0f) * 3.6
     val dischargeA = data.dischargeA
     if (dischargeA <= 0.1f || speedKmh <= 0.1) return null
-    val remaining =
-        if (data.remainingAh > 0f) data.remainingAh.toDouble()
-        else capacityAh * data.soc / 100.0
+    val remaining = when {
+        data.remainingAh > 0f -> data.remainingAh.toDouble()
+        data.nominalAh > 0f -> data.nominalAh * data.soc / 100.0
+        else -> return null
+    }
     if (remaining <= 0.0) return null
     val hours = remaining / dischargeA
     return RangeEstimate(km = hours * speedKmh, hours = hours)

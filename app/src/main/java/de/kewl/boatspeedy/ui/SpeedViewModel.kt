@@ -84,9 +84,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setKeepScreenOn(v: Boolean) = viewModelScope.launch { settingsRepo.setKeepScreenOn(v) }
     fun setSmoothing(v: Smoothing) = viewModelScope.launch { settingsRepo.setSmoothing(v) }
     fun setShowSatDetails(v: Boolean) = viewModelScope.launch { settingsRepo.setShowSatDetails(v) }
-    fun setBatteryManufacturer(v: String) = viewModelScope.launch { settingsRepo.setBatteryManufacturer(v) }
-    fun setBatteryType(v: String) = viewModelScope.launch { settingsRepo.setBatteryType(v) }
-    fun setBatteryCapacityAh(v: Int) = viewModelScope.launch { settingsRepo.setBatteryCapacityAh(v) }
+    fun setShowBatteryTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowBatteryTile(v) }
+    fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }
     fun setBms(v: BmsType) = viewModelScope.launch { settingsRepo.setBatteryBms(v) }
 
     // --- Batterie BLE ---

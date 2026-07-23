@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
@@ -17,12 +16,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -34,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.kewl.boatspeedy.R
@@ -47,8 +43,6 @@ import de.kewl.boatspeedy.battery.estimateRange
 import de.kewl.boatspeedy.data.Settings
 import java.util.Locale
 
-private val BATTERY_TYPES = listOf("LiFePO4", "Li-Ion", "Blei/AGM")
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BatteryScreen(
@@ -59,9 +53,6 @@ fun BatteryScreen(
     onConnect: (String) -> Unit,
     onDisconnect: () -> Unit,
     onBms: (BmsType) -> Unit,
-    onManufacturer: (String) -> Unit,
-    onType: (String) -> Unit,
-    onCapacity: (Int) -> Unit,
     onOpenMenu: () -> Unit,
 ) {
     Scaffold(
@@ -89,8 +80,8 @@ fun BatteryScreen(
                 ConnectionState.CONNECTED -> {
                     ConnectedHeader(state, onDisconnect, onScan)
                     state.data?.let { d ->
-                        LiveValues(d, settings)
-                        RangeCard(d, settings.batteryCapacityAh, currentSpeedMs)
+                        LiveValues(d)
+                        RangeCard(d, currentSpeedMs)
                     }
                 }
                 ConnectionState.SCANNING -> ScanList(state, scanning = true, onScan, onConnect)
@@ -101,9 +92,6 @@ fun BatteryScreen(
                 }
                 ConnectionState.DISCONNECTED -> ScanList(state, scanning = false, onScan, onConnect)
             }
-
-            HorizontalDivider()
-            ConfigSection(settings, onManufacturer, onType, onCapacity)
         }
     }
 }
@@ -223,7 +211,7 @@ private fun DeviceRow(dev: ScanDevice, onConnect: (String) -> Unit) {
 }
 
 @Composable
-private fun LiveValues(d: BatteryData, settings: Settings) {
+private fun LiveValues(d: BatteryData) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ValueRow(stringResource(R.string.bat_soc), "${d.soc} %")
@@ -244,11 +232,11 @@ private fun LiveValues(d: BatteryData, settings: Settings) {
 }
 
 @Composable
-private fun RangeCard(d: BatteryData, capacityAh: Int, currentSpeedMs: Float?) {
+private fun RangeCard(d: BatteryData, currentSpeedMs: Float?) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.bat_range_title), style = MaterialTheme.typography.titleMedium)
-            val est = estimateRange(d, capacityAh, currentSpeedMs)
+            val est = estimateRange(d, currentSpeedMs)
             if (est != null) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     Stat(stringResource(R.string.bat_est_range), formatDistance(est.km * 1000.0))
@@ -262,46 +250,6 @@ private fun RangeCard(d: BatteryData, capacityAh: Int, currentSpeedMs: Float?) {
                 )
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ConfigSection(
-    settings: Settings,
-    onManufacturer: (String) -> Unit,
-    onType: (String) -> Unit,
-    onCapacity: (Int) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedTextField(
-            value = settings.batteryManufacturer,
-            onValueChange = onManufacturer,
-            label = { Text(stringResource(R.string.bat_manufacturer)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Text(stringResource(R.string.bat_type), style = MaterialTheme.typography.titleSmall)
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            BATTERY_TYPES.forEachIndexed { i, t ->
-                SegmentedButton(
-                    selected = settings.batteryType == t,
-                    onClick = { onType(t) },
-                    shape = SegmentedButtonDefaults.itemShape(i, BATTERY_TYPES.size),
-                ) { Text(t) }
-            }
-        }
-
-        OutlinedTextField(
-            value = settings.batteryCapacityAh.toString(),
-            onValueChange = { v -> v.filter { it.isDigit() }.take(4).toIntOrNull()?.let(onCapacity) },
-            label = { Text(stringResource(R.string.bat_capacity)) },
-            suffix = { Text("Ah") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 

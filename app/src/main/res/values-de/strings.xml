@@ -48,8 +48,20 @@
 
     <!-- Navigations-Menü -->
     <string name="menu">Menü</string>
-    <string name="nav_speed">Tacho</string>
+    <string name="nav_speed">Dashboard</string>
     <string name="nav_battery">Batterie</string>
+
+    <!-- Einstellungs-Gruppen -->
+    <string name="group_speed">Geschwindigkeit</string>
+    <string name="group_dashboard">Dashboard</string>
+    <string name="group_display">Anzeige</string>
+    <string name="group_language">Sprache</string>
+    <string name="group_gps">GPS</string>
+    <string name="language">Sprache</string>
+    <string name="language_english">English</string>
+    <string name="language_german">Deutsch</string>
+    <string name="tile_battery">Batterie-Kachel</string>
+    <string name="tile_range">Reichweite &amp; Zeit</string>
 
     <!-- Batterie -->
     <string name="battery">Batterie</string>

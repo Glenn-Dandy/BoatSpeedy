@@ -23,9 +23,8 @@ class SettingsRepository(private val context: Context) {
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val SMOOTHING = stringPreferencesKey("smoothing")
         val SHOW_SAT_DETAILS = booleanPreferencesKey("show_sat_details")
-        val BAT_MANUFACTURER = stringPreferencesKey("bat_manufacturer")
-        val BAT_TYPE = stringPreferencesKey("bat_type")
-        val BAT_CAPACITY = intPreferencesKey("bat_capacity")
+        val SHOW_BATTERY_TILE = booleanPreferencesKey("show_battery_tile")
+        val SHOW_RANGE_TILE = booleanPreferencesKey("show_range_tile")
         val BAT_BMS = stringPreferencesKey("bat_bms")
     }
 
@@ -37,9 +36,8 @@ class SettingsRepository(private val context: Context) {
             keepScreenOn = p[Keys.KEEP_SCREEN_ON] ?: true,
             smoothing = p[Keys.SMOOTHING]?.let { enumOrNull<Smoothing>(it) } ?: Smoothing.LIGHT,
             showSatDetails = p[Keys.SHOW_SAT_DETAILS] ?: true,
-            batteryManufacturer = p[Keys.BAT_MANUFACTURER] ?: "Eco-Worthy",
-            batteryType = p[Keys.BAT_TYPE] ?: "LiFePO4",
-            batteryCapacityAh = p[Keys.BAT_CAPACITY] ?: 100,
+            showBatteryTile = p[Keys.SHOW_BATTERY_TILE] ?: true,
+            showRangeTile = p[Keys.SHOW_RANGE_TILE] ?: true,
             batteryBms = p[Keys.BAT_BMS]?.let { enumOrNull<de.kewl.boatspeedy.battery.BmsType>(it) }
                 ?: de.kewl.boatspeedy.battery.BmsType.JBD,
         )
@@ -51,9 +49,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setKeepScreenOn(value: Boolean) = edit { it[Keys.KEEP_SCREEN_ON] = value }
     suspend fun setSmoothing(value: Smoothing) = edit { it[Keys.SMOOTHING] = value.name }
     suspend fun setShowSatDetails(value: Boolean) = edit { it[Keys.SHOW_SAT_DETAILS] = value }
-    suspend fun setBatteryManufacturer(value: String) = edit { it[Keys.BAT_MANUFACTURER] = value }
-    suspend fun setBatteryType(value: String) = edit { it[Keys.BAT_TYPE] = value }
-    suspend fun setBatteryCapacityAh(value: Int) = edit { it[Keys.BAT_CAPACITY] = value }
+    suspend fun setShowBatteryTile(value: Boolean) = edit { it[Keys.SHOW_BATTERY_TILE] = value }
+    suspend fun setShowRangeTile(value: Boolean) = edit { it[Keys.SHOW_RANGE_TILE] = value }
     suspend fun setBatteryBms(value: de.kewl.boatspeedy.battery.BmsType) = edit { it[Keys.BAT_BMS] = value.name }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {

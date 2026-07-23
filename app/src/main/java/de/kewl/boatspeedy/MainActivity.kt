@@ -58,10 +58,11 @@ import de.kewl.boatspeedy.battery.estimateRange
 import de.kewl.boatspeedy.data.ThemeMode
 import de.kewl.boatspeedy.ui.AboutScreen
 import de.kewl.boatspeedy.ui.BatteryScreen
+import de.kewl.boatspeedy.ui.DashboardScreen
 import de.kewl.boatspeedy.ui.SettingsScreen
-import de.kewl.boatspeedy.ui.SpeedScreen
 import de.kewl.boatspeedy.ui.SpeedViewModel
 import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
+import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
 private enum class Screen { SPEED, BATTERY, SETTINGS, ABOUT }
@@ -69,6 +70,7 @@ private enum class Screen { SPEED, BATTERY, SETTINGS, ABOUT }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LanguageHelper.ensureDefault(this) // beim ersten Start Englisch erzwingen
         enableEdgeToEdge()
         setContent { BoatSpeedyApp() }
     }
@@ -195,12 +197,16 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                 when (screen) {
                     Screen.SETTINGS -> SettingsScreen(
                         settings = settings,
+                        language = LanguageHelper.current(context),
                         onUnit = vm::setUnit,
                         onDecimals = vm::setDecimals,
                         onTheme = vm::setTheme,
                         onKeepScreenOn = vm::setKeepScreenOn,
                         onSmoothing = vm::setSmoothing,
                         onShowSatDetails = vm::setShowSatDetails,
+                        onShowBatteryTile = vm::setShowBatteryTile,
+                        onShowRangeTile = vm::setShowRangeTile,
+                        onLanguage = { LanguageHelper.set(context, it) },
                         onOpenMenu = { openDrawer() },
                     )
 
@@ -214,21 +220,18 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onConnect = { address -> withBt { vm.connectBattery(address) } },
                         onDisconnect = vm::disconnectBattery,
                         onBms = vm::setBms,
-                        onManufacturer = vm::setBatteryManufacturer,
-                        onType = vm::setBatteryType,
-                        onCapacity = vm::setBatteryCapacityAh,
                         onOpenMenu = { openDrawer() },
                     )
 
-                    Screen.SPEED -> SpeedScreen(
+                    Screen.SPEED -> DashboardScreen(
                         speedText = speedText,
                         gps = gps,
                         settings = settings,
                         tracking = tracking,
                         tripStats = tripStats,
-                        batterySoc = if (battery.connection == ConnectionState.CONNECTED) battery.data?.soc else null,
+                        batteryData = if (battery.connection == ConnectionState.CONNECTED) battery.data else null,
                         range = if (battery.connection == ConnectionState.CONNECTED)
-                            estimateRange(battery.data, settings.batteryCapacityAh, gps.speedMs) else null,
+                            estimateRange(battery.data, gps.speedMs) else null,
                         onStartTrip = vm::startTrip,
                         onStopTrip = vm::stopTrip,
                         onOpenMenu = { openDrawer() },

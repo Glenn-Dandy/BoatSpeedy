@@ -29,3 +29,4 @@ Geparkte Aufgaben / Ideen für BoatSpeedy.
 - [x] v0.1.1: „Über"-Screen mit GitHub-Infos, Versionsanzeige und Update-Prüfung (Download bei neuer Version)
 - [x] v0.2.0: Batterie-Anbindung (JBD-BLE), Reichweite/Zeit, seitliches Drawer-Menü
 - [x] v0.2.1: SoC/Reichweite/Zeit am Tacho; BMS-Auswahl + Scan/Liste/Wechsel-Flow; Daly & JK (experimentell)
+- [x] v0.3.0: Dashboard-Kacheln (Batterie/Reichweite zuschaltbar), Sprache EN/DE (EN Standard), Settings gruppiert, „Batterie wechseln"-Scanfehler behoben, Batterie-Konfig entfernt
