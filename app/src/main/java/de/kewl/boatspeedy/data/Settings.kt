@@ -3,6 +3,8 @@ package de.kewl.boatspeedy.data
 import de.kewl.boatspeedy.battery.BmsType
 
 /** Anzeige-Einheit der Geschwindigkeit. */
+/* Hinweis: Die App-Sprache läuft über die System-Pro-App-Sprache (LocaleManager),
+   nicht über diese Settings. */
 enum class SpeedUnit(val factorFromMs: Double, val label: String) {
     KMH(3.6, "km/h"),
     KNOTS(1.943844, "kn"),
@@ -26,9 +28,9 @@ data class Settings(
     val keepScreenOn: Boolean = true,
     val smoothing: Smoothing = Smoothing.LIGHT,
     val showSatDetails: Boolean = true,
-    // Batterie (Anzeige/Fallback; Kapazität kommt live vom BMS)
-    val batteryManufacturer: String = "Eco-Worthy",
-    val batteryType: String = "LiFePO4",
-    val batteryCapacityAh: Int = 100,
+    // Dashboard-Kacheln
+    val showBatteryTile: Boolean = true,
+    val showRangeTile: Boolean = true,
+    // Batterie
     val batteryBms: BmsType = BmsType.JBD,
 )

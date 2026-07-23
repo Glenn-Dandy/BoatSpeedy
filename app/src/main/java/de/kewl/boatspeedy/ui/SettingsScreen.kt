@@ -10,8 +10,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,17 +32,22 @@ import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.SpeedUnit
 import de.kewl.boatspeedy.data.ThemeMode
+import de.kewl.boatspeedy.util.AppLanguage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     settings: Settings,
+    language: AppLanguage,
     onUnit: (SpeedUnit) -> Unit,
     onDecimals: (Int) -> Unit,
     onTheme: (ThemeMode) -> Unit,
     onKeepScreenOn: (Boolean) -> Unit,
     onSmoothing: (Smoothing) -> Unit,
     onShowSatDetails: (Boolean) -> Unit,
+    onShowBatteryTile: (Boolean) -> Unit,
+    onShowRangeTile: (Boolean) -> Unit,
+    onLanguage: (AppLanguage) -> Unit,
     onOpenMenu: () -> Unit,
 ) {
     Scaffold(
@@ -51,10 +56,7 @@ fun SettingsScreen(
                 title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = {
                     IconButton(onClick = onOpenMenu) {
-                        Icon(
-                            Icons.Filled.Menu,
-                            contentDescription = stringResource(R.string.menu),
-                        )
+                        Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.menu))
                     }
                 },
             )
@@ -65,22 +67,16 @@ fun SettingsScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            // Einheit
+            // --- Speed ---
+            SectionHeader(stringResource(R.string.group_speed))
             SegmentedRow(
                 label = stringResource(R.string.unit),
                 options = SpeedUnit.entries,
                 selected = settings.unit,
-                labelOf = {
-                    if (it == SpeedUnit.KMH) stringResource(R.string.unit_kmh)
-                    else stringResource(R.string.unit_kn)
-                },
+                labelOf = { if (it == SpeedUnit.KMH) stringResource(R.string.unit_kmh) else stringResource(R.string.unit_kn) },
                 onSelect = onUnit,
             )
-            Divider()
-
-            // Nachkommastellen
             SegmentedRow(
                 label = stringResource(R.string.decimals),
                 options = listOf(0, 1, 2),
@@ -94,25 +90,6 @@ fun SettingsScreen(
                 },
                 onSelect = onDecimals,
             )
-            Divider()
-
-            // Design / Theme
-            SegmentedRow(
-                label = stringResource(R.string.theme),
-                options = ThemeMode.entries,
-                selected = settings.theme,
-                labelOf = {
-                    when (it) {
-                        ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
-                        ThemeMode.LIGHT -> stringResource(R.string.theme_light)
-                        ThemeMode.DARK -> stringResource(R.string.theme_dark)
-                    }
-                },
-                onSelect = onTheme,
-            )
-            Divider()
-
-            // Glättung
             SegmentedRow(
                 label = stringResource(R.string.smoothing),
                 options = Smoothing.entries,
@@ -126,21 +103,61 @@ fun SettingsScreen(
                 },
                 onSelect = onSmoothing,
             )
-            Divider()
 
-            // Schalter
-            SwitchRow(
-                label = stringResource(R.string.keep_screen_on),
-                checked = settings.keepScreenOn,
-                onCheckedChange = onKeepScreenOn,
+            // --- Dashboard ---
+            SectionHeader(stringResource(R.string.group_dashboard))
+            SwitchRow(stringResource(R.string.tile_battery), settings.showBatteryTile, onShowBatteryTile)
+            SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
+
+            // --- Display ---
+            SectionHeader(stringResource(R.string.group_display))
+            SegmentedRow(
+                label = stringResource(R.string.theme),
+                options = ThemeMode.entries,
+                selected = settings.theme,
+                labelOf = {
+                    when (it) {
+                        ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
+                        ThemeMode.LIGHT -> stringResource(R.string.theme_light)
+                        ThemeMode.DARK -> stringResource(R.string.theme_dark)
+                    }
+                },
+                onSelect = onTheme,
             )
-            SwitchRow(
-                label = stringResource(R.string.show_sat_details),
-                checked = settings.showSatDetails,
-                onCheckedChange = onShowSatDetails,
+            SwitchRow(stringResource(R.string.keep_screen_on), settings.keepScreenOn, onKeepScreenOn)
+
+            // --- Language ---
+            SectionHeader(stringResource(R.string.group_language))
+            SegmentedRow(
+                label = stringResource(R.string.language),
+                options = AppLanguage.entries,
+                selected = language,
+                labelOf = {
+                    when (it) {
+                        AppLanguage.ENGLISH -> stringResource(R.string.language_english)
+                        AppLanguage.GERMAN -> stringResource(R.string.language_german)
+                    }
+                },
+                onSelect = onLanguage,
             )
+
+            // --- GPS ---
+            SectionHeader(stringResource(R.string.group_gps))
+            SwitchRow(stringResource(R.string.show_sat_details), settings.showSatDetails, onShowSatDetails)
+
+            HorizontalDivider(Modifier.padding(top = 16.dp))
         }
     }
+}
+
+@Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 20.dp, bottom = 4.dp),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -152,22 +169,17 @@ private fun <T> SegmentedRow(
     labelOf: @Composable (T) -> String,
     onSelect: (T) -> Unit,
 ) {
-    Column(modifier = Modifier.padding(vertical = 12.dp)) {
+    Column(modifier = Modifier.padding(vertical = 10.dp)) {
         Text(text = label, style = MaterialTheme.typography.titleMedium)
         SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-                .selectableGroup(),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).selectableGroup(),
         ) {
             options.forEachIndexed { index, option ->
                 SegmentedButton(
                     selected = option == selected,
                     onClick = { onSelect(option) },
                     shape = SegmentedButtonDefaults.itemShape(index, options.size),
-                ) {
-                    Text(labelOf(option))
-                }
+                ) { Text(labelOf(option)) }
             }
         }
     }
@@ -176,9 +188,7 @@ private fun <T> SegmentedRow(
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {

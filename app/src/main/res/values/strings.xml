@@ -51,8 +51,20 @@
 
     <!-- Navigation drawer -->
     <string name="menu">Menu</string>
-    <string name="nav_speed">Speedometer</string>
+    <string name="nav_speed">Dashboard</string>
     <string name="nav_battery">Battery</string>
+
+    <!-- Settings groups -->
+    <string name="group_speed">Speed</string>
+    <string name="group_dashboard">Dashboard</string>
+    <string name="group_display">Display</string>
+    <string name="group_language">Language</string>
+    <string name="group_gps">GPS</string>
+    <string name="language">Language</string>
+    <string name="language_english">English</string>
+    <string name="language_german">Deutsch</string>
+    <string name="tile_battery">Battery tile</string>
+    <string name="tile_range">Range &amp; time tile</string>
 
     <!-- Battery -->
     <string name="battery">Battery</string>

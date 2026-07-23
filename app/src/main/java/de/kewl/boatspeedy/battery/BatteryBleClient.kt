@@ -60,13 +60,25 @@ class BatteryBleClient(
             update(state.copy(connection = ConnectionState.DISCONNECTED, error = "Bluetooth aus"))
             return
         }
+        // Vollständiger Teardown: alte Verbindung trennen, alten Scan sicher stoppen,
+        // ausstehende Poll-/Timeout-Callbacks löschen. Verhindert „Scan-Fehler 1"
+        // (SCAN_FAILED_ALREADY_STARTED) beim „Batterie wechseln".
+        main.removeCallbacksAndMessages(null)
+        gatt?.let { runCatching { it.disconnect(); it.close() } }
+        gatt = null
+        writeChar = null
+        runCatching { ad.bluetoothLeScanner?.stopScan(scanCallback) }
+        scanning = true
+
         protocol = BmsProtocol.of(bms)
         found.clear()
-        scanning = true
         update(BatteryState(connection = ConnectionState.SCANNING, scanResults = emptyList()))
         val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(protocol.serviceUuid)).build()
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
-        ad.bluetoothLeScanner?.startScan(listOf(filter), settings, scanCallback)
+        // Kurz verzögert starten, damit stopScan im Stack durchgreift.
+        main.postDelayed({
+            if (scanning) ad.bluetoothLeScanner?.startScan(listOf(filter), settings, scanCallback)
+        }, 300)
         main.postDelayed({ stopScan() }, SCAN_TIMEOUT_MS)
     }
 
@@ -92,7 +104,9 @@ class BatteryBleClient(
 
     // --- Connect ---
     fun connectTo(address: String, bms: BmsType) {
-        if (scanning) { scanning = false; runCatching { adapter?.bluetoothLeScanner?.stopScan(scanCallback) } }
+        main.removeCallbacksAndMessages(null)
+        scanning = false
+        runCatching { adapter?.bluetoothLeScanner?.stopScan(scanCallback) }
         val device = runCatching { adapter?.getRemoteDevice(address) }.getOrNull() ?: return
         protocol = BmsProtocol.of(bms)
         cycle = 0
