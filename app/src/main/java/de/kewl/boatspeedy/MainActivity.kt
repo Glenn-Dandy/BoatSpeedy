@@ -174,6 +174,20 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                 }
             }
 
+            // Aktive gespeicherte Akkus beim ersten Start automatisch verbinden –
+            // nur wenn die Bluetooth-Berechtigung bereits erteilt ist (kein Prompt).
+            var autoConnected by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(settings.batteries) {
+                if (!autoConnected && settings.batteries.any { it.active } &&
+                    ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.BLUETOOTH_CONNECT,
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    autoConnected = true
+                    vm.autoConnectActive()
+                }
+            }
+
             val drawerState = androidx.compose.material3.rememberDrawerState(DrawerValue.Closed)
             val scope = rememberCoroutineScope()
             val openDrawer = { scope.launch { drawerState.open() } }
