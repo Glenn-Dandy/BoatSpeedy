@@ -22,7 +22,6 @@ Geparkte Aufgaben / Ideen für BoatSpeedy.
 - [ ] **Feldtest JBD mit laufendem Motor**: Strom-Vorzeichen (Laden/Entladen) und Reichweiten-/Zeitrechnung verifizieren
 - [ ] **Daly & JK am echten Gerät testen** (experimentell): UUIDs/Offsets kalibrieren, v. a. JK02-Offsets und SOC-Position
 - [ ] Auto-Reconnect bei Verbindungsabbruch; aktive gespeicherte Akkus beim Start automatisch verbinden (Reconnect ohne Scan)
-- [ ] Reichweite mit geglättetem Strom (schwankt) rechnen
 - [ ] Reihen-/Parallel-Kombination am echten Mehr-Akku-Aufbau verifizieren (v0.4.0 ist ungetestet)
 
 ## Erledigt
@@ -33,3 +32,4 @@ Geparkte Aufgaben / Ideen für BoatSpeedy.
 - [x] v0.3.0: Dashboard-Kacheln (Batterie/Reichweite zuschaltbar), Sprache EN/DE (EN Standard), Settings gruppiert, „Batterie wechseln"-Scanfehler behoben, Batterie-Konfig entfernt
 - [x] v0.3.1: Einstellungen in Kategorien mit Unterseiten (Dashboard/Darstellung/Sprache)
 - [x] v0.4.0: Mehrere Batterien gleichzeitig (Liste, hinzufügen/verbinden/entfernen), Verschaltungs-Modus (Einzeln/Parallel/Reihe) mit Kombi-Rechnung, Dashboard-Auswahl A/B/Σ, Kacheln immer sichtbar
+- [x] v0.4.1: JBD-Strom-Vorzeichen im Feldtest bestätigt; Reichweite/Restzeit über Zeitfenster geglättet (Strom + Speed gemittelt, Aus/15/30/60 s)
