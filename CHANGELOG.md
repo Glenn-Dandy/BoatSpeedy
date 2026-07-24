@@ -2,6 +2,21 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.7] – 2026-07-24
+
+### Geändert
+- **Verbinden/Trennen** je Batterie ist jetzt ein einfacher **An/Aus-Schalter**
+  (Spinner während des Verbindens).
+- **SoC-Warnschwelle frei einstellbar** per Regler (0 = aus, sonst % in 5er-Schritten,
+  Standard 20 %) statt fester Stufen.
+- Labels gekürzt: „Batterie-Kachel" → **„Batterie"**, „Satelliten-Details anzeigen" →
+  **„Satelliten-Details"**.
+
+### Behoben / Hinweis
+- **Debug-Paket abgetrennt** (`…​.debug`): Debug- und Release-App überschreiben sich
+  nicht mehr gegenseitig. Damit Einstellungen ein Update überstehen, immer die
+  **Release-APK aus den GitHub-Releases** installieren (gleiche Signatur).
+
 ## [0.4.6] – 2026-07-24
 
 ### Neu

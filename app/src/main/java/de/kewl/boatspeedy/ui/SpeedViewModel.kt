@@ -16,7 +16,6 @@ import de.kewl.boatspeedy.battery.combineBatteries
 import de.kewl.boatspeedy.battery.estimateRange
 import de.kewl.boatspeedy.battery.selectedBatteryData
 import de.kewl.boatspeedy.data.BankMode
-import de.kewl.boatspeedy.data.LowSocWarn
 import de.kewl.boatspeedy.data.RangeSmoothing
 import de.kewl.boatspeedy.data.COMBINED_SELECTION
 import de.kewl.boatspeedy.data.SavedBattery
@@ -148,7 +147,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setKeepScreenOn(v: Boolean) = viewModelScope.launch { settingsRepo.setKeepScreenOn(v) }
     fun setSmoothing(v: Smoothing) = viewModelScope.launch { settingsRepo.setSmoothing(v) }
     fun setRangeSmoothing(v: RangeSmoothing) = viewModelScope.launch { settingsRepo.setRangeSmoothing(v) }
-    fun setLowSocWarn(v: LowSocWarn) = viewModelScope.launch { settingsRepo.setLowSocWarn(v) }
+    fun setLowSocPercent(v: Int) = viewModelScope.launch { settingsRepo.setLowSocPercent(v) }
     fun setShowSatDetails(v: Boolean) = viewModelScope.launch { settingsRepo.setShowSatDetails(v) }
     fun setShowBatteryTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowBatteryTile(v) }
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }

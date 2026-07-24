@@ -26,7 +26,7 @@ class SettingsRepository(private val context: Context) {
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val SMOOTHING = stringPreferencesKey("smoothing")
         val RANGE_SMOOTHING = stringPreferencesKey("range_smoothing")
-        val LOW_SOC_WARN = stringPreferencesKey("low_soc_warn")
+        val LOW_SOC_PERCENT = intPreferencesKey("low_soc_percent")
         val SHOW_SAT_DETAILS = booleanPreferencesKey("show_sat_details")
         val SHOW_BATTERY_TILE = booleanPreferencesKey("show_battery_tile")
         val SHOW_RANGE_TILE = booleanPreferencesKey("show_range_tile")
@@ -44,7 +44,7 @@ class SettingsRepository(private val context: Context) {
             keepScreenOn = p[Keys.KEEP_SCREEN_ON] ?: true,
             smoothing = p[Keys.SMOOTHING]?.let { enumOrNull<Smoothing>(it) } ?: Smoothing.LIGHT,
             rangeSmoothing = p[Keys.RANGE_SMOOTHING]?.let { enumOrNull<RangeSmoothing>(it) } ?: RangeSmoothing.S30,
-            lowSocWarn = p[Keys.LOW_SOC_WARN]?.let { enumOrNull<LowSocWarn>(it) } ?: LowSocWarn.P20,
+            lowSocPercent = (p[Keys.LOW_SOC_PERCENT] ?: 20).coerceIn(0, 50),
             showSatDetails = p[Keys.SHOW_SAT_DETAILS] ?: true,
             showBatteryTile = p[Keys.SHOW_BATTERY_TILE] ?: true,
             showRangeTile = p[Keys.SHOW_RANGE_TILE] ?: true,
@@ -61,7 +61,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setKeepScreenOn(value: Boolean) = edit { it[Keys.KEEP_SCREEN_ON] = value }
     suspend fun setSmoothing(value: Smoothing) = edit { it[Keys.SMOOTHING] = value.name }
     suspend fun setRangeSmoothing(value: RangeSmoothing) = edit { it[Keys.RANGE_SMOOTHING] = value.name }
-    suspend fun setLowSocWarn(value: LowSocWarn) = edit { it[Keys.LOW_SOC_WARN] = value.name }
+    suspend fun setLowSocPercent(value: Int) = edit { it[Keys.LOW_SOC_PERCENT] = value.coerceIn(0, 50) }
     suspend fun setShowSatDetails(value: Boolean) = edit { it[Keys.SHOW_SAT_DETAILS] = value }
     suspend fun setShowBatteryTile(value: Boolean) = edit { it[Keys.SHOW_BATTERY_TILE] = value }
     suspend fun setShowRangeTile(value: Boolean) = edit { it[Keys.SHOW_RANGE_TILE] = value }
