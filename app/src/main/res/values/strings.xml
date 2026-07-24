@@ -50,6 +50,8 @@
     <string name="stat_max">Max</string>
     <string name="stat_avg">Avg</string>
     <string name="stat_time">Time</string>
+    <string name="stat_energy">Energy</string>
+    <string name="stat_efficiency">Efficiency</string>
 
     <!-- Navigation drawer -->
     <string name="menu">Menu</string>

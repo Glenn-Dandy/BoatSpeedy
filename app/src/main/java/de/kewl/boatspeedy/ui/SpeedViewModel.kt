@@ -11,6 +11,8 @@ import de.kewl.boatspeedy.battery.BmsType
 import de.kewl.boatspeedy.battery.RangeEstimate
 import de.kewl.boatspeedy.battery.ScanDevice
 import de.kewl.boatspeedy.battery.TimedAverage
+import de.kewl.boatspeedy.battery.activeBatteryData
+import de.kewl.boatspeedy.battery.combineBatteries
 import de.kewl.boatspeedy.battery.estimateRange
 import de.kewl.boatspeedy.battery.selectedBatteryData
 import de.kewl.boatspeedy.data.BankMode
@@ -80,6 +82,13 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             combine(settings, battery, _gps) { s, hub, gps ->
                 RangeSample(selectedBatteryData(s, hub), gps.speedMs, s.rangeSmoothing)
             }.collect { updateRange(it) }
+        }
+        // Während einer Fahrt die Bank-Leistung zur Energie (Wh) aufintegrieren.
+        viewModelScope.launch {
+            combine(settings, battery, tracking) { s, hub, isTracking ->
+                if (isTracking) activeBatteryData(s, hub).takeIf { it.isNotEmpty() }
+                    ?.let { combineBatteries(it, s.bankMode).powerW } else null
+            }.collect { power -> if (power != null) TripRepository.onPower(power) }
         }
     }
 
