@@ -81,7 +81,6 @@
     <string name="tile_map">Karte</string>
     <string name="cat_gps_desc">Satelliten, Genauigkeit, Kurs, Signal</string>
     <string name="live_map">Live-Karte</string>
-    <string name="allow_dev">Dev-Version erlauben</string>
     <string name="gps_live_title">GPS live</string>
     <string name="gps_satellites">Satelliten</string>
     <string name="accuracy_label_short">Genauigkeit</string>

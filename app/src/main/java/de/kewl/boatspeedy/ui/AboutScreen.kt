@@ -25,7 +25,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -55,11 +54,7 @@ private sealed interface UpdateUi {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutScreen(
-    allowDev: Boolean,
-    onAllowDev: (Boolean) -> Unit,
-    onOpenMenu: () -> Unit,
-) {
+fun AboutScreen(onOpenMenu: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<UpdateUi>(UpdateUi.Idle) }
@@ -109,26 +104,12 @@ fun AboutScreen(
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
             // Update-Prüfung
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(R.string.allow_dev), style = MaterialTheme.typography.titleMedium)
-                Switch(
-                    checked = allowDev,
-                    onCheckedChange = {
-                        onAllowDev(it)
-                        state = UpdateUi.Idle
-                    },
-                )
-            }
             UpdateSection(
                 state = state,
                 onCheck = {
                     state = UpdateUi.Checking
                     scope.launch {
-                        state = UpdateUi.Result(UpdateChecker.check(BuildConfig.VERSION_NAME, allowDev))
+                        state = UpdateUi.Result(UpdateChecker.check(BuildConfig.VERSION_NAME))
                     }
                 },
                 onOpen = ::openUrl,

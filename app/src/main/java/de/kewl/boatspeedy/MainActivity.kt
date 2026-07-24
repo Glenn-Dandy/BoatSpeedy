@@ -310,11 +310,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         }
                     }
 
-                    Screen.ABOUT -> AboutScreen(
-                        allowDev = settings.allowDevVersion,
-                        onAllowDev = vm::setAllowDevVersion,
-                        onOpenMenu = { openDrawer() },
-                    )
+                    Screen.ABOUT -> AboutScreen(onOpenMenu = { openDrawer() })
 
                     Screen.LIVE_MAP -> LiveMapScreen(
                         currentLat = gps.latitude,

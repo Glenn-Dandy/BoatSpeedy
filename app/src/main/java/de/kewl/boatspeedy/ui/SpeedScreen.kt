@@ -141,7 +141,7 @@ fun DashboardScreen(
                 }
 
                 if (tracking || tripStats.hasData) {
-                    StatsPanel(stats = tripStats, settings = settings)
+                    StatsPanel(stats = tripStats, settings = settings, showConsumption = batteryData != null)
                     Spacer(Modifier.height(12.dp))
                 }
                 if (tracking && tripPaused) {
@@ -261,7 +261,7 @@ private fun TileStat(label: String, value: String, big: Boolean = false, alert: 
 }
 
 @Composable
-private fun StatsPanel(stats: TripStats, settings: Settings) {
+private fun StatsPanel(stats: TripStats, settings: Settings, showConsumption: Boolean) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             StatItem(stringResource(R.string.stat_distance), formatDistance(stats.distanceM))
@@ -275,7 +275,7 @@ private fun StatsPanel(stats: TripStats, settings: Settings) {
             )
             StatItem(stringResource(R.string.stat_time), formatDuration(stats.elapsedMs))
         }
-        if (stats.chargeAh > 0f || stats.energyWh > 0f) {
+        if (showConsumption || stats.chargeAh > 0f || stats.energyWh > 0f) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 StatItem(
                     stringResource(R.string.stat_consumed),

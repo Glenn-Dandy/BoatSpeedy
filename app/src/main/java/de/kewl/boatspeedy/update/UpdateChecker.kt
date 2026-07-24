@@ -12,12 +12,9 @@ object Repo {
     const val NAME = "BoatSpeedy"
     const val URL = "https://github.com/$OWNER/$NAME"
     const val LATEST_RELEASE_URL = "$URL/releases/latest"
-    const val DEV_RELEASE_URL = "$URL/releases/tag/dev-build"
     private const val API_LATEST = "https://api.github.com/repos/$OWNER/$NAME/releases/latest"
-    private const val API_DEV = "https://api.github.com/repos/$OWNER/$NAME/releases/tags/dev-build"
 
     val apiLatest: String get() = API_LATEST
-    val apiDev: String get() = API_DEV
 }
 
 /** Ergebnis der Update-Prüfung. */
@@ -33,27 +30,8 @@ sealed interface UpdateResult {
 
 object UpdateChecker {
 
-    /**
-     * Fragt das neueste Release ab und vergleicht mit [currentVersion] (z. B. "1.0.1").
-     * Ist [allowDev] true, wird zusätzlich der aktuelle DEV-Build angeboten (rollend,
-     * daher immer als „verfügbar" zum manuellen Laden).
-     */
-    suspend fun check(currentVersion: String, allowDev: Boolean = false): UpdateResult = withContext(Dispatchers.IO) {
-        if (allowDev) {
-            val devJson = fetch(Repo.apiDev)
-            if (devJson != null) {
-                val dev = JSONObject(devJson)
-                val apk = firstApkUrl(dev)
-                if (apk != null) {
-                    val name = dev.optString("name").ifEmpty { "dev-build" }
-                    return@withContext UpdateResult.Available(
-                        version = name,
-                        downloadUrl = apk,
-                        releaseUrl = dev.optString("html_url", Repo.DEV_RELEASE_URL),
-                    )
-                }
-            }
-        }
+    /** Fragt das neueste Release ab und vergleicht mit [currentVersion] (z. B. "1.0.1"). */
+    suspend fun check(currentVersion: String): UpdateResult = withContext(Dispatchers.IO) {
         try {
             val json = fetch(Repo.apiLatest) ?: return@withContext UpdateResult.Failed
             val obj = JSONObject(json)

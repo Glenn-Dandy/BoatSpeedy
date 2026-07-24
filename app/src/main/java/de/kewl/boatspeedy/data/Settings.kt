@@ -65,8 +65,6 @@ data class Settings(
     val showBatteryTile: Boolean = true,
     val showRangeTile: Boolean = true,
     val showMapTile: Boolean = true,
-    // Update-Prüfung
-    val allowDevVersion: Boolean = false,
     // Batterie
     val batteryBms: BmsType = BmsType.JBD,
     val bankMode: BankMode = BankMode.SINGLE,

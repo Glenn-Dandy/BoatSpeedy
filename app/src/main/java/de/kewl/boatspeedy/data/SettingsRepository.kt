@@ -31,7 +31,6 @@ class SettingsRepository(private val context: Context) {
         val SHOW_BATTERY_TILE = booleanPreferencesKey("show_battery_tile")
         val SHOW_RANGE_TILE = booleanPreferencesKey("show_range_tile")
         val SHOW_MAP_TILE = booleanPreferencesKey("show_map_tile")
-        val ALLOW_DEV_VERSION = booleanPreferencesKey("allow_dev_version")
         val BAT_BMS = stringPreferencesKey("bat_bms")
         val BANK_MODE = stringPreferencesKey("bank_mode")
         val BATTERIES = stringPreferencesKey("batteries") // JSON-Array
@@ -51,7 +50,6 @@ class SettingsRepository(private val context: Context) {
             showBatteryTile = p[Keys.SHOW_BATTERY_TILE] ?: true,
             showRangeTile = p[Keys.SHOW_RANGE_TILE] ?: true,
             showMapTile = p[Keys.SHOW_MAP_TILE] ?: true,
-            allowDevVersion = p[Keys.ALLOW_DEV_VERSION] ?: false,
             batteryBms = p[Keys.BAT_BMS]?.let { enumOrNull<BmsType>(it) } ?: BmsType.JBD,
             bankMode = p[Keys.BANK_MODE]?.let { enumOrNull<BankMode>(it) } ?: BankMode.SINGLE,
             batteries = p[Keys.BATTERIES]?.let { decodeBatteries(it) } ?: emptyList(),
@@ -70,7 +68,6 @@ class SettingsRepository(private val context: Context) {
     suspend fun setShowBatteryTile(value: Boolean) = edit { it[Keys.SHOW_BATTERY_TILE] = value }
     suspend fun setShowRangeTile(value: Boolean) = edit { it[Keys.SHOW_RANGE_TILE] = value }
     suspend fun setShowMapTile(value: Boolean) = edit { it[Keys.SHOW_MAP_TILE] = value }
-    suspend fun setAllowDevVersion(value: Boolean) = edit { it[Keys.ALLOW_DEV_VERSION] = value }
     suspend fun setBatteryBms(value: BmsType) = edit { it[Keys.BAT_BMS] = value.name }
     suspend fun setBankMode(value: BankMode) = edit { it[Keys.BANK_MODE] = value.name }
     suspend fun setDashboardBattery(value: String) = edit { it[Keys.DASH_BATTERY] = value }

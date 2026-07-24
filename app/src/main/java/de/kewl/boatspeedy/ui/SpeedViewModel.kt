@@ -178,7 +178,6 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowBatteryTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowBatteryTile(v) }
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }
     fun setShowMapTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowMapTile(v) }
-    fun setAllowDevVersion(v: Boolean) = viewModelScope.launch { settingsRepo.setAllowDevVersion(v) }
     fun setBms(v: BmsType) = viewModelScope.launch { settingsRepo.setBatteryBms(v) }
     fun setBankMode(v: BankMode) = viewModelScope.launch { settingsRepo.setBankMode(v) }
     fun setDashboardBattery(v: String) = viewModelScope.launch { settingsRepo.setDashboardBattery(v) }
