@@ -23,6 +23,7 @@
     <string name="smoothing_light">Leicht</string>
     <string name="smoothing_strong">Stark</string>
     <string name="range_smoothing">Reichweiten-Glättung</string>
+    <string name="low_soc_warn">Warnung bei niedrigem Ladestand</string>
 
     <string name="show_sat_details">Satelliten-Details anzeigen</string>
 

@@ -109,7 +109,7 @@ fun DashboardScreen(
                 }
                 if (settings.showBatteryTile) {
                     BatterySelectorRow(batteryOptions, selectedBattery, onSelectBattery)
-                    BatteryTile(batteryData)
+                    BatteryTile(batteryData, settings.lowSocWarn.percent)
                     Spacer(Modifier.height(12.dp))
                 }
 
@@ -146,7 +146,8 @@ private fun BatterySelectorRow(options: List<BatteryOption>, selected: String, o
 }
 
 @Composable
-private fun BatteryTile(d: BatteryData?) {
+private fun BatteryTile(d: BatteryData?, lowSocPercent: Int) {
+    val socLow = d != null && lowSocPercent > 0 && d.soc <= lowSocPercent
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.battery), style = MaterialTheme.typography.titleSmall)
@@ -156,7 +157,7 @@ private fun BatteryTile(d: BatteryData?) {
                 TileStat(stringResource(R.string.bat_current), d?.let { num(it.currentA, "A") } ?: PLACEHOLDER)
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                TileStat(stringResource(R.string.soc_short), d?.let { "${it.soc} %" } ?: PLACEHOLDER)
+                TileStat(stringResource(R.string.soc_short), d?.let { "${it.soc} %" } ?: PLACEHOLDER, alert = socLow)
                 TileStat(
                     stringResource(R.string.bat_remaining),
                     d?.takeIf { it.remainingAh > 0f }?.let { num(it.remainingAh, "Ah") } ?: PLACEHOLDER,
@@ -192,14 +193,18 @@ private fun RangeTile(range: RangeEstimate?) {
 }
 
 @Composable
-private fun TileStat(label: String, value: String, big: Boolean = false) {
+private fun TileStat(label: String, value: String, big: Boolean = false, alert: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
         Text(
             value,
             fontSize = if (big) 22.sp else 17.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (big) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            color = when {
+                alert -> MaterialTheme.colorScheme.error
+                big -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurface
+            },
         )
     }
 }

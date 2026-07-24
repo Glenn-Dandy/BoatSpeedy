@@ -25,6 +25,7 @@
     <string name="smoothing_light">Light</string>
     <string name="smoothing_strong">Strong</string>
     <string name="range_smoothing">Range smoothing</string>
+    <string name="low_soc_warn">Low-charge warning</string>
 
     <string name="show_sat_details">Show satellite details</string>
 

@@ -232,6 +232,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onDecimals = vm::setDecimals,
                         onSmoothing = vm::setSmoothing,
                         onRangeSmoothing = vm::setRangeSmoothing,
+                        onLowSocWarn = vm::setLowSocWarn,
                         onShowBatteryTile = vm::setShowBatteryTile,
                         onShowRangeTile = vm::setShowRangeTile,
                         onShowSatDetails = vm::setShowSatDetails,

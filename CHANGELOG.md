@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.5] – 2026-07-24
+
+### Neu
+- **Warnung bei niedrigem Ladestand**: Der SoC auf der Batterie-Kachel wird **rot**,
+  sobald er unter eine einstellbare Schwelle fällt (Aus / 10 % / 20 % / 30 %,
+  Standard 20 %) — kein Ton. Einstellbar unter **Einstellungen → Dashboard**.
+
 ## [0.4.4] – 2026-07-24
 
 ### Neu
