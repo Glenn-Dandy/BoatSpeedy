@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.6] – 2026-07-24
+
+### Neu
+- **Energie-Verbrauch pro Fahrt**: Die Bank-Leistung (alle aktiven Akkus) wird während
+  einer Fahrt über die Zeit zu **Wh** aufintegriert und in der Fahrt-Statistik
+  angezeigt, dazu die **Effizienz in Wh/km**. Erscheint nur, wenn während der Fahrt
+  eine Batterie verbunden ist.
+
 ## [0.4.5] – 2026-07-24
 
 ### Neu

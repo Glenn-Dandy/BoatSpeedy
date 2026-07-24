@@ -32,6 +32,10 @@ object TripRepository {
     private var lastLat: Double? = null
     private var lastLon: Double? = null
 
+    // Energie-Integration (Wh) aus der Batterie-Leistung.
+    private var energyWh = 0f
+    private var lastPowerTs = 0L
+
     private const val MIN_SPEED_MS = 0.5f      // unter ~1,8 km/h nicht als Fahrt zählen
     private const val MAX_ACCURACY_M = 25f     // schlechte Fixes für Distanz ignorieren
     private const val MAX_STEP_M = 200.0       // Ausreißer (Sprünge) verwerfen
@@ -41,8 +45,26 @@ object TripRepository {
         startElapsed = SystemClock.elapsedRealtime()
         lastLat = null
         lastLon = null
+        energyWh = 0f
+        lastPowerTs = 0L
         _stats.value = TripStats()
         _tracking.value = true
+    }
+
+    /**
+     * Momentane Bank-Leistung (W) einspeisen; integriert sie über die Zeit zu Wh.
+     * Wird nur während einer Fahrt gezählt. Rechteck-Integration über das Intervall
+     * seit dem letzten Aufruf (Leistung dazwischen als konstant angenommen).
+     */
+    fun onPower(watts: Float) {
+        if (!_tracking.value) return
+        val now = SystemClock.elapsedRealtime()
+        if (lastPowerTs != 0L) {
+            val dtHours = (now - lastPowerTs) / 3_600_000f
+            energyWh += kotlin.math.abs(watts) * dtHours
+            _stats.value = _stats.value.copy(energyWh = energyWh)
+        }
+        lastPowerTs = now
     }
 
     /** Fahrt beenden – Werte bleiben stehen. */
@@ -88,6 +110,7 @@ object TripRepository {
             maxSpeedMs = maxSpeed,
             avgSpeedMs = avg,
             elapsedMs = elapsed,
+            energyWh = energyWh,
         )
     }
 }

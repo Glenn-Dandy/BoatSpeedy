@@ -23,8 +23,8 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.4.5"
+        versionCode = 14
+        versionName = "0.4.6"
     }
 
     signingConfigs {

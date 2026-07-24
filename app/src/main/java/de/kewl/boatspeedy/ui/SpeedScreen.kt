@@ -211,17 +211,31 @@ private fun TileStat(label: String, value: String, big: Boolean = false, alert: 
 
 @Composable
 private fun StatsPanel(stats: TripStats, settings: Settings) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-        StatItem(stringResource(R.string.stat_distance), formatDistance(stats.distanceM))
-        StatItem(
-            stringResource(R.string.stat_max),
-            "${formatSpeed(stats.maxSpeedMs, settings.unit, settings.decimals)} ${settings.unit.label}",
-        )
-        StatItem(
-            stringResource(R.string.stat_avg),
-            "${formatSpeed(stats.avgSpeedMs, settings.unit, settings.decimals)} ${settings.unit.label}",
-        )
-        StatItem(stringResource(R.string.stat_time), formatDuration(stats.elapsedMs))
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            StatItem(stringResource(R.string.stat_distance), formatDistance(stats.distanceM))
+            StatItem(
+                stringResource(R.string.stat_max),
+                "${formatSpeed(stats.maxSpeedMs, settings.unit, settings.decimals)} ${settings.unit.label}",
+            )
+            StatItem(
+                stringResource(R.string.stat_avg),
+                "${formatSpeed(stats.avgSpeedMs, settings.unit, settings.decimals)} ${settings.unit.label}",
+            )
+            StatItem(stringResource(R.string.stat_time), formatDuration(stats.elapsedMs))
+        }
+        if (stats.energyWh > 0f) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                StatItem(
+                    stringResource(R.string.stat_energy),
+                    String.format(Locale.getDefault(), "%.0f Wh", stats.energyWh),
+                )
+                StatItem(
+                    stringResource(R.string.stat_efficiency),
+                    stats.whPerKm?.let { String.format(Locale.getDefault(), "%.0f Wh/km", it) } ?: PLACEHOLDER,
+                )
+            }
+        }
     }
 }
 

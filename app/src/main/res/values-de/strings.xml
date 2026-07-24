@@ -47,6 +47,8 @@
     <string name="stat_max">Max</string>
     <string name="stat_avg">Ø</string>
     <string name="stat_time">Zeit</string>
+    <string name="stat_energy">Energie</string>
+    <string name="stat_efficiency">Effizienz</string>
 
     <!-- Navigations-Menü -->
     <string name="menu">Menü</string>
