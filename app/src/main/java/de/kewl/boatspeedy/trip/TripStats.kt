@@ -8,6 +8,8 @@ data class TripStats(
     val elapsedMs: Long = 0L,
     /** Verbrauchte Energie in Wh (aus der Batterie-Leistung integriert), 0 wenn kein Akku verbunden. */
     val energyWh: Float = 0f,
+    /** Verbrauchte Ladung in Ah (aus dem Strom integriert), 0 wenn kein Akku verbunden. */
+    val chargeAh: Float = 0f,
 ) {
     /** True, sobald eine Fahrt gelaufen ist (Werte anzeigen, auch nach Stopp). */
     val hasData: Boolean get() = elapsedMs > 0L || distanceM > 0.0

@@ -52,6 +52,8 @@
     <string name="stat_time">Time</string>
     <string name="stat_energy">Energy</string>
     <string name="stat_efficiency">Efficiency</string>
+    <string name="stat_consumed">Consumed</string>
+    <string name="trip_paused">⏸ Paused (0 A)</string>
 
     <!-- Navigation drawer -->
     <string name="menu">Menu</string>
