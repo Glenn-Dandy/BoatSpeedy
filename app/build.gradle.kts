@@ -38,7 +38,7 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 21                       // manuell, altes kleines Schema (steigt je Release)
+        versionCode = 22                       // manuell, altes kleines Schema (steigt je Release)
         versionName = versionNameFromGit        // aus Git-Tag (Option A)
         resValue("string", "app_name", "BoatSpeedy")
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")

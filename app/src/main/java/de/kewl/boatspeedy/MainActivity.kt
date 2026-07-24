@@ -257,13 +257,12 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onShowBatteryTile = vm::setShowBatteryTile,
                         onShowRangeTile = vm::setShowRangeTile,
                         onShowMapTile = vm::setShowMapTile,
+                        onShowSatDetails = vm::setShowSatDetails,
                         onBack = { screen = Screen.SETTINGS },
                     )
 
                     Screen.SETTINGS_GPS -> GpsSettingsScreen(
                         gps = gps,
-                        settings = settings,
-                        onShowSatDetails = vm::setShowSatDetails,
                         onBack = { screen = Screen.SETTINGS },
                     )
 

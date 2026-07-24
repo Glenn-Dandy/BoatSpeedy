@@ -124,6 +124,7 @@ fun DashboardSettingsScreen(
     onShowBatteryTile: (Boolean) -> Unit,
     onShowRangeTile: (Boolean) -> Unit,
     onShowMapTile: (Boolean) -> Unit,
+    onShowSatDetails: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_dashboard), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -175,6 +176,7 @@ fun DashboardSettingsScreen(
         SwitchRow(stringResource(R.string.tile_battery), settings.showBatteryTile, onShowBatteryTile)
         SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
         SwitchRow(stringResource(R.string.tile_map), settings.showMapTile, onShowMapTile)
+        SwitchRow(stringResource(R.string.show_sat_details), settings.showSatDetails, onShowSatDetails)
     }
 }
 
@@ -183,14 +185,9 @@ fun DashboardSettingsScreen(
 @Composable
 fun GpsSettingsScreen(
     gps: GpsState,
-    settings: Settings,
-    onShowSatDetails: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_gps), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
-        SwitchRow(stringResource(R.string.show_sat_details), settings.showSatDetails, onShowSatDetails)
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-
         Text(
             stringResource(R.string.gps_live_title),
             style = MaterialTheme.typography.titleSmall,
