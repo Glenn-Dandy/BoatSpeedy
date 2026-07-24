@@ -9,11 +9,16 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Prozessweiter Halter des Fahrt-Zustands. Der Vordergrunddienst
- * ([de.kewl.boatspeedy.trip.LocationService]) speist hier die GPS-Updates ein und
- * rechnet die Kennzahlen hoch; die UI liest [stats] und [tracking].
+ * ([de.kewl.boatspeedy.trip.LocationService]) speist GPS-Updates ein; die App speist
+ * über [onBankSample] die Batterie-Werte (Strom/Leistung) ein. Die UI liest [stats],
+ * [tracking] und [paused].
  *
- * Zugriffe erfolgen vom Main-Thread (GNSS-/Location-Callback laufen über den
- * Main-Executor), daher kein zusätzliches Locking.
+ * **Auto-Pause:** Fließt kein nennenswerter Strom (< 0,05 A → Motor aus) und ist eine
+ * Batterie verbunden, ruht die gesamte Fahrt – Zeit, Distanz und Verbrauch werden nicht
+ * weitergezählt. Sobald wieder Strom fließt, läuft alles weiter. Ohne verbundene
+ * Batterie gibt es keine Auto-Pause (Motorzustand unbekannt).
+ *
+ * Zugriffe erfolgen vom Main-Thread (Location- und Battery-Collector laufen dort).
  */
 object TripRepository {
 
@@ -23,53 +28,59 @@ object TripRepository {
     private val _tracking = MutableStateFlow(false)
     val tracking: StateFlow<Boolean> = _tracking.asStateFlow()
 
+    /** True, wenn die Fahrt gerade automatisch pausiert ist (0 A bei verbundener Batterie). */
+    private val _paused = MutableStateFlow(false)
+    val paused: StateFlow<Boolean> = _paused.asStateFlow()
+
     // Live-Geschwindigkeit für Tacho/Notification, auch im Hintergrund.
     private val _gps = MutableStateFlow(GpsState())
     val gps: StateFlow<GpsState> = _gps.asStateFlow()
 
-    // Akkumulator-Zustand der laufenden Fahrt.
-    private var startElapsed = 0L
+    // Akkumulatoren der laufenden Fahrt.
+    private var distanceM = 0.0
+    private var maxSpeedMs = 0f
+    private var energyWh = 0f
+    private var chargeAh = 0f
     private var lastLat: Double? = null
     private var lastLon: Double? = null
 
-    // Energie-Integration (Wh) aus der Batterie-Leistung.
-    private var energyWh = 0f
-    private var lastPowerTs = 0L
+    // Aktivzeit (ohne Pausen) und Integrations-Zeitstempel.
+    private var accumulatedMs = 0L
+    private var segmentStart = 0L
+    private var running = false
+    private var lastSampleTs = 0L
 
     private const val MIN_SPEED_MS = 0.5f      // unter ~1,8 km/h nicht als Fahrt zählen
     private const val MAX_ACCURACY_M = 25f     // schlechte Fixes für Distanz ignorieren
     private const val MAX_STEP_M = 200.0       // Ausreißer (Sprünge) verwerfen
+    private const val MIN_CURRENT_A = 0.05f    // darunter gilt der Motor als aus → Pause
 
     /** Neue Fahrt starten – Kennzahlen zurücksetzen. */
     fun beginTrip() {
-        startElapsed = SystemClock.elapsedRealtime()
+        distanceM = 0.0
+        maxSpeedMs = 0f
+        energyWh = 0f
+        chargeAh = 0f
         lastLat = null
         lastLon = null
-        energyWh = 0f
-        lastPowerTs = 0L
-        _stats.value = TripStats()
+        accumulatedMs = 0L
+        segmentStart = SystemClock.elapsedRealtime()
+        running = true
+        lastSampleTs = 0L
+        _paused.value = false
         _tracking.value = true
-    }
-
-    /**
-     * Momentane Bank-Leistung (W) einspeisen; integriert sie über die Zeit zu Wh.
-     * Wird nur während einer Fahrt gezählt. Rechteck-Integration über das Intervall
-     * seit dem letzten Aufruf (Leistung dazwischen als konstant angenommen).
-     */
-    fun onPower(watts: Float) {
-        if (!_tracking.value) return
-        val now = SystemClock.elapsedRealtime()
-        if (lastPowerTs != 0L) {
-            val dtHours = (now - lastPowerTs) / 3_600_000f
-            energyWh += kotlin.math.abs(watts) * dtHours
-            _stats.value = _stats.value.copy(energyWh = energyWh)
-        }
-        lastPowerTs = now
+        emit()
     }
 
     /** Fahrt beenden – Werte bleiben stehen. */
     fun endTrip() {
+        if (running) {
+            accumulatedMs += SystemClock.elapsedRealtime() - segmentStart
+            running = false
+        }
+        _paused.value = false
         _tracking.value = false
+        emit()
     }
 
     /** Jede GPS-Aktualisierung (aus dem Dienst) einspeisen. */
@@ -77,16 +88,11 @@ object TripRepository {
         _gps.value = gps
         if (!_tracking.value) return
 
-        val elapsed = SystemClock.elapsedRealtime() - startElapsed
-        val current = _stats.value
-
         val speed = gps.speedMs
-        var distance = current.distanceM
-        var maxSpeed = current.maxSpeedMs
+        if (speed != null && speed > maxSpeedMs) maxSpeedMs = speed
 
-        if (speed != null) {
-            if (speed > maxSpeed) maxSpeed = speed
-
+        // Distanz nur zählen, wenn nicht pausiert.
+        if (running && speed != null) {
             val acc = gps.accuracyM ?: Float.MAX_VALUE
             val lat = gps.latitude
             val lon = gps.longitude
@@ -97,20 +103,69 @@ object TripRepository {
                     val out = FloatArray(1)
                     Location.distanceBetween(pLat, pLon, lat, lon, out)
                     val step = out[0].toDouble()
-                    if (step in 0.0..MAX_STEP_M) distance += step
+                    if (step in 0.0..MAX_STEP_M) distanceM += step
                 }
                 lastLat = lat
                 lastLon = lon
             }
         }
+        emit()
+    }
 
-        val avg = if (elapsed > 0) (distance / (elapsed / 1000.0)).toFloat() else 0f
+    /**
+     * Momentane Bank-Werte (Strom A, Leistung W) einspeisen; integriert sie über die Zeit
+     * zu Ah/Wh und steuert die Auto-Pause. Nur während einer Fahrt.
+     */
+    fun onBankSample(amps: Float, watts: Float) {
+        if (!_tracking.value) return
+        val now = SystemClock.elapsedRealtime()
+        val shouldRun = kotlin.math.abs(amps) >= MIN_CURRENT_A
+
+        if (shouldRun && !running) resumeAt(now)
+        else if (!shouldRun && running) pauseAt(now)
+
+        if (running) {
+            if (lastSampleTs != 0L) {
+                val dtHours = (now - lastSampleTs) / 3_600_000f
+                energyWh += kotlin.math.abs(watts) * dtHours
+                chargeAh += kotlin.math.abs(amps) * dtHours
+            }
+            lastSampleTs = now
+        } else {
+            lastSampleTs = 0L
+        }
+        emit()
+    }
+
+    private fun resumeAt(now: Long) {
+        segmentStart = now
+        running = true
+        _paused.value = false
+        // Distanz neu verankern, damit Drift während der Pause nicht zählt.
+        lastLat = null
+        lastLon = null
+    }
+
+    private fun pauseAt(now: Long) {
+        accumulatedMs += now - segmentStart
+        running = false
+        _paused.value = true
+        lastSampleTs = 0L
+    }
+
+    private fun activeElapsed(): Long =
+        accumulatedMs + if (running) SystemClock.elapsedRealtime() - segmentStart else 0L
+
+    private fun emit() {
+        val elapsed = activeElapsed()
+        val avg = if (elapsed > 0) (distanceM / (elapsed / 1000.0)).toFloat() else 0f
         _stats.value = TripStats(
-            distanceM = distance,
-            maxSpeedMs = maxSpeed,
+            distanceM = distanceM,
+            maxSpeedMs = maxSpeedMs,
             avgSpeedMs = avg,
             elapsedMs = elapsed,
             energyWh = energyWh,
+            chargeAh = chargeAh,
         )
     }
 }

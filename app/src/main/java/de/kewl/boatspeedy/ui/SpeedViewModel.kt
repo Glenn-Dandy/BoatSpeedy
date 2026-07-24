@@ -55,6 +55,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     // Fahrt-Zustand aus dem prozessweiten TripRepository (vom Dienst gespeist).
     val tracking: StateFlow<Boolean> = TripRepository.tracking
     val tripStats: StateFlow<TripStats> = TripRepository.stats
+    val tripPaused: StateFlow<Boolean> = TripRepository.paused
 
     // Batterie-Laufzeitzustand (alle offenen BLE-Links + Scan).
     val battery: StateFlow<BatteryHub> = BatteryRepository.state
@@ -82,12 +83,12 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                 RangeSample(selectedBatteryData(s, hub), gps.speedMs, s.rangeSmoothing)
             }.collect { updateRange(it) }
         }
-        // Während einer Fahrt die Bank-Leistung zur Energie (Wh) aufintegrieren.
+        // Während einer Fahrt Strom/Leistung der aktiven Bank einspeisen (Ah/Wh + Auto-Pause).
         viewModelScope.launch {
             combine(settings, battery, tracking) { s, hub, isTracking ->
                 if (isTracking) activeBatteryData(s, hub).takeIf { it.isNotEmpty() }
-                    ?.let { combineBatteries(it, s.bankMode).powerW } else null
-            }.collect { power -> if (power != null) TripRepository.onPower(power) }
+                    ?.let { combineBatteries(it, s.bankMode) } else null
+            }.collect { d -> if (d != null) TripRepository.onBankSample(d.currentA, d.powerW) }
         }
     }
 

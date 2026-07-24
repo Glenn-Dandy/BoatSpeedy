@@ -61,6 +61,7 @@ fun DashboardScreen(
     settings: Settings,
     tracking: Boolean,
     tripStats: TripStats,
+    tripPaused: Boolean,
     batteryData: BatteryData?,
     range: RangeEstimate?,
     batteryOptions: List<BatteryOption>,
@@ -118,6 +119,14 @@ fun DashboardScreen(
                 if (tracking || tripStats.hasData) {
                     StatsPanel(stats = tripStats, settings = settings)
                     Spacer(Modifier.height(12.dp))
+                }
+                if (tracking && tripPaused) {
+                    Text(
+                        stringResource(R.string.trip_paused),
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(8.dp))
                 }
                 TripButton(tracking = tracking, onStart = onStartTrip, onStop = onStopTrip)
                 Spacer(Modifier.height(16.dp))
@@ -224,8 +233,12 @@ private fun StatsPanel(stats: TripStats, settings: Settings) {
             )
             StatItem(stringResource(R.string.stat_time), formatDuration(stats.elapsedMs))
         }
-        if (stats.energyWh > 0f) {
+        if (stats.chargeAh > 0f || stats.energyWh > 0f) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                StatItem(
+                    stringResource(R.string.stat_consumed),
+                    String.format(Locale.getDefault(), "%.1f Ah", stats.chargeAh),
+                )
                 StatItem(
                     stringResource(R.string.stat_energy),
                     String.format(Locale.getDefault(), "%.0f Wh", stats.energyWh),

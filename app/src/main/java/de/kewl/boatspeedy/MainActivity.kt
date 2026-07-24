@@ -149,6 +149,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             val speedText by vm.displaySpeed.collectAsStateWithLifecycle()
             val tracking by vm.tracking.collectAsStateWithLifecycle()
             val tripStats by vm.tripStats.collectAsStateWithLifecycle()
+            val tripPaused by vm.tripPaused.collectAsStateWithLifecycle()
             val battery by vm.battery.collectAsStateWithLifecycle()
             val dashBattery by vm.dashboardBattery.collectAsStateWithLifecycle()
             val dashRange by vm.dashboardRange.collectAsStateWithLifecycle()
@@ -283,6 +284,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                             settings = settings,
                             tracking = tracking,
                             tripStats = tripStats,
+                            tripPaused = tripPaused,
                             batteryData = dashBattery,
                             range = dashRange,
                             batteryOptions = batteryOptions,

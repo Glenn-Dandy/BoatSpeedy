@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.8] – 2026-07-24
+
+### Neu
+- **Verbrauch in Ah** pro Fahrt (aus dem Strom integriert), zusätzlich zu Wh und Wh/km.
+- **Auto-Pause bei 0 A**: Fließt kein Strom (Motor aus) und ist eine Batterie verbunden,
+  ruht die **ganze Fahrt** — Zeit, Distanz und Verbrauch werden nicht weitergezählt.
+  Sobald wieder Strom fließt, läuft alles weiter. Anzeige „⏸ Pausiert (0 A)". Ohne
+  verbundene Batterie gibt es keine Auto-Pause.
+
 ## [0.4.7] – 2026-07-24
 
 ### Geändert
