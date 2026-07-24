@@ -30,7 +30,7 @@ sealed interface UpdateResult {
 
 object UpdateChecker {
 
-    /** Fragt das neueste Release ab und vergleicht mit [currentVersion] (z. B. "0.1.1"). */
+    /** Fragt das neueste Release ab und vergleicht mit [currentVersion] (z. B. "1.0.1"). */
     suspend fun check(currentVersion: String): UpdateResult = withContext(Dispatchers.IO) {
         try {
             val json = fetch(Repo.apiLatest) ?: return@withContext UpdateResult.Failed

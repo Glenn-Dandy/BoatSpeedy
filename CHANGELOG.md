@@ -2,7 +2,23 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
-## [1.0.1] – 2026-07-24
+## [1.0.2] – 2026-07-24
+
+### Neu
+- **Scrollbares Dashboard** — die Geschwindigkeit bleibt oben fix, der Rest scrollt.
+- **Karten-Kachel** auf dem Dashboard (Position + Live-Track als nicht-interaktive
+  Vorschau); Tippen öffnet die **Vollbild-Live-Karte**, die der Position folgt. Ist die
+  Kachel ausgeblendet, erscheint oben rechts ein kleiner Karten-Button. An/aus unter
+  **Einstellungen → Dashboard → Karte**.
+- **Einstellungen → GPS** (neu): Satelliten-Details-Schalter hierher verschoben, plus
+  Live-Werte **Satelliten, Genauigkeit, Kurs + Himmelsrichtung, Signal (C/N0),
+  Konstellationen, Höhe**. (Wir nutzen den Fused-Provider — alle GNSS, nicht nur GPS.)
+- **Ah-Verbrauch** wird auf dem Dashboard ab Fahrtbeginn angezeigt, sobald eine
+  Batterie verbunden ist (vorher erst ab Verbrauch > 0).
+
+### Behoben
+- **Randwischen öffnet das Menü nicht mehr** — kollidierte mit dem horizontalen
+  Schwenken der Karte (Menü öffnet über das Symbol).
 
 ### Build & Versionierung
 - **versionName kommt jetzt aus dem Git-Tag** (Single Source of Truth) — Release = Tag

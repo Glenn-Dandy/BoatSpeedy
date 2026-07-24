@@ -1,6 +1,7 @@
 package de.kewl.boatspeedy.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -42,6 +45,7 @@ import de.kewl.boatspeedy.battery.BatteryData
 import de.kewl.boatspeedy.battery.RangeEstimate
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.location.GpsState
+import de.kewl.boatspeedy.trip.TrackPoint
 import de.kewl.boatspeedy.trip.TripStats
 import de.kewl.boatspeedy.ui.theme.SpeedTextStyle
 import de.kewl.boatspeedy.ui.theme.StatusGood
@@ -66,44 +70,62 @@ fun DashboardScreen(
     range: RangeEstimate?,
     batteryOptions: List<BatteryOption>,
     selectedBattery: String,
+    livePoints: List<TrackPoint>,
     onSelectBattery: (String) -> Unit,
     onStartTrip: () -> Unit,
     onStopTrip: () -> Unit,
     onOpenMenu: () -> Unit,
+    onOpenMap: () -> Unit,
 ) {
     Scaffold { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
 
-            IconButton(
-                onClick = onOpenMenu,
-                modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
-            ) {
-                Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.menu))
+            // --- Fixer Kopf: Menü, optional Karten-Button, Geschwindigkeit ---
+            Box(modifier = Modifier.fillMaxWidth()) {
+                IconButton(
+                    onClick = onOpenMenu,
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+                ) {
+                    Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.menu))
+                }
+                if (!settings.showMapTile) {
+                    IconButton(
+                        onClick = onOpenMap,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                    ) {
+                        Icon(Icons.Filled.Map, contentDescription = stringResource(R.string.live_map))
+                    }
+                }
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Spacer(Modifier.height(56.dp))
+                    Text(
+                        text = speedText,
+                        style = SpeedTextStyle,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = settings.unit.label,
+                        fontSize = 28.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    )
+                }
             }
 
+            // --- Scrollbarer Rest ---
             Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Spacer(Modifier.height(56.dp))
-
-                // Haupt-Kachel: Geschwindigkeit.
-                Text(
-                    text = speedText,
-                    style = SpeedTextStyle,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = settings.unit.label,
-                    fontSize = 28.sp,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                )
-
                 Spacer(Modifier.height(16.dp))
 
-                // Reihenfolge: Reichweite, dann Batterie-Status. Beide immer sichtbar
-                // (Platzhalter ohne Werte), außer in den Einstellungen ausgeblendet.
                 if (settings.showRangeTile) {
                     RangeTile(range)
                     Spacer(Modifier.height(12.dp))
@@ -113,11 +135,13 @@ fun DashboardScreen(
                     BatteryTile(batteryData, settings.lowSocPercent)
                     Spacer(Modifier.height(12.dp))
                 }
-
-                Spacer(Modifier.weight(1f))
+                if (settings.showMapTile) {
+                    MapMiniTile(livePoints, gps.latitude, gps.longitude, onOpenMap)
+                    Spacer(Modifier.height(12.dp))
+                }
 
                 if (tracking || tripStats.hasData) {
-                    StatsPanel(stats = tripStats, settings = settings)
+                    StatsPanel(stats = tripStats, settings = settings, showConsumption = batteryData != null)
                     Spacer(Modifier.height(12.dp))
                 }
                 if (tracking && tripPaused) {
@@ -133,6 +157,24 @@ fun DashboardScreen(
                 StatusRow(gps = gps, showSatDetails = settings.showSatDetails)
                 Spacer(Modifier.height(16.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun MapMiniTile(points: List<TrackPoint>, lat: Double?, lon: Double?, onOpenMap: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+            OsmMap(
+                points = points,
+                currentLat = lat,
+                currentLon = lon,
+                interactive = false,
+                modifier = Modifier.matchParentSize(),
+            )
+            // Nicht-interaktive Vorschau: Overlay fängt den Tap (→ große Karte),
+            // vertikales Ziehen wandert an das Dashboard-Scrollen weiter.
+            Box(modifier = Modifier.matchParentSize().clickable(onClick = onOpenMap))
         }
     }
 }
@@ -219,7 +261,7 @@ private fun TileStat(label: String, value: String, big: Boolean = false, alert: 
 }
 
 @Composable
-private fun StatsPanel(stats: TripStats, settings: Settings) {
+private fun StatsPanel(stats: TripStats, settings: Settings, showConsumption: Boolean) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             StatItem(stringResource(R.string.stat_distance), formatDistance(stats.distanceM))
@@ -233,7 +275,7 @@ private fun StatsPanel(stats: TripStats, settings: Settings) {
             )
             StatItem(stringResource(R.string.stat_time), formatDuration(stats.elapsedMs))
         }
-        if (stats.chargeAh > 0f || stats.energyWh > 0f) {
+        if (showConsumption || stats.chargeAh > 0f || stats.energyWh > 0f) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 StatItem(
                     stringResource(R.string.stat_consumed),

@@ -64,6 +64,7 @@ data class Settings(
     // Dashboard-Kacheln
     val showBatteryTile: Boolean = true,
     val showRangeTile: Boolean = true,
+    val showMapTile: Boolean = true,
     // Batterie
     val batteryBms: BmsType = BmsType.JBD,
     val bankMode: BankMode = BankMode.SINGLE,

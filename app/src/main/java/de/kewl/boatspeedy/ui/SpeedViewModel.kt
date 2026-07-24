@@ -62,6 +62,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     val tracking: StateFlow<Boolean> = TripRepository.tracking
     val tripStats: StateFlow<TripStats> = TripRepository.stats
     val tripPaused: StateFlow<Boolean> = TripRepository.paused
+    val livePoints: StateFlow<List<de.kewl.boatspeedy.trip.TrackPoint>> = TripRepository.livePoints
 
     // Batterie-Laufzeitzustand (alle offenen BLE-Links + Scan).
     val battery: StateFlow<BatteryHub> = BatteryRepository.state
@@ -176,6 +177,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowSatDetails(v: Boolean) = viewModelScope.launch { settingsRepo.setShowSatDetails(v) }
     fun setShowBatteryTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowBatteryTile(v) }
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }
+    fun setShowMapTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowMapTile(v) }
     fun setBms(v: BmsType) = viewModelScope.launch { settingsRepo.setBatteryBms(v) }
     fun setBankMode(v: BankMode) = viewModelScope.launch { settingsRepo.setBankMode(v) }
     fun setDashboardBattery(v: String) = viewModelScope.launch { settingsRepo.setDashboardBattery(v) }

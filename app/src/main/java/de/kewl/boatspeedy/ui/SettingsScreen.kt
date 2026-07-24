@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,7 +46,9 @@ import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.SpeedUnit
 import de.kewl.boatspeedy.data.ThemeMode
+import de.kewl.boatspeedy.location.GpsState
 import de.kewl.boatspeedy.util.AppLanguage
+import kotlin.math.roundToInt
 
 /* ----------------------------- Übersicht ----------------------------- */
 
@@ -53,6 +56,7 @@ import de.kewl.boatspeedy.util.AppLanguage
 @Composable
 fun SettingsHomeScreen(
     onDashboard: () -> Unit,
+    onGps: () -> Unit,
     onAppearance: () -> Unit,
     onLanguage: () -> Unit,
     onOpenMenu: () -> Unit,
@@ -67,6 +71,13 @@ fun SettingsHomeScreen(
             stringResource(R.string.group_dashboard),
             stringResource(R.string.cat_dashboard_desc),
             onDashboard,
+        )
+        HorizontalDivider()
+        CategoryRow(
+            Icons.Filled.GpsFixed,
+            stringResource(R.string.group_gps),
+            stringResource(R.string.cat_gps_desc),
+            onGps,
         )
         HorizontalDivider()
         CategoryRow(
@@ -112,7 +123,7 @@ fun DashboardSettingsScreen(
     onLowSocPercent: (Int) -> Unit,
     onShowBatteryTile: (Boolean) -> Unit,
     onShowRangeTile: (Boolean) -> Unit,
-    onShowSatDetails: (Boolean) -> Unit,
+    onShowMapTile: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_dashboard), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -163,7 +174,76 @@ fun DashboardSettingsScreen(
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SwitchRow(stringResource(R.string.tile_battery), settings.showBatteryTile, onShowBatteryTile)
         SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
+        SwitchRow(stringResource(R.string.tile_map), settings.showMapTile, onShowMapTile)
+    }
+}
+
+/* -------------------------------- GPS -------------------------------- */
+
+@Composable
+fun GpsSettingsScreen(
+    gps: GpsState,
+    settings: Settings,
+    onShowSatDetails: (Boolean) -> Unit,
+    onBack: () -> Unit,
+) {
+    SettingsScaffold(stringResource(R.string.group_gps), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
         SwitchRow(stringResource(R.string.show_sat_details), settings.showSatDetails, onShowSatDetails)
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+        Text(
+            stringResource(R.string.gps_live_title),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+        )
+        InfoValueRow(
+            stringResource(R.string.gps_satellites),
+            if (gps.satellitesVisible > 0) "${gps.satellitesUsed}/${gps.satellitesVisible}" else "--",
+        )
+        InfoValueRow(
+            stringResource(R.string.accuracy_label_short),
+            gps.accuracyM?.let { "±${it.roundToInt()} m" } ?: "--",
+        )
+        InfoValueRow(
+            stringResource(R.string.gps_course),
+            gps.bearingDeg?.let { "${it.roundToInt()}° ${compass(it)}" } ?: "--",
+        )
+        InfoValueRow(
+            stringResource(R.string.gps_signal),
+            gps.cn0DbHz?.let { "${it.roundToInt()} dB-Hz" } ?: "--",
+        )
+        InfoValueRow(
+            stringResource(R.string.gps_constellations),
+            gps.constellations.takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: "--",
+        )
+        InfoValueRow(
+            stringResource(R.string.gps_altitude),
+            gps.altitudeM?.let { "${it.roundToInt()} m" } ?: "--",
+        )
+        Text(
+            stringResource(R.string.gps_provider_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(top = 12.dp),
+        )
+    }
+}
+
+@Composable
+private fun compass(bearing: Float): String {
+    val points = stringResource(R.string.compass_points).split(",")
+    val idx = (((bearing % 360f) + 360f) % 360f / 45f).roundToInt() % points.size
+    return points.getOrElse(idx) { "" }
+}
+
+@Composable
+private fun InfoValueRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+        Text(value, style = MaterialTheme.typography.titleMedium)
     }
 }
 

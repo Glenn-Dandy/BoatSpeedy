@@ -40,6 +40,10 @@ object TripRepository {
     private val _gps = MutableStateFlow(GpsState())
     val gps: StateFlow<GpsState> = _gps.asStateFlow()
 
+    /** Live aufgezeichneter Track der laufenden/letzten Fahrt (für Mini-/Live-Karte). */
+    private val _livePoints = MutableStateFlow<List<TrackPoint>>(emptyList())
+    val livePoints: StateFlow<List<TrackPoint>> = _livePoints.asStateFlow()
+
     // Akkumulatoren der laufenden Fahrt.
     private var distanceM = 0.0
     private var maxSpeedMs = 0f
@@ -76,6 +80,7 @@ object TripRepository {
         lastLat = null
         lastLon = null
         points.clear()
+        _livePoints.value = emptyList()
         tripStartEpoch = System.currentTimeMillis()
         tripStartRealtime = SystemClock.elapsedRealtime()
         accumulatedMs = 0L
@@ -145,6 +150,7 @@ object TripRepository {
                 lastLon = lon
                 if (points.size < MAX_POINTS) {
                     points.add(TrackPoint(lat, lon, SystemClock.elapsedRealtime() - tripStartRealtime))
+                    _livePoints.value = points.toList()
                 }
             }
         }
