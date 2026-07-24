@@ -61,6 +61,7 @@
     <string name="trip_points">Track-Punkte</string>
     <string name="export">Exportieren</string>
     <string name="no_track">Für die Auswahl ist kein Track vorhanden.</string>
+    <string name="show_on_map">In Karte anzeigen</string>
 
     <!-- Einstellungs-Kategorien -->
     <string name="group_speed">Geschwindigkeit</string>

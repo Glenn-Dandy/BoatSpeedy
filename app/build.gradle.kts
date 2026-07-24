@@ -23,8 +23,8 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.4.10"
+        versionCode = 19
+        versionName = "0.4.11"
     }
 
     signingConfigs {
@@ -88,4 +88,5 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.play.services.location)
+    implementation(libs.osmdroid.android)
 }

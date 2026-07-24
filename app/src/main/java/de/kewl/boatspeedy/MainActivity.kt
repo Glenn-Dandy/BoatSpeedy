@@ -67,12 +67,13 @@ import de.kewl.boatspeedy.ui.SettingsHomeScreen
 import de.kewl.boatspeedy.trip.SavedTrip
 import de.kewl.boatspeedy.ui.SpeedViewModel
 import de.kewl.boatspeedy.ui.TripDetailScreen
+import de.kewl.boatspeedy.ui.TripMapScreen
 import de.kewl.boatspeedy.ui.TripsScreen
 import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, TRIPS, TRIP_DETAIL, BATTERY, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_APPEARANCE, SETTINGS_LANGUAGE, ABOUT }
+private enum class Screen { SPEED, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_APPEARANCE, SETTINGS_LANGUAGE, ABOUT }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -207,6 +208,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                 screen = when (screen) {
                     Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_APPEARANCE, Screen.SETTINGS_LANGUAGE -> Screen.SETTINGS
                     Screen.TRIP_DETAIL -> Screen.TRIPS
+                    Screen.TRIP_MAP -> Screen.TRIP_DETAIL
                     else -> Screen.SPEED
                 }
             }
@@ -222,7 +224,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         )
                         HorizontalDivider()
                         DrawerItem(R.string.nav_speed, Icons.Filled.Speed, screen == Screen.SPEED) { goTo(Screen.SPEED) }
-                        DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen == Screen.TRIPS || screen == Screen.TRIP_DETAIL) { goTo(Screen.TRIPS) }
+                        DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen.name.startsWith("TRIP")) { goTo(Screen.TRIPS) }
                         DrawerItem(R.string.nav_battery, Icons.Filled.BatteryFull, screen == Screen.BATTERY) { goTo(Screen.BATTERY) }
                         DrawerItem(R.string.settings, Icons.Filled.Settings, screen.name.startsWith("SETTINGS")) { goTo(Screen.SETTINGS) }
                         DrawerItem(R.string.about, Icons.Filled.Info, screen == Screen.ABOUT) { goTo(Screen.ABOUT) }
@@ -275,7 +277,21 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         if (trip == null) {
                             screen = Screen.TRIPS
                         } else {
-                            TripDetailScreen(trip = trip, settings = settings, onBack = { screen = Screen.TRIPS })
+                            TripDetailScreen(
+                                trip = trip,
+                                settings = settings,
+                                onShowMap = { screen = Screen.TRIP_MAP },
+                                onBack = { screen = Screen.TRIPS },
+                            )
+                        }
+                    }
+
+                    Screen.TRIP_MAP -> {
+                        val trip = selectedTrip
+                        if (trip == null) {
+                            screen = Screen.TRIPS
+                        } else {
+                            TripMapScreen(trip = trip, onBack = { screen = Screen.TRIP_DETAIL })
                         }
                     }
 

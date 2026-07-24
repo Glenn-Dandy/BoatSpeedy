@@ -11,8 +11,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Nur für die Update-Prüfung (GitHub Releases API). -->
+    <!-- Für die Update-Prüfung (GitHub Releases API) und Karten-Kacheln (osmdroid). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Bluetooth LE für die Batterie-Anbindung (JBD-BMS). Ab Android 12
          reichen SCAN/CONNECT; neverForLocation, da keine Standortableitung. -->

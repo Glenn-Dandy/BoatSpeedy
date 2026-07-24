@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.11] – 2026-07-24
+
+### Neu
+- **Track auf Karte anzeigen**: In der Fahrt-Detailansicht öffnet **„In Karte anzeigen"**
+  eine OpenStreetMap-Karte (osmdroid) mit der gefahrenen Strecke als Linie. Braucht
+  Internet (Kartenkacheln werden geladen).
+
 ## [0.4.10] – 2026-07-24
 
 ### Neu
