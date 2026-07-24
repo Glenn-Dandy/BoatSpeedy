@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.4] – 2026-07-24
+
+### Neu
+- **Auto-Reconnect**: Aktive gespeicherte Akkus werden beim App-Start automatisch
+  verbunden (sofern die Bluetooth-Berechtigung bereits erteilt ist). Bricht ein Link
+  unterwegs ab, verbindet die App selbstständig neu (alle ~5 s).
+
 ## [0.4.3] – 2026-07-24
 
 ### Geändert

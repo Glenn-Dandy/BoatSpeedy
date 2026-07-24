@@ -179,6 +179,17 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Alle aktiven gespeicherten Akkus verbinden (App-Start), die noch keinen Link haben. */
+    fun autoConnectActive() {
+        val app = getApplication<Application>()
+        val bms = settings.value.batteryBms
+        settings.value.batteries.filter { it.active }.forEach { b ->
+            if (battery.value.links[b.address] == null) {
+                BatteryRepository.connect(app, b.address, b.name, bms)
+            }
+        }
+    }
+
     fun connectBattery(address: String) {
         val name = settings.value.batteries.firstOrNull { it.address == address }?.name
             ?: battery.value.scanResults.firstOrNull { it.address == address }?.name
