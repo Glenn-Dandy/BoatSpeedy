@@ -239,7 +239,7 @@ private fun BatteryDetailCard(d: BatteryData?) {
                 )
                 return@Column
             }
-            ValueRow(stringResource(R.string.bat_power), fmt0(d.powerW, "W"))
+            ValueRow(stringResource(R.string.bat_power), fmt0(kotlin.math.abs(d.powerW), "W"))
             ValueRow(stringResource(R.string.bat_voltage), fmt(d.voltage, "V"))
             ValueRow(stringResource(R.string.bat_current), fmt(d.currentA, "A"))
             ValueRow(stringResource(R.string.bat_soc), "${d.soc} %")

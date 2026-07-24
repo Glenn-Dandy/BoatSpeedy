@@ -151,7 +151,7 @@ private fun BatteryTile(d: BatteryData?) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.battery), style = MaterialTheme.typography.titleSmall)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                TileStat(stringResource(R.string.bat_power), d?.let { watts(it.powerW) } ?: PLACEHOLDER)
+                TileStat(stringResource(R.string.bat_power), d?.let { watts(kotlin.math.abs(it.powerW)) } ?: PLACEHOLDER)
                 TileStat(stringResource(R.string.bat_voltage), d?.let { num(it.voltage, "V") } ?: PLACEHOLDER)
                 TileStat(stringResource(R.string.bat_current), d?.let { num(it.currentA, "A") } ?: PLACEHOLDER)
             }
