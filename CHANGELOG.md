@@ -2,6 +2,25 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.0.1] – 2026-07-24
+
+### Build & Versionierung
+- **versionName kommt jetzt aus dem Git-Tag** (Single Source of Truth) — Release = Tag
+  setzen, keine Hand-Bumps mehr; Dev-Builds heißen automatisch `1.0.1-3-gabc123`.
+  `versionCode` bleibt der manuelle kleine Integer (jetzt 20).
+- **Commit-SHA im „Über"-Screen** (`BuildConfig.GIT_SHA`).
+- **DEV-Build** ist ein eigenes Paket mit Label **„BoatSpeedy DEV"**, signiert mit dem
+  Release-Keystore (Dev-über-Dev-Updates ohne Deinstallieren).
+- **CI**: jeder Feature-Branch-Push baut einen DEV-Build und aktualisiert **ein**
+  rollendes `dev`-Pre-Release (immer nur der aktuelle Dev-Build); Release weiterhin per
+  `v*`-Tag.
+
+### Behoben / Geändert
+- **Karten-Kacheln laden im Release** (osmdroid Keep-Regeln für R8; vorher nur
+  Karo-Muster).
+- Label **„Glättung" → „Geschwindigkeit-Glättung"** (klarere Abgrenzung zur
+  Reichweiten-Glättung).
+
 ## [0.4.11] – 2026-07-24
 
 ### Neu
