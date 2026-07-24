@@ -58,7 +58,10 @@
     <!-- Navigation drawer -->
     <string name="menu">Menu</string>
     <string name="nav_speed">Dashboard</string>
+    <string name="nav_trips">Trips</string>
     <string name="nav_battery">Battery</string>
+    <string name="trips_empty">No trips yet. Start a trip on the dashboard to record one.</string>
+    <string name="trip_points">Track points</string>
 
     <!-- Settings categories -->
     <string name="group_speed">Speed</string>

@@ -32,6 +32,10 @@ object TripRepository {
     private val _paused = MutableStateFlow(false)
     val paused: StateFlow<Boolean> = _paused.asStateFlow()
 
+    /** Zuletzt beendete Fahrt zum Speichern (vom ViewModel abgeholt & mit [consumeFinished] geleert). */
+    private val _justFinished = MutableStateFlow<SavedTrip?>(null)
+    val justFinished: StateFlow<SavedTrip?> = _justFinished.asStateFlow()
+
     // Live-Geschwindigkeit für Tacho/Notification, auch im Hintergrund.
     private val _gps = MutableStateFlow(GpsState())
     val gps: StateFlow<GpsState> = _gps.asStateFlow()
@@ -44,6 +48,11 @@ object TripRepository {
     private var lastLat: Double? = null
     private var lastLon: Double? = null
 
+    // Track-Aufzeichnung.
+    private val points = ArrayList<TrackPoint>()
+    private var tripStartEpoch = 0L
+    private var tripStartRealtime = 0L
+
     // Aktivzeit (ohne Pausen) und Integrations-Zeitstempel.
     private var accumulatedMs = 0L
     private var segmentStart = 0L
@@ -54,6 +63,9 @@ object TripRepository {
     private const val MAX_ACCURACY_M = 25f     // schlechte Fixes für Distanz ignorieren
     private const val MAX_STEP_M = 200.0       // Ausreißer (Sprünge) verwerfen
     private const val MIN_CURRENT_A = 0.05f    // darunter gilt der Motor als aus → Pause
+    private const val MAX_POINTS = 10_000      // Obergrenze der Track-Punkte
+    private const val MIN_SAVE_DISTANCE_M = 10.0
+    private const val MIN_SAVE_DURATION_MS = 10_000L
 
     /** Neue Fahrt starten – Kennzahlen zurücksetzen. */
     fun beginTrip() {
@@ -63,8 +75,11 @@ object TripRepository {
         chargeAh = 0f
         lastLat = null
         lastLon = null
+        points.clear()
+        tripStartEpoch = System.currentTimeMillis()
+        tripStartRealtime = SystemClock.elapsedRealtime()
         accumulatedMs = 0L
-        segmentStart = SystemClock.elapsedRealtime()
+        segmentStart = tripStartRealtime
         running = true
         lastSampleTs = 0L
         _paused.value = false
@@ -72,7 +87,7 @@ object TripRepository {
         emit()
     }
 
-    /** Fahrt beenden – Werte bleiben stehen. */
+    /** Fahrt beenden – Werte bleiben stehen; sinnvolle Fahrten werden zum Speichern bereitgestellt. */
     fun endTrip() {
         if (running) {
             accumulatedMs += SystemClock.elapsedRealtime() - segmentStart
@@ -81,6 +96,27 @@ object TripRepository {
         _paused.value = false
         _tracking.value = false
         emit()
+
+        val duration = accumulatedMs
+        if (distanceM >= MIN_SAVE_DISTANCE_M || duration >= MIN_SAVE_DURATION_MS) {
+            val avg = if (duration > 0) (distanceM / (duration / 1000.0)).toFloat() else 0f
+            _justFinished.value = SavedTrip(
+                id = tripStartEpoch,
+                startedAt = tripStartEpoch,
+                distanceM = distanceM,
+                durationMs = duration,
+                avgSpeedMs = avg,
+                maxSpeedMs = maxSpeedMs,
+                energyWh = energyWh,
+                chargeAh = chargeAh,
+                points = points.toList(),
+            )
+        }
+    }
+
+    /** Bestätigt, dass die zuletzt beendete Fahrt gespeichert wurde. */
+    fun consumeFinished() {
+        _justFinished.value = null
     }
 
     /** Jede GPS-Aktualisierung (aus dem Dienst) einspeisen. */
@@ -107,6 +143,9 @@ object TripRepository {
                 }
                 lastLat = lat
                 lastLon = lon
+                if (points.size < MAX_POINTS) {
+                    points.add(TrackPoint(lat, lon, SystemClock.elapsedRealtime() - tripStartRealtime))
+                }
             }
         }
         emit()
