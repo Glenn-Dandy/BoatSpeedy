@@ -14,12 +14,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +34,10 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -38,14 +45,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.kewl.boatspeedy.R
+import de.kewl.boatspeedy.battery.BatteryData
 import de.kewl.boatspeedy.battery.BatteryHub
 import de.kewl.boatspeedy.battery.BatteryLive
 import de.kewl.boatspeedy.battery.BmsType
 import de.kewl.boatspeedy.battery.LinkState
 import de.kewl.boatspeedy.battery.ScanDevice
-import de.kewl.boatspeedy.battery.activeBatteryData
-import de.kewl.boatspeedy.battery.combineBatteries
-import de.kewl.boatspeedy.battery.estimateRange
 import de.kewl.boatspeedy.data.BankMode
 import de.kewl.boatspeedy.data.SavedBattery
 import de.kewl.boatspeedy.data.Settings
@@ -56,7 +61,6 @@ import java.util.Locale
 fun BatteryScreen(
     settings: Settings,
     hub: BatteryHub,
-    currentSpeedMs: Float?,
     onScan: () -> Unit,
     onStopScan: () -> Unit,
     onAdd: (ScanDevice) -> Unit,
@@ -80,6 +84,9 @@ fun BatteryScreen(
             )
         },
     ) { innerPadding ->
+        // Welche Batterie ist gerade aufgeklappt (Detailkarte sichtbar)?
+        var expanded by remember { mutableStateOf<String?>(null) }
+
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -106,20 +113,25 @@ fun BatteryScreen(
                         BatteryRow(
                             saved = saved,
                             live = hub.links[saved.address],
+                            expanded = expanded == saved.address,
+                            onClick = { expanded = if (expanded == saved.address) null else saved.address },
                             onToggleActive = { onToggleActive(saved.address, it) },
                             onConnect = { onConnect(saved.address) },
                             onDisconnect = { onDisconnect(saved.address) },
-                            onRemove = { onRemove(saved.address) },
+                            onRemove = {
+                                if (expanded == saved.address) expanded = null
+                                onRemove(saved.address)
+                            },
                         )
+                        if (expanded == saved.address) {
+                            BatteryDetailCard(hub.links[saved.address]?.data)
+                        }
                     }
                 }
             }
 
             // --- Hinzufügen / Scannen ---
             AddSection(hub, alreadySaved = settings.batteries.map { it.address }.toSet(), onScan, onStopScan, onAdd)
-
-            // --- Kombinierte Reichweite ---
-            RangeCard(settings, hub, currentSpeedMs)
         }
     }
 }
@@ -170,13 +182,15 @@ private fun BankModeSelector(selected: BankMode, onBankMode: (BankMode) -> Unit)
 private fun BatteryRow(
     saved: SavedBattery,
     live: BatteryLive?,
+    expanded: Boolean,
+    onClick: () -> Unit,
     onToggleActive: (Boolean) -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val link = live?.link ?: LinkState.DISCONNECTED
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -199,8 +213,49 @@ private fun BatteryRow(
                 LinkState.DISCONNECTED ->
                     Button(onClick = onConnect) { Text(stringResource(R.string.connect)) }
             }
+            Icon(
+                if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.padding(start = 4.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
             IconButton(onClick = onRemove) {
                 Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.remove))
+            }
+        }
+    }
+}
+
+/** Ausführlicher Batterie-Status (aufgeklappt): alle Werte plus Zellspannungen. */
+@Composable
+private fun BatteryDetailCard(d: BatteryData?) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (d == null) {
+                Text(
+                    stringResource(R.string.bat_detail_hint),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                return@Column
+            }
+            ValueRow(stringResource(R.string.bat_power), fmt0(d.powerW, "W"))
+            ValueRow(stringResource(R.string.bat_voltage), fmt(d.voltage, "V"))
+            ValueRow(stringResource(R.string.bat_current), fmt(d.currentA, "A"))
+            ValueRow(stringResource(R.string.bat_soc), "${d.soc} %")
+            if (d.remainingAh > 0f || d.nominalAh > 0f) {
+                ValueRow(stringResource(R.string.bat_remaining), fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah"))
+            }
+            d.tempC?.let { ValueRow(stringResource(R.string.bat_temp), fmt(it, "°C")) }
+            if (d.cells.isNotEmpty()) {
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                Text(stringResource(R.string.bat_cells), style = MaterialTheme.typography.titleSmall)
+                d.cells.forEachIndexed { i, v ->
+                    ValueRow(
+                        stringResource(R.string.bat_cell_n, i + 1),
+                        String.format(Locale.getDefault(), "%.3f V", v),
+                    )
+                }
             }
         }
     }
@@ -264,34 +319,10 @@ private fun AddSection(
 }
 
 @Composable
-private fun RangeCard(settings: Settings, hub: BatteryHub, currentSpeedMs: Float?) {
-    val active = activeBatteryData(settings, hub)
-    val combined = if (active.isEmpty()) null else combineBatteries(active, settings.bankMode)
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.bat_range_title), style = MaterialTheme.typography.titleMedium)
-            val est = estimateRange(combined, currentSpeedMs)
-            if (est != null) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    Stat(stringResource(R.string.bat_est_range), formatDistance(est.km * 1000.0))
-                    Stat(stringResource(R.string.bat_est_time), formatDuration((est.hours * 3600_000).toLong()))
-                }
-            } else {
-                Text(
-                    stringResource(R.string.bat_range_hint),
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun Stat(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+private fun ValueRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+        Text(value, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -312,3 +343,6 @@ private fun bankModeLabel(mode: BankMode): String = stringResource(
         BankMode.SERIES -> R.string.mode_series
     },
 )
+
+private fun fmt(v: Float, unit: String) = String.format(Locale.getDefault(), "%.2f %s", v, unit)
+private fun fmt0(v: Float, unit: String) = String.format(Locale.getDefault(), "%.0f %s", v, unit)

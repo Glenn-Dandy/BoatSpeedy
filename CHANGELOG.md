@@ -2,6 +2,20 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.2] – 2026-07-24
+
+### Neu
+- **Leistung (W)** auf der Batterie-Kachel — berechnet aus Spannung × Strom (das BMS
+  liefert keine Leistung). Kachel-Layout jetzt: Zeile 1 **Leistung · Spannung · Strom**,
+  Zeile 2 **SoC · Rest · Temp**.
+- **Ausführlicher Batterie-Status im Batterie-Menü**: Tippt man eine hinzugefügte
+  Batterie an, klappt eine Detailkarte auf — alle Werte plus **Zellen &
+  Zellspannungen**.
+
+### Geändert
+- Batterie-Menü: die Karte „Reichweite bei aktueller Geschwindigkeit" **entfernt**
+  (Reichweite/Restzeit stehen weiterhin als Kachel auf dem Dashboard).
+
 ## [0.4.1] – 2026-07-24
 
 ### Neu

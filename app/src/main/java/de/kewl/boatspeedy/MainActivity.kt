@@ -242,7 +242,6 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                     Screen.BATTERY -> BatteryScreen(
                         settings = settings,
                         hub = battery,
-                        currentSpeedMs = gps.speedMs,
                         onScan = { withBt { vm.scanBattery() } },
                         onStopScan = vm::stopScan,
                         onAdd = { device -> withBt { vm.addBattery(device) } },

@@ -76,8 +76,11 @@
     <string name="bat_connecting">Verbinde …</string>
     <string name="bat_connected">Verbunden</string>
     <string name="bat_disconnected">Getrennt</string>
+    <string name="bat_power">Leistung</string>
     <string name="bat_voltage">Spannung</string>
     <string name="bat_current">Strom</string>
+    <string name="bat_cell_n">Zelle %1$d</string>
+    <string name="bat_detail_hint">Diese Batterie verbinden, um Live-Details zu sehen.</string>
     <string name="bat_soc">Ladung</string>
     <string name="bat_remaining">Rest</string>
     <string name="bat_temp">Temperatur</string>

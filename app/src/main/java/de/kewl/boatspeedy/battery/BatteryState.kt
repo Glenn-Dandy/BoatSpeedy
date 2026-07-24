@@ -18,6 +18,10 @@ data class BatteryData(
 ) {
     /** Entladestrom in A (Betrag), 0 wenn geladen wird / kein Verbrauch. */
     val dischargeA: Float get() = if (currentA < 0) -currentA else 0f
+
+    /** Momentanleistung in W (P = U·I); vorzeichenbehaftet wie der Strom (negativ = Entladen).
+     *  Das BMS liefert keine Leistung – sie wird aus Spannung × Strom berechnet. */
+    val powerW: Float get() = voltage * currentA
 }
 
 /** Ein beim Scan gefundenes BLE-Gerät. */
