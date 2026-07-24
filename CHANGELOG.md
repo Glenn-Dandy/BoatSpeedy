@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.0.3] – 2026-07-24
+
+### Geändert
+- **Satelliten-Details an/aus** wieder unter **Einstellungen → Dashboard** (das
+  GPS-Menü behält die Live-Werte).
+- Englisches Label gekürzt: „Range &amp; time tile" → „Range &amp; time".
+
 ## [1.0.2] – 2026-07-24
 
 ### Neu

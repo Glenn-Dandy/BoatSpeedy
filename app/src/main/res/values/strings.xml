@@ -80,7 +80,7 @@
     <string name="language_english">English</string>
     <string name="language_german">Deutsch</string>
     <string name="tile_battery">Battery</string>
-    <string name="tile_range">Range &amp; time tile</string>
+    <string name="tile_range">Range &amp; time</string>
     <string name="tile_map">Map</string>
     <string name="cat_gps_desc">Satellites, accuracy, course, signal</string>
     <string name="live_map">Live map</string>
