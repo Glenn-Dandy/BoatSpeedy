@@ -1,6 +1,7 @@
 package de.kewl.boatspeedy.ui
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import de.kewl.boatspeedy.battery.BatteryData
@@ -9,9 +10,11 @@ import de.kewl.boatspeedy.battery.BatteryRepository
 import de.kewl.boatspeedy.battery.BmsType
 import de.kewl.boatspeedy.battery.RangeEstimate
 import de.kewl.boatspeedy.battery.ScanDevice
+import de.kewl.boatspeedy.battery.TimedAverage
 import de.kewl.boatspeedy.battery.estimateRange
 import de.kewl.boatspeedy.battery.selectedBatteryData
 import de.kewl.boatspeedy.data.BankMode
+import de.kewl.boatspeedy.data.RangeSmoothing
 import de.kewl.boatspeedy.data.COMBINED_SELECTION
 import de.kewl.boatspeedy.data.SavedBattery
 import de.kewl.boatspeedy.data.Settings
@@ -59,11 +62,43 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         combine(settings, battery) { s, hub -> selectedBatteryData(s, hub) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    /** Reichweite/Restzeit aus den ausgewählten Batterie-Werten + aktueller Geschwindigkeit. */
-    val dashboardRange: StateFlow<RangeEstimate?> =
-        combine(settings, battery, _gps) { s, hub, gps ->
-            estimateRange(selectedBatteryData(s, hub), gps.speedMs)
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    /**
+     * Reichweite/Restzeit aus den ausgewählten Batterie-Werten + Geschwindigkeit.
+     * Entladestrom und Geschwindigkeit werden über ein Zeitfenster gemittelt
+     * ([Settings.rangeSmoothing]), damit die Anzeige nicht mit dem Momentanstrom zappelt.
+     */
+    private val currentAvg = TimedAverage()
+    private val speedAvg = TimedAverage()
+    private val _dashboardRange = MutableStateFlow<RangeEstimate?>(null)
+    val dashboardRange: StateFlow<RangeEstimate?> = _dashboardRange.asStateFlow()
+
+    private data class RangeSample(val data: BatteryData?, val speedMs: Float?, val mode: RangeSmoothing)
+
+    init {
+        viewModelScope.launch {
+            combine(settings, battery, _gps) { s, hub, gps ->
+                RangeSample(selectedBatteryData(s, hub), gps.speedMs, s.rangeSmoothing)
+            }.collect { updateRange(it) }
+        }
+    }
+
+    private fun updateRange(sample: RangeSample) {
+        val (data, speed, mode) = sample
+        if (mode == RangeSmoothing.OFF || data == null) {
+            _dashboardRange.value = estimateRange(data, speed)
+            return
+        }
+        val now = SystemClock.elapsedRealtime()
+        if (data.dischargeA > 0.1f) currentAvg.add(data.dischargeA, now)
+        if (speed != null && speed > 0.1f) speedAvg.add(speed, now)
+        val avgCurrent = currentAvg.average(mode.windowMs, now)
+        val avgSpeed = speedAvg.average(mode.windowMs, now) ?: speed
+        _dashboardRange.value = if (avgCurrent == null) {
+            estimateRange(data, speed)
+        } else {
+            estimateRange(data.remainingAh, data.nominalAh, data.soc, avgCurrent, avgSpeed)
+        }
+    }
 
     // Gleitender Mittelwert der rohen Geschwindigkeit (m/s).
     private val speedWindow = ArrayDeque<Float>()
@@ -102,6 +137,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setTheme(v: ThemeMode) = viewModelScope.launch { settingsRepo.setTheme(v) }
     fun setKeepScreenOn(v: Boolean) = viewModelScope.launch { settingsRepo.setKeepScreenOn(v) }
     fun setSmoothing(v: Smoothing) = viewModelScope.launch { settingsRepo.setSmoothing(v) }
+    fun setRangeSmoothing(v: RangeSmoothing) = viewModelScope.launch { settingsRepo.setRangeSmoothing(v) }
     fun setShowSatDetails(v: Boolean) = viewModelScope.launch { settingsRepo.setShowSatDetails(v) }
     fun setShowBatteryTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowBatteryTile(v) }
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }

@@ -21,6 +21,17 @@ enum class Smoothing(val window: Int) {
 }
 
 /**
+ * Zeitfenster für die Glättung der Reichweiten-/Restzeit-Anzeige (Mittelwert des
+ * Entladestroms und der Geschwindigkeit), damit die Werte nicht mitzappeln.
+ */
+enum class RangeSmoothing(val windowMs: Long) {
+    OFF(0L),
+    S15(15_000L),
+    S30(30_000L),
+    S60(60_000L),
+}
+
+/**
  * Wie mehrere aktive Batterien elektrisch zusammengerechnet werden.
  *  - [SINGLE]   physisch getrennte Akkus, nacheinander genutzt → Kapazität summiert sich
  *  - [PARALLEL] parallel verschaltet → mehr Ah (Kapazität summiert, Spannung gleich)
@@ -45,6 +56,7 @@ data class Settings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val keepScreenOn: Boolean = true,
     val smoothing: Smoothing = Smoothing.LIGHT,
+    val rangeSmoothing: RangeSmoothing = RangeSmoothing.S30,
     val showSatDetails: Boolean = true,
     // Dashboard-Kacheln
     val showBatteryTile: Boolean = true,

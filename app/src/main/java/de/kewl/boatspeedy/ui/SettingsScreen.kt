@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import de.kewl.boatspeedy.R
+import de.kewl.boatspeedy.data.RangeSmoothing
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.SpeedUnit
@@ -102,6 +103,7 @@ fun DashboardSettingsScreen(
     onUnit: (SpeedUnit) -> Unit,
     onDecimals: (Int) -> Unit,
     onSmoothing: (Smoothing) -> Unit,
+    onRangeSmoothing: (RangeSmoothing) -> Unit,
     onShowBatteryTile: (Boolean) -> Unit,
     onShowRangeTile: (Boolean) -> Unit,
     onShowSatDetails: (Boolean) -> Unit,
@@ -140,6 +142,16 @@ fun DashboardSettingsScreen(
                 }
             },
             onSelect = onSmoothing,
+        )
+        SegmentedRow(
+            label = stringResource(R.string.range_smoothing),
+            options = RangeSmoothing.entries,
+            selected = settings.rangeSmoothing,
+            labelOf = {
+                if (it == RangeSmoothing.OFF) stringResource(R.string.smoothing_off)
+                else "${it.windowMs / 1000} s"
+            },
+            onSelect = onRangeSmoothing,
         )
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SwitchRow(stringResource(R.string.tile_battery), settings.showBatteryTile, onShowBatteryTile)

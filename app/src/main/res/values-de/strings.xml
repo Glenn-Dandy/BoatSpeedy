@@ -22,6 +22,7 @@
     <string name="smoothing_off">Aus</string>
     <string name="smoothing_light">Leicht</string>
     <string name="smoothing_strong">Stark</string>
+    <string name="range_smoothing">Reichweiten-Glättung</string>
 
     <string name="show_sat_details">Satelliten-Details anzeigen</string>
 

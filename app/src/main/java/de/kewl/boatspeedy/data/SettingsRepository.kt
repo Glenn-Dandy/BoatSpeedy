@@ -25,6 +25,7 @@ class SettingsRepository(private val context: Context) {
         val THEME = stringPreferencesKey("theme")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val SMOOTHING = stringPreferencesKey("smoothing")
+        val RANGE_SMOOTHING = stringPreferencesKey("range_smoothing")
         val SHOW_SAT_DETAILS = booleanPreferencesKey("show_sat_details")
         val SHOW_BATTERY_TILE = booleanPreferencesKey("show_battery_tile")
         val SHOW_RANGE_TILE = booleanPreferencesKey("show_range_tile")
@@ -41,6 +42,7 @@ class SettingsRepository(private val context: Context) {
             theme = p[Keys.THEME]?.let { enumOrNull<ThemeMode>(it) } ?: ThemeMode.SYSTEM,
             keepScreenOn = p[Keys.KEEP_SCREEN_ON] ?: true,
             smoothing = p[Keys.SMOOTHING]?.let { enumOrNull<Smoothing>(it) } ?: Smoothing.LIGHT,
+            rangeSmoothing = p[Keys.RANGE_SMOOTHING]?.let { enumOrNull<RangeSmoothing>(it) } ?: RangeSmoothing.S30,
             showSatDetails = p[Keys.SHOW_SAT_DETAILS] ?: true,
             showBatteryTile = p[Keys.SHOW_BATTERY_TILE] ?: true,
             showRangeTile = p[Keys.SHOW_RANGE_TILE] ?: true,
@@ -56,6 +58,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTheme(value: ThemeMode) = edit { it[Keys.THEME] = value.name }
     suspend fun setKeepScreenOn(value: Boolean) = edit { it[Keys.KEEP_SCREEN_ON] = value }
     suspend fun setSmoothing(value: Smoothing) = edit { it[Keys.SMOOTHING] = value.name }
+    suspend fun setRangeSmoothing(value: RangeSmoothing) = edit { it[Keys.RANGE_SMOOTHING] = value.name }
     suspend fun setShowSatDetails(value: Boolean) = edit { it[Keys.SHOW_SAT_DETAILS] = value }
     suspend fun setShowBatteryTile(value: Boolean) = edit { it[Keys.SHOW_BATTERY_TILE] = value }
     suspend fun setShowRangeTile(value: Boolean) = edit { it[Keys.SHOW_RANGE_TILE] = value }

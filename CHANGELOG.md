@@ -2,6 +2,18 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.1] – 2026-07-24
+
+### Neu
+- **Reichweiten-Glättung**: Reichweite und Restzeit zappeln nicht mehr mit dem
+  Momentanstrom. Entladestrom und Geschwindigkeit werden über ein **Zeitfenster
+  gemittelt** (einstellbar: Aus / 15 s / 30 s / 60 s, Standard 30 s), bevor gerechnet
+  wird. Neue Auswahl unter **Einstellungen → Dashboard**.
+
+### Bestätigt
+- JBD-Strom-Vorzeichen im Feldtest verifiziert (negativ = Entladen); Reichweiten-
+  rechnung funktioniert.
+
 ## [0.4.0] – 2026-07-23
 
 ### Neu
