@@ -2,8 +2,10 @@ name: Build APK
 
 on:
   push:
-    branches: ['**']
-    tags: ['v*']
+    branches: [dev]      # Entwicklungs-Branch → DEV-Build + rollendes Pre-Release
+    tags: ['v*']         # Tag auf main → signiertes Release
+  pull_request:
+    branches: [main, dev]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
-      IS_DEV: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main' }}
+      IS_DEV: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
+      IS_PR: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,8 +42,8 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      # Keystore für signierte Builds: Release (Tag) und DEV (Feature-Branch) nutzen
-      # denselben Release-Key. Ohne Keystore baut Debug unsigniert weiter.
+      # Keystore für signierte Builds: Release (Tag) und DEV (dev-Branch) nutzen
+      # denselben Release-Key. Bei PRs nicht nötig → unsignierter Debug-Check.
       - name: Restore keystore
         if: ${{ env.IS_TAG == 'true' || env.IS_DEV == 'true' }}
         run: |
@@ -52,7 +55,7 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
 
-      # --- Signierter Release-Build: nur bei v*-Tags ---
+      # --- Signierter Release-Build: nur bei v*-Tags (auf main) ---
       - name: Build signed release APK
         if: ${{ env.IS_TAG == 'true' }}
         run: ./gradlew assembleRelease --no-daemon
@@ -67,9 +70,8 @@ jobs:
         with:
           files: BoatSpeedy-*-release.apk
 
-      # --- Rolling DEV-Build: bei Push auf einen Feature-Branch (nicht main/Tag) ---
-      # Dient zugleich als PR-Check und aktualisiert das eine „dev"-Pre-Release,
-      # sodass es immer nur den aktuellen Dev-Build gibt.
+      # --- Rolling DEV-Build: bei Push auf den dev-Branch ---
+      # Aktualisiert das eine „dev-build"-Pre-Release → immer nur der aktuelle Dev-Build.
       - name: Build DEV APK (signed with release key)
         if: ${{ env.IS_DEV == 'true' }}
         run: ./gradlew assembleDebug --no-daemon
@@ -82,15 +84,28 @@ jobs:
         if: ${{ env.IS_DEV == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: dev
+          tag_name: dev-build
           name: Latest dev build
           prerelease: true
           body: |
             Rolling development build — package `de.kewl.boatspeedy.debug`, label “BoatSpeedy DEV”
             (installs alongside the release app). Signed with the release key.
 
-            Branch `${{ github.ref_name }}` · commit ${{ github.sha }}
+            Built from branch `${{ github.ref_name }}` · commit ${{ github.sha }}
           files: BoatSpeedy-dev.apk
+
+      # --- PR-Check: unsignierter Debug-Build (nur Kompilier-Check) ---
+      - name: Build debug APK (PR check)
+        if: ${{ env.IS_PR == 'true' }}
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload debug APK artifact (PR check)
+        if: ${{ env.IS_PR == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: BoatSpeedy-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
 
       - name: Clean up secrets on runner
         if: always()
