@@ -6,18 +6,22 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -189,7 +193,7 @@ private fun TripRow(trip: SavedTrip, selected: Boolean, onToggle: () -> Unit, on
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TripDetailScreen(trip: SavedTrip, settings: Settings, onBack: () -> Unit) {
+fun TripDetailScreen(trip: SavedTrip, settings: Settings, onShowMap: () -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     Scaffold(
@@ -257,6 +261,11 @@ fun TripDetailScreen(trip: SavedTrip, settings: Settings, onBack: () -> Unit) {
             if (trip.hasTrack) {
                 HorizontalDivider()
                 DetailRow(stringResource(R.string.trip_points), "${trip.points.size}")
+                Button(onClick = onShowMap, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.Map, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.show_on_map))
+                }
             }
         }
     }
