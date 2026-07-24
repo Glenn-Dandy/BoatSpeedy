@@ -81,6 +81,19 @@
     <string name="language_german">Deutsch</string>
     <string name="tile_battery">Battery</string>
     <string name="tile_range">Range &amp; time tile</string>
+    <string name="tile_map">Map</string>
+    <string name="cat_gps_desc">Satellites, accuracy, course, signal</string>
+    <string name="live_map">Live map</string>
+    <string name="allow_dev">Allow dev version</string>
+    <string name="gps_live_title">Live GPS</string>
+    <string name="gps_satellites">Satellites</string>
+    <string name="accuracy_label_short">Accuracy</string>
+    <string name="gps_course">Course</string>
+    <string name="gps_signal">Signal</string>
+    <string name="gps_constellations">Constellations</string>
+    <string name="gps_altitude">Altitude</string>
+    <string name="gps_provider_note">Uses the fused location provider — all GNSS your device supports (GPS, GLONASS, Galileo, BeiDou …), not just GPS.</string>
+    <string name="compass_points">N,NE,E,SE,S,SW,W,NW</string>
 
     <!-- Battery -->
     <string name="battery">Battery</string>

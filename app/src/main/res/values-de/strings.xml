@@ -78,6 +78,19 @@
     <string name="language_german">Deutsch</string>
     <string name="tile_battery">Batterie</string>
     <string name="tile_range">Reichweite &amp; Zeit</string>
+    <string name="tile_map">Karte</string>
+    <string name="cat_gps_desc">Satelliten, Genauigkeit, Kurs, Signal</string>
+    <string name="live_map">Live-Karte</string>
+    <string name="allow_dev">Dev-Version erlauben</string>
+    <string name="gps_live_title">GPS live</string>
+    <string name="gps_satellites">Satelliten</string>
+    <string name="accuracy_label_short">Genauigkeit</string>
+    <string name="gps_course">Kurs</string>
+    <string name="gps_signal">Signal</string>
+    <string name="gps_constellations">Konstellationen</string>
+    <string name="gps_altitude">Höhe</string>
+    <string name="gps_provider_note">Nutzt den Fused-Location-Provider — alle vom Gerät unterstützten GNSS (GPS, GLONASS, Galileo, BeiDou …), nicht nur GPS.</string>
+    <string name="compass_points">N,NO,O,SO,S,SW,W,NW</string>
 
     <!-- Batterie -->
     <string name="battery">Batterie</string>

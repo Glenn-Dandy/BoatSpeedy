@@ -62,7 +62,9 @@ import de.kewl.boatspeedy.ui.BatteryOption
 import de.kewl.boatspeedy.ui.BatteryScreen
 import de.kewl.boatspeedy.ui.DashboardScreen
 import de.kewl.boatspeedy.ui.DashboardSettingsScreen
+import de.kewl.boatspeedy.ui.GpsSettingsScreen
 import de.kewl.boatspeedy.ui.LanguageSettingsScreen
+import de.kewl.boatspeedy.ui.LiveMapScreen
 import de.kewl.boatspeedy.ui.SettingsHomeScreen
 import de.kewl.boatspeedy.trip.SavedTrip
 import de.kewl.boatspeedy.ui.SpeedViewModel
@@ -73,7 +75,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_APPEARANCE, SETTINGS_LANGUAGE, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_GPS, SETTINGS_APPEARANCE, SETTINGS_LANGUAGE, ABOUT }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -159,6 +161,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             val dashBattery by vm.dashboardBattery.collectAsStateWithLifecycle()
             val dashRange by vm.dashboardRange.collectAsStateWithLifecycle()
             val trips by vm.trips.collectAsStateWithLifecycle()
+            val livePoints by vm.livePoints.collectAsStateWithLifecycle()
             var selectedTrip by remember { mutableStateOf<SavedTrip?>(null) }
 
             LaunchedEffect(screen) { if (screen == Screen.TRIPS) vm.refreshTrips() }
@@ -206,7 +209,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
             BackHandler(enabled = !drawerState.isOpen && screen != Screen.SPEED) {
                 screen = when (screen) {
-                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_APPEARANCE, Screen.SETTINGS_LANGUAGE -> Screen.SETTINGS
+                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE, Screen.SETTINGS_LANGUAGE -> Screen.SETTINGS
                     Screen.TRIP_DETAIL -> Screen.TRIPS
                     Screen.TRIP_MAP -> Screen.TRIP_DETAIL
                     else -> Screen.SPEED
@@ -238,6 +241,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                 when (screen) {
                     Screen.SETTINGS -> SettingsHomeScreen(
                         onDashboard = { screen = Screen.SETTINGS_DASHBOARD },
+                        onGps = { screen = Screen.SETTINGS_GPS },
                         onAppearance = { screen = Screen.SETTINGS_APPEARANCE },
                         onLanguage = { screen = Screen.SETTINGS_LANGUAGE },
                         onOpenMenu = { openDrawer() },
@@ -252,6 +256,13 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onLowSocPercent = vm::setLowSocPercent,
                         onShowBatteryTile = vm::setShowBatteryTile,
                         onShowRangeTile = vm::setShowRangeTile,
+                        onShowMapTile = vm::setShowMapTile,
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_GPS -> GpsSettingsScreen(
+                        gps = gps,
+                        settings = settings,
                         onShowSatDetails = vm::setShowSatDetails,
                         onBack = { screen = Screen.SETTINGS },
                     )
@@ -299,7 +310,18 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         }
                     }
 
-                    Screen.ABOUT -> AboutScreen(onOpenMenu = { openDrawer() })
+                    Screen.ABOUT -> AboutScreen(
+                        allowDev = settings.allowDevVersion,
+                        onAllowDev = vm::setAllowDevVersion,
+                        onOpenMenu = { openDrawer() },
+                    )
+
+                    Screen.LIVE_MAP -> LiveMapScreen(
+                        currentLat = gps.latitude,
+                        currentLon = gps.longitude,
+                        points = livePoints,
+                        onBack = { screen = Screen.SPEED },
+                    )
 
                     Screen.BATTERY -> BatteryScreen(
                         settings = settings,
@@ -335,10 +357,12 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                             range = dashRange,
                             batteryOptions = batteryOptions,
                             selectedBattery = settings.dashboardBattery,
+                            livePoints = livePoints,
                             onSelectBattery = vm::setDashboardBattery,
                             onStartTrip = vm::startTrip,
                             onStopTrip = vm::stopTrip,
                             onOpenMenu = { openDrawer() },
+                            onOpenMap = { screen = Screen.LIVE_MAP },
                         )
                     }
                 }
