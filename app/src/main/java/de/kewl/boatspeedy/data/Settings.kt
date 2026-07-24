@@ -31,6 +31,14 @@ enum class RangeSmoothing(val windowMs: Long) {
     S60(60_000L),
 }
 
+/** Schwelle, ab der der Ladezustand auf dem Dashboard rot dargestellt wird (0 = aus). */
+enum class LowSocWarn(val percent: Int) {
+    OFF(0),
+    P10(10),
+    P20(20),
+    P30(30),
+}
+
 /**
  * Wie mehrere aktive Batterien elektrisch zusammengerechnet werden.
  *  - [SINGLE]   physisch getrennte Akkus, nacheinander genutzt → Kapazität summiert sich
@@ -57,6 +65,7 @@ data class Settings(
     val keepScreenOn: Boolean = true,
     val smoothing: Smoothing = Smoothing.LIGHT,
     val rangeSmoothing: RangeSmoothing = RangeSmoothing.S30,
+    val lowSocWarn: LowSocWarn = LowSocWarn.P20,
     val showSatDetails: Boolean = true,
     // Dashboard-Kacheln
     val showBatteryTile: Boolean = true,
