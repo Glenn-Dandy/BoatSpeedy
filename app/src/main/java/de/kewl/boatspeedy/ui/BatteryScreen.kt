@@ -31,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -205,13 +206,14 @@ private fun BatteryRow(
                     maxLines = 1,
                 )
             }
-            when (link) {
-                LinkState.CONNECTED ->
-                    OutlinedButton(onClick = onDisconnect) { Text(stringResource(R.string.disconnect)) }
-                LinkState.CONNECTING ->
-                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                LinkState.DISCONNECTED ->
-                    Button(onClick = onConnect) { Text(stringResource(R.string.connect)) }
+            // Verbinden/Trennen als einfacher An/Aus-Schalter (Spinner während des Verbindens).
+            if (link == LinkState.CONNECTING) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            } else {
+                Switch(
+                    checked = link == LinkState.CONNECTED,
+                    onCheckedChange = { on -> if (on) onConnect() else onDisconnect() },
+                )
             }
             Icon(
                 if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,

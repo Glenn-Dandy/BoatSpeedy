@@ -25,17 +25,21 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import de.kewl.boatspeedy.R
-import de.kewl.boatspeedy.data.LowSocWarn
 import de.kewl.boatspeedy.data.RangeSmoothing
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
@@ -105,7 +109,7 @@ fun DashboardSettingsScreen(
     onDecimals: (Int) -> Unit,
     onSmoothing: (Smoothing) -> Unit,
     onRangeSmoothing: (RangeSmoothing) -> Unit,
-    onLowSocWarn: (LowSocWarn) -> Unit,
+    onLowSocPercent: (Int) -> Unit,
     onShowBatteryTile: (Boolean) -> Unit,
     onShowRangeTile: (Boolean) -> Unit,
     onShowSatDetails: (Boolean) -> Unit,
@@ -155,16 +159,7 @@ fun DashboardSettingsScreen(
             },
             onSelect = onRangeSmoothing,
         )
-        SegmentedRow(
-            label = stringResource(R.string.low_soc_warn),
-            options = LowSocWarn.entries,
-            selected = settings.lowSocWarn,
-            labelOf = {
-                if (it == LowSocWarn.OFF) stringResource(R.string.smoothing_off)
-                else "${it.percent} %"
-            },
-            onSelect = onLowSocWarn,
-        )
+        LowSocSliderRow(settings.lowSocPercent, onLowSocPercent)
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SwitchRow(stringResource(R.string.tile_battery), settings.showBatteryTile, onShowBatteryTile)
         SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
@@ -276,6 +271,28 @@ private fun <T> SegmentedRow(
                 ) { Text(labelOf(option)) }
             }
         }
+    }
+}
+
+@Composable
+private fun LowSocSliderRow(percent: Int, onChange: (Int) -> Unit) {
+    var pos by remember(percent) { mutableFloatStateOf(percent.toFloat()) }
+    val current = pos.toInt()
+    Column(modifier = Modifier.padding(vertical = 10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(stringResource(R.string.low_soc_warn), style = MaterialTheme.typography.titleMedium)
+            Text(if (current <= 0) stringResource(R.string.smoothing_off) else "$current %")
+        }
+        Slider(
+            value = pos,
+            onValueChange = { pos = it },
+            onValueChangeFinished = { onChange(pos.toInt()) },
+            valueRange = 0f..50f,
+            steps = 9, // 0,5,10,…,50
+        )
     }
 }
 

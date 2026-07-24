@@ -27,7 +27,7 @@
     <string name="range_smoothing">Range smoothing</string>
     <string name="low_soc_warn">Low-charge warning</string>
 
-    <string name="show_sat_details">Show satellite details</string>
+    <string name="show_sat_details">Satellite details</string>
 
     <string name="no_fix">--</string>
     <string name="status_fix">Fix</string>
@@ -71,7 +71,7 @@
     <string name="language">Language</string>
     <string name="language_english">English</string>
     <string name="language_german">Deutsch</string>
-    <string name="tile_battery">Battery tile</string>
+    <string name="tile_battery">Battery</string>
     <string name="tile_range">Range &amp; time tile</string>
 
     <!-- Battery -->

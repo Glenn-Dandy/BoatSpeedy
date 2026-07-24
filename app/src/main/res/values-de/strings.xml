@@ -25,7 +25,7 @@
     <string name="range_smoothing">Reichweiten-Glättung</string>
     <string name="low_soc_warn">Warnung bei niedrigem Ladestand</string>
 
-    <string name="show_sat_details">Satelliten-Details anzeigen</string>
+    <string name="show_sat_details">Satelliten-Details</string>
 
     <string name="status_fix">Fix</string>
     <string name="status_no_fix">kein Fix</string>
@@ -68,7 +68,7 @@
     <string name="language">Sprache</string>
     <string name="language_english">English</string>
     <string name="language_german">Deutsch</string>
-    <string name="tile_battery">Batterie-Kachel</string>
+    <string name="tile_battery">Batterie</string>
     <string name="tile_range">Reichweite &amp; Zeit</string>
 
     <!-- Batterie -->

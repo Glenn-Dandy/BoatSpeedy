@@ -23,8 +23,8 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 14
-        versionName = "0.4.6"
+        versionCode = 15
+        versionName = "0.4.7"
     }
 
     signingConfigs {
@@ -39,6 +39,12 @@ android {
     }
 
     buildTypes {
+        // Debug als eigenes Paket (…​.debug), damit sich Debug- und Release-App nie
+        // gegenseitig überschreiben (unterschiedliche Signatur würde sonst Daten löschen).
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

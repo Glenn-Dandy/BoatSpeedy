@@ -109,7 +109,7 @@ fun DashboardScreen(
                 }
                 if (settings.showBatteryTile) {
                     BatterySelectorRow(batteryOptions, selectedBattery, onSelectBattery)
-                    BatteryTile(batteryData, settings.lowSocWarn.percent)
+                    BatteryTile(batteryData, settings.lowSocPercent)
                     Spacer(Modifier.height(12.dp))
                 }
 
