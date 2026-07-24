@@ -8,16 +8,6 @@ Geparkte Aufgaben / Ideen für BoatSpeedy.
   - CI: bei `v*`-Tags zusätzlich `.aab` bauen (Play-Upload ggf. via `r0adkll/upload-google-play` später)
   - Hinweis: für den Play Store „Play App Signing" beachten (Upload-Key vs. App-Signing-Key)
 
-## Feature-Ideen (noch offen)
-- [ ] Visuelle Tempo-Warnschwelle (Zahl wird rot ab konfigurierbarer Grenze, kein Ton)
-- [ ] Bildschirm-Ausrichtung sperren (Quer/Hoch)
-- [ ] Kurs/Heading + Himmelsrichtung
-- [ ] Mini-Verlaufsdiagramm (Sparkline)
-- [ ] Nachtmodus (gedimmte rote Anzeige)
-- [ ] Zusätzliche Einheit mph; GPS-Intervall in den Einstellungen
-- [ ] Track-Aufzeichnung + GPX-Export
-- [ ] Uhr + Fahrtzeit-Anzeige
-
 ## Batterie – noch zu prüfen/erweitern
 - [ ] **Feldtest JBD mit laufendem Motor**: Strom-Vorzeichen (Laden/Entladen) und Reichweiten-/Zeitrechnung verifizieren
 - [ ] **Daly & JK am echten Gerät testen** (experimentell): UUIDs/Offsets kalibrieren, v. a. JK02-Offsets und SOC-Position

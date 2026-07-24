@@ -71,9 +71,6 @@ with a critical eye and please report back:
 - [ ] Calibrate **Daly** and **JK** against real hardware (UUIDs/offsets)
 - [ ] **Auto-reconnect** and auto-connect active packs on launch (remember last MAC)
 - [ ] **App Bundle (`.aab`)** for the Play Store
-- [ ] Visual speed-warning threshold (number turns red past a limit, no sound)
-- [ ] Lock screen orientation; heading/compass; mini history sparkline; night mode
-- [ ] Extra unit mph; configurable GPS interval; GPX track export; clock + trip time
 
 See [`TODO.md`](TODO.md) for the full list, and [`CHANGELOG.md`](CHANGELOG.md) for changes.
 
@@ -190,9 +187,6 @@ und Rückmeldung geben:
 - [ ] **Daly** und **JK** an echter Hardware kalibrieren (UUIDs/Offsets)
 - [ ] **Auto-Reconnect** und aktive Akkus beim Start automatisch verbinden (MAC merken)
 - [ ] **App-Bundle (`.aab`)** für den Play Store
-- [ ] Visuelle Tempo-Warnschwelle (Zahl wird rot ab Grenze, kein Ton)
-- [ ] Ausrichtung sperren; Kurs/Kompass; Mini-Verlauf (Sparkline); Nachtmodus
-- [ ] Einheit mph; GPS-Intervall einstellbar; GPX-Export; Uhr + Fahrtzeit
 
 Vollständige Liste in [`TODO.md`](TODO.md), Änderungen in [`CHANGELOG.md`](CHANGELOG.md).
 
