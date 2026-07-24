@@ -15,6 +15,21 @@ val keystoreProperties = Properties().apply {
     if (hasKeystore) FileInputStream(keystorePropertiesFile).use { load(it) }
 }
 
+// --- Version aus Git ableiten (Single Source of Truth) ---
+// versionName kommt aus dem letzten Tag: "1.0.1" bei exaktem Tag, sonst
+// "1.0.1-3-gabc123(-dirty)" für Dev-Builds. versionCode bleibt manuell (unten).
+// `providers.exec` ist die Configuration-Cache-taugliche Art, git aufzurufen.
+fun gitValue(vararg args: String): String = runCatching {
+    providers.exec {
+        commandLine(listOf("git") + args)
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim()
+}.getOrDefault("")
+
+val versionNameFromGit: String =
+    gitValue("describe", "--tags", "--always", "--dirty").ifBlank { "v0.0.0" }.removePrefix("v")
+val gitSha: String = gitValue("rev-parse", "--short", "HEAD").ifBlank { "unknown" }
+
 android {
     namespace = "de.kewl.boatspeedy"
     compileSdk = 35
@@ -23,8 +38,10 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 19
-        versionName = "0.4.11"
+        versionCode = 20                       // manuell, altes kleines Schema (steigt je Release)
+        versionName = versionNameFromGit        // aus Git-Tag (Option A)
+        resValue("string", "app_name", "BoatSpeedy")
+        buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }
 
     signingConfigs {
@@ -39,11 +56,16 @@ android {
     }
 
     buildTypes {
-        // Debug als eigenes Paket (…​.debug), damit sich Debug- und Release-App nie
-        // gegenseitig überschreiben (unterschiedliche Signatur würde sonst Daten löschen).
+        // DEV als eigenes Paket (…​.debug) + eigenes Label „BoatSpeedy DEV" → liegt neben
+        // der echten App. Signiert mit dem Release-Keystore, damit Dev-über-Dev-Updates
+        // ohne Deinstallieren funktionieren.
         debug {
             applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "BoatSpeedy DEV")
+            if (hasKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         release {
             isMinifyEnabled = true

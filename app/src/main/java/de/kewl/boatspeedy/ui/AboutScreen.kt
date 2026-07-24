@@ -92,6 +92,7 @@ fun AboutScreen(onOpenMenu: () -> Unit) {
             )
 
             InfoRow(stringResource(R.string.version), BuildConfig.VERSION_NAME)
+            InfoRow(stringResource(R.string.build_label), BuildConfig.GIT_SHA)
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
             LinkRow(stringResource(R.string.source_code), Repo.OWNER + "/" + Repo.NAME) {

@@ -2,10 +2,8 @@ name: Build APK
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
     tags: ['v*']
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,9 +12,14 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      IS_DEV: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Tags/Historie für `git describe` (versionName)
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -36,31 +39,12 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      # --- Debug-Build: bei Push auf main, PRs und manuell ---
-      - name: Build debug APK
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: ./gradlew assembleDebug --no-daemon
-
-      - name: Rename debug APK
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: cp app/build/outputs/apk/debug/app-debug.apk "BoatSpeedy-debug.apk"
-
-      - name: Upload debug APK artifact
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: BoatSpeedy-debug-apk
-          path: BoatSpeedy-debug.apk
-          if-no-files-found: error
-
-      # --- Signierter Release-Build: nur bei v*-Tags ---
+      # Keystore für signierte Builds: Release (Tag) und DEV (Feature-Branch) nutzen
+      # denselben Release-Key. Ohne Keystore baut Debug unsigniert weiter.
       - name: Restore keystore
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
-
-      - name: Create keystore.properties
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: ${{ env.IS_TAG == 'true' || env.IS_DEV == 'true' }}
         run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
           cat > keystore.properties <<EOF
           storeFile=$RUNNER_TEMP/release.jks
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -68,19 +52,45 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
 
+      # --- Signierter Release-Build: nur bei v*-Tags ---
       - name: Build signed release APK
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: ${{ env.IS_TAG == 'true' }}
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Rename release APK
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: ${{ env.IS_TAG == 'true' }}
         run: cp app/build/outputs/apk/release/app-release.apk "BoatSpeedy-${{ github.ref_name }}-release.apk"
 
       - name: Attach release APK to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: ${{ env.IS_TAG == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           files: BoatSpeedy-*-release.apk
+
+      # --- Rolling DEV-Build: bei Push auf einen Feature-Branch (nicht main/Tag) ---
+      # Dient zugleich als PR-Check und aktualisiert das eine „dev"-Pre-Release,
+      # sodass es immer nur den aktuellen Dev-Build gibt.
+      - name: Build DEV APK (signed with release key)
+        if: ${{ env.IS_DEV == 'true' }}
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Rename DEV APK
+        if: ${{ env.IS_DEV == 'true' }}
+        run: cp app/build/outputs/apk/debug/app-debug.apk "BoatSpeedy-dev.apk"
+
+      - name: Publish rolling dev pre-release
+        if: ${{ env.IS_DEV == 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev
+          name: Latest dev build
+          prerelease: true
+          body: |
+            Rolling development build — package `de.kewl.boatspeedy.debug`, label “BoatSpeedy DEV”
+            (installs alongside the release app). Signed with the release key.
+
+            Branch `${{ github.ref_name }}` · commit ${{ github.sha }}
+          files: BoatSpeedy-dev.apk
 
       - name: Clean up secrets on runner
         if: always()
