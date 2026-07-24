@@ -27,8 +27,10 @@ import de.kewl.boatspeedy.data.ThemeMode
 import de.kewl.boatspeedy.location.GpsState
 import de.kewl.boatspeedy.location.LocationProvider
 import de.kewl.boatspeedy.trip.LocationService
+import de.kewl.boatspeedy.trip.SavedTrip
 import de.kewl.boatspeedy.trip.TripRepository
 import de.kewl.boatspeedy.trip.TripStats
+import de.kewl.boatspeedy.trip.TripStore
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,6 +47,10 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     private val settingsRepo = SettingsRepository(app)
     private val locationProvider = LocationProvider(app)
+    private val tripStore = TripStore(app)
+
+    private val _trips = MutableStateFlow<List<SavedTrip>>(emptyList())
+    val trips: StateFlow<List<SavedTrip>> = _trips.asStateFlow()
 
     val settings: StateFlow<Settings> =
         settingsRepo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
@@ -90,6 +96,24 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                     ?.let { combineBatteries(it, s.bankMode) } else null
             }.collect { d -> if (d != null) TripRepository.onBankSample(d.currentA, d.powerW) }
         }
+        // Beendete Fahrten dauerhaft speichern.
+        viewModelScope.launch {
+            TripRepository.justFinished.collect { finished ->
+                if (finished != null) {
+                    tripStore.save(finished)
+                    TripRepository.consumeFinished()
+                    _trips.value = tripStore.list()
+                }
+            }
+        }
+    }
+
+    /** Fahrten-Liste aus dem Speicher laden (z. B. beim Öffnen des Historie-Screens). */
+    fun refreshTrips() = viewModelScope.launch { _trips.value = tripStore.list() }
+
+    fun deleteTrips(ids: Set<Long>) = viewModelScope.launch {
+        tripStore.delete(ids)
+        _trips.value = tripStore.list()
     }
 
     private fun updateRange(sample: RangeSample) {

@@ -2,6 +2,16 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.9] – 2026-07-24
+
+### Neu
+- **Fahrten-Historie**: neuer Menüpunkt **Fahrten** (zwischen Dashboard und Batterie).
+  Fahrten werden beim Stoppen automatisch gespeichert; Liste neueste zuerst mit
+  **Mehrfachauswahl (Häkchen)** und **Löschen** oben; **Antippen zeigt die Details**
+  (Distanz, Zeit, Ø/Max, Ah, Wh, Wh/km).
+- **Track-Aufzeichnung**: Wegpunkte werden je Fahrt mitgespeichert — Grundlage für den
+  kommenden GPX-Export und die Kartenansicht.
+
 ## [0.4.8] – 2026-07-24
 
 ### Neu

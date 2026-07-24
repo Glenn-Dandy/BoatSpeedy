@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
@@ -63,12 +64,15 @@ import de.kewl.boatspeedy.ui.DashboardScreen
 import de.kewl.boatspeedy.ui.DashboardSettingsScreen
 import de.kewl.boatspeedy.ui.LanguageSettingsScreen
 import de.kewl.boatspeedy.ui.SettingsHomeScreen
+import de.kewl.boatspeedy.trip.SavedTrip
 import de.kewl.boatspeedy.ui.SpeedViewModel
+import de.kewl.boatspeedy.ui.TripDetailScreen
+import de.kewl.boatspeedy.ui.TripsScreen
 import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, BATTERY, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_APPEARANCE, SETTINGS_LANGUAGE, ABOUT }
+private enum class Screen { SPEED, TRIPS, TRIP_DETAIL, BATTERY, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_APPEARANCE, SETTINGS_LANGUAGE, ABOUT }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -153,6 +157,10 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             val battery by vm.battery.collectAsStateWithLifecycle()
             val dashBattery by vm.dashboardBattery.collectAsStateWithLifecycle()
             val dashRange by vm.dashboardRange.collectAsStateWithLifecycle()
+            val trips by vm.trips.collectAsStateWithLifecycle()
+            var selectedTrip by remember { mutableStateOf<SavedTrip?>(null) }
+
+            LaunchedEffect(screen) { if (screen == Screen.TRIPS) vm.refreshTrips() }
 
             // Bluetooth-Berechtigungen für die Batterie-Verbindung.
             var pendingBt by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -198,6 +206,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             BackHandler(enabled = !drawerState.isOpen && screen != Screen.SPEED) {
                 screen = when (screen) {
                     Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_APPEARANCE, Screen.SETTINGS_LANGUAGE -> Screen.SETTINGS
+                    Screen.TRIP_DETAIL -> Screen.TRIPS
                     else -> Screen.SPEED
                 }
             }
@@ -213,6 +222,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         )
                         HorizontalDivider()
                         DrawerItem(R.string.nav_speed, Icons.Filled.Speed, screen == Screen.SPEED) { goTo(Screen.SPEED) }
+                        DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen == Screen.TRIPS || screen == Screen.TRIP_DETAIL) { goTo(Screen.TRIPS) }
                         DrawerItem(R.string.nav_battery, Icons.Filled.BatteryFull, screen == Screen.BATTERY) { goTo(Screen.BATTERY) }
                         DrawerItem(R.string.settings, Icons.Filled.Settings, screen.name.startsWith("SETTINGS")) { goTo(Screen.SETTINGS) }
                         DrawerItem(R.string.about, Icons.Filled.Info, screen == Screen.ABOUT) { goTo(Screen.ABOUT) }
@@ -252,6 +262,22 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onLanguage = { LanguageHelper.set(context, it) },
                         onBack = { screen = Screen.SETTINGS },
                     )
+
+                    Screen.TRIPS -> TripsScreen(
+                        trips = trips,
+                        onOpenDetail = { trip -> selectedTrip = trip; screen = Screen.TRIP_DETAIL },
+                        onDelete = vm::deleteTrips,
+                        onOpenMenu = { openDrawer() },
+                    )
+
+                    Screen.TRIP_DETAIL -> {
+                        val trip = selectedTrip
+                        if (trip == null) {
+                            screen = Screen.TRIPS
+                        } else {
+                            TripDetailScreen(trip = trip, settings = settings, onBack = { screen = Screen.TRIPS })
+                        }
+                    }
 
                     Screen.ABOUT -> AboutScreen(onOpenMenu = { openDrawer() })
 

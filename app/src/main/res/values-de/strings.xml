@@ -55,7 +55,10 @@
     <!-- Navigations-Menü -->
     <string name="menu">Menü</string>
     <string name="nav_speed">Dashboard</string>
+    <string name="nav_trips">Fahrten</string>
     <string name="nav_battery">Batterie</string>
+    <string name="trips_empty">Noch keine Fahrten. Starte auf dem Dashboard eine Fahrt zum Aufzeichnen.</string>
+    <string name="trip_points">Track-Punkte</string>
 
     <!-- Einstellungs-Kategorien -->
     <string name="group_speed">Geschwindigkeit</string>
