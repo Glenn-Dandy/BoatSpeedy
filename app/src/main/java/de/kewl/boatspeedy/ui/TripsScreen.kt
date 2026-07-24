@@ -1,5 +1,7 @@
 package de.kewl.boatspeedy.ui
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,9 +32,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,6 +44,9 @@ import androidx.compose.ui.unit.sp
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.trip.SavedTrip
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -56,6 +64,8 @@ fun TripsScreen(
 ) {
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
     val selecting = selection.isNotEmpty()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -68,6 +78,26 @@ fun TripsScreen(
                         }
                     },
                     actions = {
+                        IconButton(onClick = {
+                            val chosen = trips.filter { it.id in selection }
+                            scope.launch {
+                                val uri = withContext(Dispatchers.IO) { GpxExport.write(context, chosen) }
+                                if (uri == null) {
+                                    Toast.makeText(context, context.getString(R.string.no_track), Toast.LENGTH_SHORT).show()
+                                } else {
+                                    val send = Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/gpx+xml"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(
+                                        Intent.createChooser(send, context.getString(R.string.export)),
+                                    )
+                                }
+                            }
+                        }) {
+                            Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.export))
+                        }
                         IconButton(onClick = {
                             onDelete(selection)
                             selection = emptySet()
@@ -160,6 +190,8 @@ private fun TripRow(trip: SavedTrip, selected: Boolean, onToggle: () -> Unit, on
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripDetailScreen(trip: SavedTrip, settings: Settings, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -167,6 +199,27 @@ fun TripDetailScreen(trip: SavedTrip, settings: Settings, onBack: () -> Unit) {
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    }
+                },
+                actions = {
+                    if (trip.hasTrack) {
+                        IconButton(onClick = {
+                            scope.launch {
+                                val uri = withContext(Dispatchers.IO) { GpxExport.write(context, listOf(trip)) }
+                                if (uri != null) {
+                                    val send = Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/gpx+xml"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(
+                                        Intent.createChooser(send, context.getString(R.string.export)),
+                                    )
+                                }
+                            }
+                        }) {
+                            Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.export))
+                        }
                     }
                 },
             )
