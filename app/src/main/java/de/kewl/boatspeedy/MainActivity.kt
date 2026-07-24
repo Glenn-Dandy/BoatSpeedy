@@ -215,6 +215,10 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
 
             ModalNavigationDrawer(
                 drawerState = drawerState,
+                // Nur Wisch-zum-Schließen erlauben, nicht zum Öffnen – sonst beißt sich
+                // die Randwischgeste mit dem horizontalen Schwenken der Karte. Öffnen
+                // geht über das Menü-Symbol.
+                gesturesEnabled = drawerState.isOpen,
                 drawerContent = {
                     ModalDrawerSheet {
                         Text(
