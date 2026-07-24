@@ -62,6 +62,8 @@
     <string name="nav_battery">Battery</string>
     <string name="trips_empty">No trips yet. Start a trip on the dashboard to record one.</string>
     <string name="trip_points">Track points</string>
+    <string name="export">Export</string>
+    <string name="no_track">No track recorded for the selection.</string>
 
     <!-- Settings categories -->
     <string name="group_speed">Speed</string>

@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.10] – 2026-07-24
+
+### Neu
+- **GPX-Export**: In der Fahrten-Historie ausgewählte Fahrten (Häkchen) über das
+  **Teilen-Symbol** als `.gpx` exportieren/teilen; auch im Detail-Screen einer Fahrt.
+  Mehrere Fahrten kommen als separate `<trk>`-Segmente in eine Datei.
+
 ## [0.4.9] – 2026-07-24
 
 ### Neu
