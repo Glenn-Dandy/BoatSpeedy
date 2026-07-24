@@ -151,11 +151,12 @@ private fun BatteryTile(d: BatteryData?) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.battery), style = MaterialTheme.typography.titleSmall)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                TileStat(stringResource(R.string.soc_short), d?.let { "${it.soc} %" } ?: PLACEHOLDER)
+                TileStat(stringResource(R.string.bat_power), d?.let { watts(it.powerW) } ?: PLACEHOLDER)
                 TileStat(stringResource(R.string.bat_voltage), d?.let { num(it.voltage, "V") } ?: PLACEHOLDER)
                 TileStat(stringResource(R.string.bat_current), d?.let { num(it.currentA, "A") } ?: PLACEHOLDER)
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                TileStat(stringResource(R.string.soc_short), d?.let { "${it.soc} %" } ?: PLACEHOLDER)
                 TileStat(
                     stringResource(R.string.bat_remaining),
                     d?.takeIf { it.remainingAh > 0f }?.let { num(it.remainingAh, "Ah") } ?: PLACEHOLDER,
@@ -283,3 +284,4 @@ private fun StatusRow(gps: GpsState, showSatDetails: Boolean) {
 }
 
 private fun num(v: Float, unit: String) = String.format(Locale.getDefault(), "%.2f %s", v, unit)
+private fun watts(v: Float) = String.format(Locale.getDefault(), "%.0f W", v)
