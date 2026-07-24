@@ -2,6 +2,12 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [0.4.3] – 2026-07-24
+
+### Geändert
+- **Leistung wird als Betrag angezeigt** (immer positiv) — auf der Batterie-Kachel
+  und in der Detail-Karte.
+
 ## [0.4.2] – 2026-07-24
 
 ### Neu
