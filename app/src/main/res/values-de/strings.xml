@@ -50,7 +50,7 @@
     <string name="stat_energy">Energie</string>
     <string name="stat_efficiency">Effizienz</string>
     <string name="stat_consumed">Verbrauch</string>
-    <string name="trip_paused">⏸ Pausiert (0 A)</string>
+    <string name="trip_paused">⏸ Auto-Pause</string>
 
     <!-- Navigations-Menü -->
     <string name="menu">Menü</string>

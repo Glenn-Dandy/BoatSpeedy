@@ -2,6 +2,32 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.0.4] – 2026-07-25
+
+### Neu
+- **Anker-Alarm** (neues Menü „Anker"): Anker an der aktuellen Position mit Radius
+  setzen; ein Vordergrunddienst überwacht die Distanz **auch bei Display aus** und löst
+  bei Überschreiten einen **Alarmton in Schleife** aus. „Stumm" / „Anker einholen".
+  Karte mit Ankerpunkt, Radius-Kreis und Bootsposition.
+- **Alarmtöne** (mitgeliefert: Piep / Glocke / Sirene) über den Alarm-Stream. Getrennt
+  einstellbar: **Ankeralarm-Ton** an/aus + Auswahl, **SoC-Alarm-Ton** an/aus + Auswahl,
+  je mit Test-Knopf.
+- **Fahrt-Zeiten aufgeteilt**: gespeicherte Fahrten zeigen **Gesamtzeit / Fahrzeit /
+  Pause** (Pause = Auto-Pause-Zeit).
+- **Auto-Pause einstellbar**: Strom-Schwelle als Eingabefeld (0/leer = aus).
+
+### Geändert
+- **Einstellungen umstrukturiert**: **Dashboard · Allgemein · Darstellung · GPS**.
+  „Allgemein" bündelt niedriger Ladestand, Auto-Pause und Alarme. Sprache liegt jetzt
+  in „Darstellung" (plus dezent unter Lizenz im „Über").
+- Dashboard-Meldung „Pausiert (0 A)" heißt jetzt **„Auto-Pause"**.
+- „Über": die „Build …"-Zeile entfernt.
+
+### Behoben
+- Anker-Wache verschickt keine Dauer-Benachrichtigungen mehr; Karte gleitet/überlappt
+  nicht mehr.
+- SoC-Alarm löst nicht mehr durch die kurzen 0-Werte direkt nach dem Batterie-Verbinden aus.
+
 ## [1.0.3] – 2026-07-24
 
 ### Geändert
