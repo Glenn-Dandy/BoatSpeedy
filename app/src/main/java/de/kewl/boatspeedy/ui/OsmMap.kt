@@ -36,6 +36,7 @@ fun OsmMap(
     interactive: Boolean,
     modifier: Modifier = Modifier,
     zoom: Double = 16.0,
+    follow: Boolean = true,
 ) {
     val context = LocalContext.current
     val mapView = remember {
@@ -97,8 +98,8 @@ fun OsmMap(
                 mapView.controller.setZoom(zoom)
                 mapView.controller.setCenter(target)
                 centered = true
-            } else {
-                mapView.controller.animateTo(target)
+            } else if (follow) {
+                mapView.controller.setCenter(target) // ohne Animation → kein Dauer-„Gleiten"
             }
         }
         mapView.invalidate()
