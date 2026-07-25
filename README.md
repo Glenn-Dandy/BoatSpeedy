@@ -76,10 +76,21 @@ See [`TODO.md`](TODO.md) for the full list, and [`CHANGELOG.md`](CHANGELOG.md) f
 
 ## Install
 
-Grab the signed APK from the [latest release](https://github.com/Glenn-Dandy/BoatSpeedy/releases/latest)
-and install it on Android 13+. Since it isn't from the Play Store, allow installation
-from this source when prompted. On first launch, grant the **location** permission; for
-the battery link, grant **Bluetooth** when you first scan.
+The app isn't on the Play Store, so you install the signed APK directly (sideload).
+Anyone can do it — just follow these steps on an Android 13+ phone:
+
+1. Open the [latest release](https://github.com/Glenn-Dandy/BoatSpeedy/releases/latest)
+   and download **`BoatSpeedy-…-release.apk`** (under **Assets**).
+2. Open the downloaded file. If Android asks, **allow installing from this source /
+   unknown apps** for your browser or file manager.
+3. **Play Protect** may then say *“Unsafe app blocked”* / *“App blocked to protect your
+   device”*. This is normal for apps outside the Play Store — tap **More details**, then
+   **Install anyway**.
+4. Open the app and grant the **Location** permission (for GPS speed). Allow **Bluetooth**
+   the first time you scan for a battery, and **Notifications** for trip / anchor alerts.
+
+To update later, just install a newer release APK over the old one — same signing key,
+your settings are kept.
 
 ## Build
 
@@ -192,10 +203,21 @@ Vollständige Liste in [`TODO.md`](TODO.md), Änderungen in [`CHANGELOG.md`](CHA
 
 ### Installieren
 
-Signierte APK aus dem [neuesten Release](https://github.com/Glenn-Dandy/BoatSpeedy/releases/latest)
-laden und auf Android 13+ installieren. Da nicht aus dem Play Store, bei Nachfrage die
-Installation aus dieser Quelle erlauben. Beim ersten Start die **Standort**-Berechtigung
-erteilen; für die Batterie-Anbindung beim ersten Scan **Bluetooth** erlauben.
+Die App ist nicht im Play Store — du installierst die signierte APK direkt (Sideload).
+Das kann jeder, so geht's auf einem Android-13+-Handy:
+
+1. Das [neueste Release](https://github.com/Glenn-Dandy/BoatSpeedy/releases/latest) öffnen
+   und **`BoatSpeedy-…-release.apk`** herunterladen (unter **Assets**).
+2. Die geladene Datei öffnen. Fragt Android nach, die **Installation aus dieser Quelle /
+   unbekannte Apps** für den Browser bzw. Dateimanager erlauben.
+3. **Play Protect** meldet danach evtl. *„Unsichere App blockiert"* / *„App zum Schutz
+   deines Geräts blockiert"*. Das ist bei Apps außerhalb des Play Stores normal — auf
+   **Weitere Details** und dann **Trotzdem installieren** tippen.
+4. App öffnen und die **Standort**-Berechtigung erteilen (für GPS-Tempo). Beim ersten
+   Batterie-Scan **Bluetooth** erlauben, für Fahrt-/Anker-Meldungen **Benachrichtigungen**.
+
+Zum Aktualisieren einfach eine neuere Release-APK über die alte installieren — gleiche
+Signatur, deine Einstellungen bleiben erhalten.
 
 ### Bauen
 
