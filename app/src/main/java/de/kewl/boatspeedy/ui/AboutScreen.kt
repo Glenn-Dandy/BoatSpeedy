@@ -54,7 +54,11 @@ private sealed interface UpdateUi {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutScreen(onOpenMenu: () -> Unit) {
+fun AboutScreen(
+    language: de.kewl.boatspeedy.util.AppLanguage,
+    onLanguage: (de.kewl.boatspeedy.util.AppLanguage) -> Unit,
+    onOpenMenu: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<UpdateUi>(UpdateUi.Idle) }
@@ -92,7 +96,6 @@ fun AboutScreen(onOpenMenu: () -> Unit) {
             )
 
             InfoRow(stringResource(R.string.version), BuildConfig.VERSION_NAME)
-            InfoRow(stringResource(R.string.build_label), BuildConfig.GIT_SHA)
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
             LinkRow(stringResource(R.string.source_code), Repo.OWNER + "/" + Repo.NAME) {
@@ -101,6 +104,7 @@ fun AboutScreen(onOpenMenu: () -> Unit) {
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
             InfoRow(stringResource(R.string.license_label), stringResource(R.string.license_value))
+            LanguageRow(language, onLanguage)
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
             // Update-Prüfung

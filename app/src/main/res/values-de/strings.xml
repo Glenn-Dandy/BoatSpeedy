@@ -154,10 +154,12 @@
     <string name="anchor_alarm_dragging">Treibt: %1$d m (Radius %2$d m)</string>
 
     <!-- Alarme -->
-    <string name="group_alarms">Alarme</string>
-    <string name="cat_alarms_desc">Alarmton, SoC-Ton</string>
-    <string name="alarm_sound">Alarmton</string>
+    <string name="group_general">Allgemein</string>
+    <string name="cat_general_desc">Warnung, Auto-Pause, Alarme</string>
     <string name="alarm_test">Ton testen</string>
+    <string name="anchor_alarm_sound">Ankeralarm-Ton</string>
+    <string name="anchor_sound_label">Ankerton</string>
+    <string name="soc_sound_label">SoC-Ton</string>
     <string name="sound_piep">Piep</string>
     <string name="sound_glocke">Glocke</string>
     <string name="sound_sirene">Sirene</string>

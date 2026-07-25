@@ -16,8 +16,10 @@ import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import java.io.File
 
@@ -98,6 +100,67 @@ fun OsmMap(
             } else {
                 mapView.controller.animateTo(target)
             }
+        }
+        mapView.invalidate()
+    }
+
+    AndroidView(factory = { mapView }, modifier = modifier)
+}
+
+/** Karte für die Anker-Wache: Ankerpunkt, Radius-Kreis und aktuelle Bootsposition. */
+@Composable
+fun AnchorMap(
+    anchorLat: Double,
+    anchorLon: Double,
+    radiusM: Int,
+    boatLat: Double?,
+    boatLon: Double?,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val mapView = remember {
+        Configuration.getInstance().apply {
+            userAgentValue = context.packageName
+            osmdroidBasePath = File(context.cacheDir, "osmdroid")
+            osmdroidTileCache = File(osmdroidBasePath, "tiles")
+        }
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            setTilesScaledToDpi(true)
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+        }
+    }
+    var centered by remember { mutableStateOf(false) }
+    val boatMarker = remember(mapView) {
+        Marker(mapView).apply { setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) }
+    }
+
+    DisposableEffect(Unit) {
+        mapView.onResume()
+        onDispose { mapView.onPause(); mapView.onDetach() }
+    }
+
+    LaunchedEffect(anchorLat, anchorLon, radiusM, boatLat, boatLon) {
+        mapView.overlays.clear()
+        val center = GeoPoint(anchorLat, anchorLon)
+        val circle = Polygon(mapView).apply {
+            points = Polygon.pointsAsCircle(center, radiusM.toDouble())
+            fillPaint.color = 0x221E88E5
+            outlinePaint.color = Color.parseColor("#1E88E5")
+            outlinePaint.strokeWidth = 4f
+        }
+        mapView.overlays.add(circle)
+        mapView.overlays.add(Marker(mapView).apply { position = center })
+        if (boatLat != null && boatLon != null) {
+            boatMarker.position = GeoPoint(boatLat, boatLon)
+            mapView.overlays.add(boatMarker)
+        }
+        if (!centered) {
+            mapView.post {
+                runCatching { mapView.zoomToBoundingBox(BoundingBox.fromGeoPointsSafe(circle.points), false, 48) }
+            }
+            centered = true
         }
         mapView.invalidate()
     }

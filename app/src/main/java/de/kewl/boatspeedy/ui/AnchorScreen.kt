@@ -4,12 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Menu
@@ -66,64 +65,84 @@ fun AnchorScreen(
             )
         },
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            if (!anchor.active) {
-                val hasFix = gps.latitude != null && gps.longitude != null
-                Text(
-                    stringResource(R.string.anchor_hint),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                )
-                RadiusField(radiusM, onRadiusChange)
-                Button(onClick = onSetAnchor, enabled = hasFix, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Filled.Anchor, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.anchor_set))
-                }
-                if (!hasFix) {
+        Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            // --- Steuerung (oben, feste Höhe) ---
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (!anchor.active) {
+                    val hasFix = gps.latitude != null && gps.longitude != null
                     Text(
-                        stringResource(R.string.anchor_no_fix),
-                        color = MaterialTheme.colorScheme.error,
-                        fontSize = 13.sp,
+                        stringResource(R.string.anchor_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     )
-                }
-            } else {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (anchor.alarming) {
-                            Text(
-                                stringResource(R.string.anchor_dragging),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        } else {
-                            Text(
-                                stringResource(R.string.anchor_holding),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                        ValueRow(stringResource(R.string.anchor_distance), "${anchor.distanceM.roundToInt()} m")
-                        ValueRow(stringResource(R.string.anchor_radius), "${anchor.radiusM} m")
-                    }
-                }
-                if (anchor.alarming) {
-                    OutlinedButton(onClick = onSilence, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Filled.NotificationsOff, contentDescription = null)
+                    RadiusField(radiusM, onRadiusChange)
+                    Button(onClick = onSetAnchor, enabled = hasFix, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Filled.Anchor, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.anchor_silence))
+                        Text(stringResource(R.string.anchor_set))
+                    }
+                    if (!hasFix) {
+                        Text(
+                            stringResource(R.string.anchor_no_fix),
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 13.sp,
+                        )
+                    }
+                } else {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (anchor.alarming) {
+                                Text(
+                                    stringResource(R.string.anchor_dragging),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            } else {
+                                Text(
+                                    stringResource(R.string.anchor_holding),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            ValueRow(stringResource(R.string.anchor_distance), "${anchor.distanceM.roundToInt()} m")
+                            ValueRow(stringResource(R.string.anchor_radius), "${anchor.radiusM} m")
+                        }
+                    }
+                    if (anchor.alarming) {
+                        OutlinedButton(onClick = onSilence, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Filled.NotificationsOff, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.anchor_silence))
+                        }
+                    }
+                    Button(onClick = onRaise, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.anchor_raise))
                     }
                 }
-                Button(onClick = onRaise, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.anchor_raise))
-                }
+            }
+
+            // --- Karte füllt den Rest ---
+            if (anchor.active) {
+                AnchorMap(
+                    anchorLat = anchor.lat,
+                    anchorLon = anchor.lon,
+                    radiusM = anchor.radiusM,
+                    boatLat = gps.latitude,
+                    boatLon = gps.longitude,
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                )
+            } else {
+                OsmMap(
+                    points = emptyList(),
+                    currentLat = gps.latitude,
+                    currentLon = gps.longitude,
+                    interactive = true,
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                )
             }
         }
     }

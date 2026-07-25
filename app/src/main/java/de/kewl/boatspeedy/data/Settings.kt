@@ -77,10 +77,12 @@ data class Settings(
     // Fahrt / Alarme
     /** Auto-Pause-Schwelle in A; 0 = aus (Fahrt läuft ohne Auto-Pause). */
     val autoPauseAmps: Float = 0.05f,
-    /** Gewählter Alarmton für Anker- und SoC-Alarm. */
-    val alarmSound: AlarmSound = AlarmSound.PIEP,
+    /** Ankeralarm mit Ton (sonst nur Benachrichtigung). */
+    val anchorAlarmOn: Boolean = true,
+    val anchorSound: AlarmSound = AlarmSound.SIRENE,
     /** SoC-Warnung zusätzlich mit Ton (sonst nur rot). */
-    val socAlarmSound: Boolean = false,
+    val socAlarmOn: Boolean = false,
+    val socSound: AlarmSound = AlarmSound.PIEP,
     /** Zuletzt genutzter Anker-Radius in Metern. */
     val anchorRadiusM: Int = 30,
 )

@@ -122,12 +122,14 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             settings.collect { TripRepository.autoPauseAmps = it.autoPauseAmps }
         }
         // SoC-Alarm-Ton bei fallender Flanke unter die Schwelle.
+        // voltage>0 & soc>=1 schließt die kurzen 0-Werte direkt nach dem Verbinden aus.
         viewModelScope.launch {
             combine(settings, dashboardBattery) { s, data ->
-                val low = s.lowSocPercent > 0 && data != null && data.soc <= s.lowSocPercent
-                Triple(low, s.socAlarmSound, s.alarmSound)
-            }.collect { (low, soundOn, sound) ->
-                if (low && !lastSocLow && soundOn) {
+                val low = s.lowSocPercent > 0 && data != null &&
+                    data.voltage > 0f && data.soc in 1..s.lowSocPercent
+                Triple(low, s.socAlarmOn, s.socSound)
+            }.collect { (low, on, sound) ->
+                if (low && !lastSocLow && on) {
                     AlarmPlayer.play(getApplication(), sound, loop = false)
                 }
                 lastSocLow = low
@@ -205,8 +207,10 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }
     fun setShowMapTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowMapTile(v) }
     fun setAutoPauseAmps(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseAmps(v) }
-    fun setAlarmSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setAlarmSound(v) }
-    fun setSocAlarmSound(v: Boolean) = viewModelScope.launch { settingsRepo.setSocAlarmSound(v) }
+    fun setAnchorAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAnchorAlarmOn(v) }
+    fun setAnchorSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setAnchorSound(v) }
+    fun setSocAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setSocAlarmOn(v) }
+    fun setSocSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setSocSound(v) }
     fun setAnchorRadius(v: Int) = viewModelScope.launch { settingsRepo.setAnchorRadius(v) }
 
     // --- Ankeralarm ---
@@ -215,15 +219,16 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         val g = _gps.value
         val lat = g.latitude ?: return
         val lon = g.longitude ?: return
-        AnchorRepository.setAnchor(lat, lon, settings.value.anchorRadiusM)
-        AnchorService.start(getApplication(), settings.value.alarmSound)
+        val s = settings.value
+        AnchorRepository.setAnchor(lat, lon, s.anchorRadiusM)
+        AnchorService.start(getApplication(), s.anchorSound, s.anchorAlarmOn)
     }
 
     fun raiseAnchor() = AnchorService.stop(getApplication())
     fun silenceAnchor() = AnchorService.silence(getApplication())
 
-    /** Gewählten Alarmton kurz zur Probe abspielen. */
-    fun testAlarmSound() = AlarmPlayer.play(getApplication(), settings.value.alarmSound, loop = false)
+    fun testAnchorSound() = AlarmPlayer.play(getApplication(), settings.value.anchorSound, loop = false)
+    fun testSocSound() = AlarmPlayer.play(getApplication(), settings.value.socSound, loop = false)
     fun setBms(v: BmsType) = viewModelScope.launch { settingsRepo.setBatteryBms(v) }
     fun setBankMode(v: BankMode) = viewModelScope.launch { settingsRepo.setBankMode(v) }
     fun setDashboardBattery(v: String) = viewModelScope.launch { settingsRepo.setDashboardBattery(v) }

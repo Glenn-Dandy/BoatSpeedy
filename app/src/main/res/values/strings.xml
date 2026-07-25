@@ -157,10 +157,12 @@
     <string name="anchor_alarm_dragging">Dragging: %1$d m (radius %2$d m)</string>
 
     <!-- Alarms -->
-    <string name="group_alarms">Alarms</string>
-    <string name="cat_alarms_desc">Alarm sound, low-charge sound</string>
-    <string name="alarm_sound">Alarm sound</string>
+    <string name="group_general">General</string>
+    <string name="cat_general_desc">Low-charge warning, auto-pause, alarms</string>
     <string name="alarm_test">Test sound</string>
+    <string name="anchor_alarm_sound">Anchor alarm sound</string>
+    <string name="anchor_sound_label">Anchor sound</string>
+    <string name="soc_sound_label">Low-charge sound</string>
     <string name="sound_piep">Beep</string>
     <string name="sound_glocke">Bell</string>
     <string name="sound_sirene">Siren</string>

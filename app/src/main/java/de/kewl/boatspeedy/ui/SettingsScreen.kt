@@ -18,7 +18,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -63,10 +63,9 @@ import kotlin.math.roundToInt
 @Composable
 fun SettingsHomeScreen(
     onDashboard: () -> Unit,
-    onGps: () -> Unit,
-    onAlarms: () -> Unit,
+    onGeneral: () -> Unit,
     onAppearance: () -> Unit,
-    onLanguage: () -> Unit,
+    onGps: () -> Unit,
     onOpenMenu: () -> Unit,
 ) {
     SettingsScaffold(
@@ -82,17 +81,10 @@ fun SettingsHomeScreen(
         )
         HorizontalDivider()
         CategoryRow(
-            Icons.Filled.GpsFixed,
-            stringResource(R.string.group_gps),
-            stringResource(R.string.cat_gps_desc),
-            onGps,
-        )
-        HorizontalDivider()
-        CategoryRow(
-            Icons.Filled.NotificationsActive,
-            stringResource(R.string.group_alarms),
-            stringResource(R.string.cat_alarms_desc),
-            onAlarms,
+            Icons.Filled.Tune,
+            stringResource(R.string.group_general),
+            stringResource(R.string.cat_general_desc),
+            onGeneral,
         )
         HorizontalDivider()
         CategoryRow(
@@ -103,10 +95,10 @@ fun SettingsHomeScreen(
         )
         HorizontalDivider()
         CategoryRow(
-            Icons.Filled.Language,
-            stringResource(R.string.language),
-            stringResource(R.string.cat_language_desc),
-            onLanguage,
+            Icons.Filled.GpsFixed,
+            stringResource(R.string.group_gps),
+            stringResource(R.string.cat_gps_desc),
+            onGps,
         )
     }
 }
@@ -135,8 +127,6 @@ fun DashboardSettingsScreen(
     onDecimals: (Int) -> Unit,
     onSmoothing: (Smoothing) -> Unit,
     onRangeSmoothing: (RangeSmoothing) -> Unit,
-    onLowSocPercent: (Int) -> Unit,
-    onAutoPauseAmps: (Float) -> Unit,
     onShowBatteryTile: (Boolean) -> Unit,
     onShowRangeTile: (Boolean) -> Unit,
     onShowMapTile: (Boolean) -> Unit,
@@ -187,8 +177,6 @@ fun DashboardSettingsScreen(
             },
             onSelect = onRangeSmoothing,
         )
-        LowSocSliderRow(settings.lowSocPercent, onLowSocPercent)
-        AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SwitchRow(stringResource(R.string.tile_battery), settings.showBatteryTile, onShowBatteryTile)
         SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
@@ -268,6 +256,8 @@ fun AppearanceSettingsScreen(
     settings: Settings,
     onTheme: (ThemeMode) -> Unit,
     onKeepScreenOn: (Boolean) -> Unit,
+    language: AppLanguage,
+    onLanguage: (AppLanguage) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.appearance), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -285,63 +275,73 @@ fun AppearanceSettingsScreen(
             onSelect = onTheme,
         )
         SwitchRow(stringResource(R.string.keep_screen_on), settings.keepScreenOn, onKeepScreenOn)
+        LanguageRow(language, onLanguage)
     }
 }
 
-/* ----------------------------- Language ------------------------------ */
-
+/** Wiederverwendbarer Sprach-Umschalter (Darstellung + „Über"). */
 @Composable
-fun LanguageSettingsScreen(
-    language: AppLanguage,
-    onLanguage: (AppLanguage) -> Unit,
-    onBack: () -> Unit,
-) {
-    SettingsScaffold(stringResource(R.string.language), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
-        SegmentedRow(
-            label = stringResource(R.string.language),
-            options = AppLanguage.entries,
-            selected = language,
-            labelOf = {
-                when (it) {
-                    AppLanguage.ENGLISH -> stringResource(R.string.language_english)
-                    AppLanguage.GERMAN -> stringResource(R.string.language_german)
-                }
-            },
-            onSelect = onLanguage,
-        )
-    }
+fun LanguageRow(language: AppLanguage, onLanguage: (AppLanguage) -> Unit) {
+    SegmentedRow(
+        label = stringResource(R.string.language),
+        options = AppLanguage.entries,
+        selected = language,
+        labelOf = {
+            when (it) {
+                AppLanguage.ENGLISH -> stringResource(R.string.language_english)
+                AppLanguage.GERMAN -> stringResource(R.string.language_german)
+            }
+        },
+        onSelect = onLanguage,
+    )
 }
 
-/* ------------------------------ Alarme ------------------------------- */
+/* ----------------------------- Allgemein ----------------------------- */
 
 @Composable
-fun AlarmsSettingsScreen(
+fun GeneralSettingsScreen(
     settings: Settings,
-    onAlarmSound: (AlarmSound) -> Unit,
-    onSocAlarmSound: (Boolean) -> Unit,
-    onTest: () -> Unit,
+    onLowSocPercent: (Int) -> Unit,
+    onAutoPauseAmps: (Float) -> Unit,
+    onAnchorAlarmOn: (Boolean) -> Unit,
+    onAnchorSound: (AlarmSound) -> Unit,
+    onSocAlarmOn: (Boolean) -> Unit,
+    onSocSound: (AlarmSound) -> Unit,
+    onTestAnchor: () -> Unit,
+    onTestSoc: () -> Unit,
     onBack: () -> Unit,
 ) {
-    SettingsScaffold(stringResource(R.string.group_alarms), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
-        SegmentedRow(
-            label = stringResource(R.string.alarm_sound),
-            options = AlarmSound.entries,
-            selected = settings.alarmSound,
-            labelOf = {
-                when (it) {
-                    AlarmSound.PIEP -> stringResource(R.string.sound_piep)
-                    AlarmSound.GLOCKE -> stringResource(R.string.sound_glocke)
-                    AlarmSound.SIRENE -> stringResource(R.string.sound_sirene)
-                }
-            },
-            onSelect = onAlarmSound,
-        )
-        Button(onClick = onTest, modifier = Modifier.padding(top = 4.dp)) {
-            Text(stringResource(R.string.alarm_test))
-        }
+    SettingsScaffold(stringResource(R.string.group_general), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
+        LowSocSliderRow(settings.lowSocPercent, onLowSocPercent)
+        AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
+
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        SwitchRow(stringResource(R.string.soc_alarm_sound), settings.socAlarmSound, onSocAlarmSound)
+        SwitchRow(stringResource(R.string.anchor_alarm_sound), settings.anchorAlarmOn, onAnchorAlarmOn)
+        AlarmSoundRow(stringResource(R.string.anchor_sound_label), settings.anchorSound, onAnchorSound)
+        Button(onClick = onTestAnchor) { Text(stringResource(R.string.alarm_test)) }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        SwitchRow(stringResource(R.string.soc_alarm_sound), settings.socAlarmOn, onSocAlarmOn)
+        AlarmSoundRow(stringResource(R.string.soc_sound_label), settings.socSound, onSocSound)
+        Button(onClick = onTestSoc) { Text(stringResource(R.string.alarm_test)) }
     }
+}
+
+@Composable
+private fun AlarmSoundRow(label: String, selected: AlarmSound, onSelect: (AlarmSound) -> Unit) {
+    SegmentedRow(
+        label = label,
+        options = AlarmSound.entries,
+        selected = selected,
+        labelOf = {
+            when (it) {
+                AlarmSound.PIEP -> stringResource(R.string.sound_piep)
+                AlarmSound.GLOCKE -> stringResource(R.string.sound_glocke)
+                AlarmSound.SIRENE -> stringResource(R.string.sound_sirene)
+            }
+        },
+        onSelect = onSelect,
+    )
 }
 
 /* ------------------------------ Helpers ------------------------------ */

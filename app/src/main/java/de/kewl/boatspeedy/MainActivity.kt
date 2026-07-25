@@ -58,15 +58,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import de.kewl.boatspeedy.data.COMBINED_SELECTION
 import de.kewl.boatspeedy.data.ThemeMode
 import de.kewl.boatspeedy.ui.AboutScreen
-import de.kewl.boatspeedy.ui.AlarmsSettingsScreen
 import de.kewl.boatspeedy.ui.AnchorScreen
 import de.kewl.boatspeedy.ui.AppearanceSettingsScreen
 import de.kewl.boatspeedy.ui.BatteryOption
 import de.kewl.boatspeedy.ui.BatteryScreen
 import de.kewl.boatspeedy.ui.DashboardScreen
 import de.kewl.boatspeedy.ui.DashboardSettingsScreen
+import de.kewl.boatspeedy.ui.GeneralSettingsScreen
 import de.kewl.boatspeedy.ui.GpsSettingsScreen
-import de.kewl.boatspeedy.ui.LanguageSettingsScreen
 import de.kewl.boatspeedy.ui.LiveMapScreen
 import de.kewl.boatspeedy.ui.SettingsHomeScreen
 import de.kewl.boatspeedy.trip.SavedTrip
@@ -78,7 +77,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_GPS, SETTINGS_ALARMS, SETTINGS_APPEARANCE, SETTINGS_LANGUAGE, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_GENERAL, SETTINGS_GPS, SETTINGS_APPEARANCE, ABOUT }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -213,7 +212,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
             BackHandler(enabled = !drawerState.isOpen && screen != Screen.SPEED) {
                 screen = when (screen) {
-                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_GPS, Screen.SETTINGS_ALARMS, Screen.SETTINGS_APPEARANCE, Screen.SETTINGS_LANGUAGE -> Screen.SETTINGS
+                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_GENERAL, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE -> Screen.SETTINGS
                     Screen.TRIP_DETAIL -> Screen.TRIPS
                     Screen.TRIP_MAP -> Screen.TRIP_DETAIL
                     else -> Screen.SPEED
@@ -246,10 +245,9 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                 when (screen) {
                     Screen.SETTINGS -> SettingsHomeScreen(
                         onDashboard = { screen = Screen.SETTINGS_DASHBOARD },
-                        onGps = { screen = Screen.SETTINGS_GPS },
-                        onAlarms = { screen = Screen.SETTINGS_ALARMS },
+                        onGeneral = { screen = Screen.SETTINGS_GENERAL },
                         onAppearance = { screen = Screen.SETTINGS_APPEARANCE },
-                        onLanguage = { screen = Screen.SETTINGS_LANGUAGE },
+                        onGps = { screen = Screen.SETTINGS_GPS },
                         onOpenMenu = { openDrawer() },
                     )
 
@@ -259,12 +257,23 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onDecimals = vm::setDecimals,
                         onSmoothing = vm::setSmoothing,
                         onRangeSmoothing = vm::setRangeSmoothing,
-                        onLowSocPercent = vm::setLowSocPercent,
-                        onAutoPauseAmps = vm::setAutoPauseAmps,
                         onShowBatteryTile = vm::setShowBatteryTile,
                         onShowRangeTile = vm::setShowRangeTile,
                         onShowMapTile = vm::setShowMapTile,
                         onShowSatDetails = vm::setShowSatDetails,
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_GENERAL -> GeneralSettingsScreen(
+                        settings = settings,
+                        onLowSocPercent = vm::setLowSocPercent,
+                        onAutoPauseAmps = vm::setAutoPauseAmps,
+                        onAnchorAlarmOn = vm::setAnchorAlarmOn,
+                        onAnchorSound = vm::setAnchorSound,
+                        onSocAlarmOn = vm::setSocAlarmOn,
+                        onSocSound = vm::setSocSound,
+                        onTestAnchor = vm::testAnchorSound,
+                        onTestSoc = vm::testSocSound,
                         onBack = { screen = Screen.SETTINGS },
                     )
 
@@ -273,22 +282,10 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onBack = { screen = Screen.SETTINGS },
                     )
 
-                    Screen.SETTINGS_ALARMS -> AlarmsSettingsScreen(
-                        settings = settings,
-                        onAlarmSound = vm::setAlarmSound,
-                        onSocAlarmSound = vm::setSocAlarmSound,
-                        onTest = vm::testAlarmSound,
-                        onBack = { screen = Screen.SETTINGS },
-                    )
-
                     Screen.SETTINGS_APPEARANCE -> AppearanceSettingsScreen(
                         settings = settings,
                         onTheme = vm::setTheme,
                         onKeepScreenOn = vm::setKeepScreenOn,
-                        onBack = { screen = Screen.SETTINGS },
-                    )
-
-                    Screen.SETTINGS_LANGUAGE -> LanguageSettingsScreen(
                         language = LanguageHelper.current(context),
                         onLanguage = { LanguageHelper.set(context, it) },
                         onBack = { screen = Screen.SETTINGS },
@@ -324,7 +321,11 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         }
                     }
 
-                    Screen.ABOUT -> AboutScreen(onOpenMenu = { openDrawer() })
+                    Screen.ABOUT -> AboutScreen(
+                        language = LanguageHelper.current(context),
+                        onLanguage = { LanguageHelper.set(context, it) },
+                        onOpenMenu = { openDrawer() },
+                    )
 
                     Screen.LIVE_MAP -> LiveMapScreen(
                         currentLat = gps.latitude,

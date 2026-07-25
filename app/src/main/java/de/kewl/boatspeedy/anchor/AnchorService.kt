@@ -34,7 +34,8 @@ class AnchorService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var job: Job? = null
-    private var alarmSound: AlarmSound = AlarmSound.PIEP
+    private var alarmSound: AlarmSound = AlarmSound.SIRENE
+    private var soundOn: Boolean = true
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -59,8 +60,9 @@ class AnchorService : Service() {
             }
             else -> {
                 intent?.getStringExtra(EXTRA_SOUND)?.let {
-                    alarmSound = runCatching { AlarmSound.valueOf(it) }.getOrDefault(AlarmSound.PIEP)
+                    alarmSound = runCatching { AlarmSound.valueOf(it) }.getOrDefault(AlarmSound.SIRENE)
                 }
+                soundOn = intent?.getBooleanExtra(EXTRA_SOUND_ON, true) ?: true
                 start()
             }
         }
@@ -84,9 +86,9 @@ class AnchorService : Service() {
                     AnchorRepository.onLocation(lat, lon)
                 }
                 val s = AnchorRepository.state.value
-                if (s.alarming && !AlarmPlayer.isPlaying) {
+                if (s.alarming && soundOn && !AlarmPlayer.isPlaying) {
                     AlarmPlayer.play(applicationContext, alarmSound, loop = true)
-                } else if (!s.alarming && AlarmPlayer.isPlaying) {
+                } else if ((!s.alarming || !soundOn) && AlarmPlayer.isPlaying) {
                     AlarmPlayer.stop()
                 }
                 updateNotification()
@@ -109,8 +111,9 @@ class AnchorService : Service() {
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)
+            .setOnlyAlertOnce(true) // wiederholtes notify() nicht erneut „buzzen" lassen
             .setContentIntent(tapIntent)
-            .setPriority(if (s.alarming) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .addAction(0, getString(R.string.anchor_raise), action(ACTION_STOP))
         if (s.alarming) {
             builder.addAction(0, getString(R.string.anchor_silence), action(ACTION_SILENCE))
@@ -137,7 +140,7 @@ class AnchorService : Service() {
             NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.anchor_channel_name),
-                NotificationManager.IMPORTANCE_HIGH,
+                NotificationManager.IMPORTANCE_LOW, // still (kein Ton/Heads-up); Alarm kommt über AlarmPlayer
             ),
         )
     }
@@ -153,14 +156,16 @@ class AnchorService : Service() {
         private const val CHANNEL_ID = "anchor"
         private const val NOTIF_ID = 2
         private const val EXTRA_SOUND = "sound"
+        private const val EXTRA_SOUND_ON = "sound_on"
         const val ACTION_START = "de.kewl.boatspeedy.action.ANCHOR_START"
         const val ACTION_STOP = "de.kewl.boatspeedy.action.ANCHOR_STOP"
         const val ACTION_SILENCE = "de.kewl.boatspeedy.action.ANCHOR_SILENCE"
 
-        fun start(context: Context, sound: AlarmSound) {
+        fun start(context: Context, sound: AlarmSound, soundOn: Boolean) {
             val intent = Intent(context, AnchorService::class.java)
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_SOUND, sound.name)
+                .putExtra(EXTRA_SOUND_ON, soundOn)
             context.startForegroundService(intent)
         }
 
