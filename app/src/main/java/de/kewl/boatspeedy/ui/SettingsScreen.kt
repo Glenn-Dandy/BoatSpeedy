@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,11 +18,14 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -33,14 +37,17 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import de.kewl.boatspeedy.R
+import de.kewl.boatspeedy.data.AlarmSound
 import de.kewl.boatspeedy.data.RangeSmoothing
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
@@ -56,9 +63,9 @@ import kotlin.math.roundToInt
 @Composable
 fun SettingsHomeScreen(
     onDashboard: () -> Unit,
-    onGps: () -> Unit,
+    onGeneral: () -> Unit,
     onAppearance: () -> Unit,
-    onLanguage: () -> Unit,
+    onGps: () -> Unit,
     onOpenMenu: () -> Unit,
 ) {
     SettingsScaffold(
@@ -74,10 +81,10 @@ fun SettingsHomeScreen(
         )
         HorizontalDivider()
         CategoryRow(
-            Icons.Filled.GpsFixed,
-            stringResource(R.string.group_gps),
-            stringResource(R.string.cat_gps_desc),
-            onGps,
+            Icons.Filled.Tune,
+            stringResource(R.string.group_general),
+            stringResource(R.string.cat_general_desc),
+            onGeneral,
         )
         HorizontalDivider()
         CategoryRow(
@@ -88,10 +95,10 @@ fun SettingsHomeScreen(
         )
         HorizontalDivider()
         CategoryRow(
-            Icons.Filled.Language,
-            stringResource(R.string.language),
-            stringResource(R.string.cat_language_desc),
-            onLanguage,
+            Icons.Filled.GpsFixed,
+            stringResource(R.string.group_gps),
+            stringResource(R.string.cat_gps_desc),
+            onGps,
         )
     }
 }
@@ -120,7 +127,6 @@ fun DashboardSettingsScreen(
     onDecimals: (Int) -> Unit,
     onSmoothing: (Smoothing) -> Unit,
     onRangeSmoothing: (RangeSmoothing) -> Unit,
-    onLowSocPercent: (Int) -> Unit,
     onShowBatteryTile: (Boolean) -> Unit,
     onShowRangeTile: (Boolean) -> Unit,
     onShowMapTile: (Boolean) -> Unit,
@@ -171,7 +177,6 @@ fun DashboardSettingsScreen(
             },
             onSelect = onRangeSmoothing,
         )
-        LowSocSliderRow(settings.lowSocPercent, onLowSocPercent)
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SwitchRow(stringResource(R.string.tile_battery), settings.showBatteryTile, onShowBatteryTile)
         SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
@@ -251,6 +256,8 @@ fun AppearanceSettingsScreen(
     settings: Settings,
     onTheme: (ThemeMode) -> Unit,
     onKeepScreenOn: (Boolean) -> Unit,
+    language: AppLanguage,
+    onLanguage: (AppLanguage) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.appearance), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -268,34 +275,103 @@ fun AppearanceSettingsScreen(
             onSelect = onTheme,
         )
         SwitchRow(stringResource(R.string.keep_screen_on), settings.keepScreenOn, onKeepScreenOn)
+        LanguageRow(language, onLanguage)
     }
 }
 
-/* ----------------------------- Language ------------------------------ */
+/** Wiederverwendbarer Sprach-Umschalter (Darstellung + „Über"). */
+@Composable
+fun LanguageRow(language: AppLanguage, onLanguage: (AppLanguage) -> Unit) {
+    SegmentedRow(
+        label = stringResource(R.string.language),
+        options = AppLanguage.entries,
+        selected = language,
+        labelOf = {
+            when (it) {
+                AppLanguage.ENGLISH -> stringResource(R.string.language_english)
+                AppLanguage.GERMAN -> stringResource(R.string.language_german)
+            }
+        },
+        onSelect = onLanguage,
+    )
+}
+
+/* ----------------------------- Allgemein ----------------------------- */
 
 @Composable
-fun LanguageSettingsScreen(
-    language: AppLanguage,
-    onLanguage: (AppLanguage) -> Unit,
+fun GeneralSettingsScreen(
+    settings: Settings,
+    onLowSocPercent: (Int) -> Unit,
+    onAutoPauseAmps: (Float) -> Unit,
+    onAnchorAlarmOn: (Boolean) -> Unit,
+    onAnchorSound: (AlarmSound) -> Unit,
+    onSocAlarmOn: (Boolean) -> Unit,
+    onSocSound: (AlarmSound) -> Unit,
+    onTestAnchor: () -> Unit,
+    onTestSoc: () -> Unit,
     onBack: () -> Unit,
 ) {
-    SettingsScaffold(stringResource(R.string.language), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
-        SegmentedRow(
-            label = stringResource(R.string.language),
-            options = AppLanguage.entries,
-            selected = language,
-            labelOf = {
-                when (it) {
-                    AppLanguage.ENGLISH -> stringResource(R.string.language_english)
-                    AppLanguage.GERMAN -> stringResource(R.string.language_german)
-                }
-            },
-            onSelect = onLanguage,
-        )
+    SettingsScaffold(stringResource(R.string.group_general), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
+        LowSocSliderRow(settings.lowSocPercent, onLowSocPercent)
+        AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        SwitchRow(stringResource(R.string.anchor_alarm_sound), settings.anchorAlarmOn, onAnchorAlarmOn)
+        AlarmSoundRow(stringResource(R.string.anchor_sound_label), settings.anchorSound, onAnchorSound)
+        Button(onClick = onTestAnchor) { Text(stringResource(R.string.alarm_test)) }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        SwitchRow(stringResource(R.string.soc_alarm_sound), settings.socAlarmOn, onSocAlarmOn)
+        AlarmSoundRow(stringResource(R.string.soc_sound_label), settings.socSound, onSocSound)
+        Button(onClick = onTestSoc) { Text(stringResource(R.string.alarm_test)) }
     }
+}
+
+@Composable
+private fun AlarmSoundRow(label: String, selected: AlarmSound, onSelect: (AlarmSound) -> Unit) {
+    SegmentedRow(
+        label = label,
+        options = AlarmSound.entries,
+        selected = selected,
+        labelOf = {
+            when (it) {
+                AlarmSound.PIEP -> stringResource(R.string.sound_piep)
+                AlarmSound.GLOCKE -> stringResource(R.string.sound_glocke)
+                AlarmSound.SIRENE -> stringResource(R.string.sound_sirene)
+            }
+        },
+        onSelect = onSelect,
+    )
 }
 
 /* ------------------------------ Helpers ------------------------------ */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AutoPauseField(amps: Float, onChange: (Float) -> Unit) {
+    var text by remember(amps) { mutableStateOf(if (amps <= 0f) "" else amps.toString()) }
+    Column(modifier = Modifier.padding(vertical = 10.dp)) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { new ->
+                val filtered = new.replace(',', '.').filter { it.isDigit() || it == '.' }.take(5)
+                text = filtered
+                onChange((filtered.toFloatOrNull() ?: 0f).coerceIn(0f, 50f))
+            },
+            label = { Text(stringResource(R.string.auto_pause)) },
+            suffix = { Text("A") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            stringResource(R.string.auto_pause_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

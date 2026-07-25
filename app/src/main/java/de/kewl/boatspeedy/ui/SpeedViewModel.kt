@@ -3,6 +3,11 @@ package de.kewl.boatspeedy.ui
 import android.app.Application
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
+import de.kewl.boatspeedy.alarm.AlarmPlayer
+import de.kewl.boatspeedy.anchor.AnchorRepository
+import de.kewl.boatspeedy.anchor.AnchorService
+import de.kewl.boatspeedy.anchor.AnchorState
+import de.kewl.boatspeedy.data.AlarmSound
 import androidx.lifecycle.viewModelScope
 import de.kewl.boatspeedy.battery.BatteryData
 import de.kewl.boatspeedy.battery.BatteryHub
@@ -64,6 +69,11 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     val tripPaused: StateFlow<Boolean> = TripRepository.paused
     val livePoints: StateFlow<List<de.kewl.boatspeedy.trip.TrackPoint>> = TripRepository.livePoints
 
+    // Ankeralarm.
+    val anchor: StateFlow<AnchorState> = AnchorRepository.state
+
+    private var lastSocLow = false
+
     // Batterie-Laufzeitzustand (alle offenen BLE-Links + Scan).
     val battery: StateFlow<BatteryHub> = BatteryRepository.state
 
@@ -105,6 +115,24 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                     TripRepository.consumeFinished()
                     _trips.value = tripStore.list()
                 }
+            }
+        }
+        // Auto-Pause-Schwelle aus den Settings in das TripRepository spiegeln.
+        viewModelScope.launch {
+            settings.collect { TripRepository.autoPauseAmps = it.autoPauseAmps }
+        }
+        // SoC-Alarm-Ton bei fallender Flanke unter die Schwelle.
+        // voltage>0 & soc>=1 schließt die kurzen 0-Werte direkt nach dem Verbinden aus.
+        viewModelScope.launch {
+            combine(settings, dashboardBattery) { s, data ->
+                val low = s.lowSocPercent > 0 && data != null &&
+                    data.voltage > 0f && data.soc in 1..s.lowSocPercent
+                Triple(low, s.socAlarmOn, s.socSound)
+            }.collect { (low, on, sound) ->
+                if (low && !lastSocLow && on) {
+                    AlarmPlayer.play(getApplication(), sound, loop = false)
+                }
+                lastSocLow = low
             }
         }
     }
@@ -178,6 +206,29 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowBatteryTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowBatteryTile(v) }
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }
     fun setShowMapTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowMapTile(v) }
+    fun setAutoPauseAmps(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseAmps(v) }
+    fun setAnchorAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAnchorAlarmOn(v) }
+    fun setAnchorSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setAnchorSound(v) }
+    fun setSocAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setSocAlarmOn(v) }
+    fun setSocSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setSocSound(v) }
+    fun setAnchorRadius(v: Int) = viewModelScope.launch { settingsRepo.setAnchorRadius(v) }
+
+    // --- Ankeralarm ---
+    /** Anker an der aktuellen Position setzen und die Wache (Vordergrunddienst) starten. */
+    fun setAnchor() {
+        val g = _gps.value
+        val lat = g.latitude ?: return
+        val lon = g.longitude ?: return
+        val s = settings.value
+        AnchorRepository.setAnchor(lat, lon, s.anchorRadiusM)
+        AnchorService.start(getApplication(), s.anchorSound, s.anchorAlarmOn)
+    }
+
+    fun raiseAnchor() = AnchorService.stop(getApplication())
+    fun silenceAnchor() = AnchorService.silence(getApplication())
+
+    fun testAnchorSound() = AlarmPlayer.play(getApplication(), settings.value.anchorSound, loop = false)
+    fun testSocSound() = AlarmPlayer.play(getApplication(), settings.value.socSound, loop = false)
     fun setBms(v: BmsType) = viewModelScope.launch { settingsRepo.setBatteryBms(v) }
     fun setBankMode(v: BankMode) = viewModelScope.launch { settingsRepo.setBankMode(v) }
     fun setDashboardBattery(v: String) = viewModelScope.launch { settingsRepo.setDashboardBattery(v) }

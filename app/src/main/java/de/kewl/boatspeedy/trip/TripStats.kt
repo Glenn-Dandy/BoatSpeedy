@@ -5,7 +5,8 @@ data class TripStats(
     val distanceM: Double = 0.0,
     val maxSpeedMs: Float = 0f,
     val avgSpeedMs: Float = 0f,
-    val elapsedMs: Long = 0L,
+    val elapsedMs: Long = 0L,        // reine Fahrzeit (ohne Auto-Pause)
+    val totalMs: Long = 0L,          // Gesamtzeit von Start bis jetzt/Stopp (inkl. Pausen)
     /** Verbrauchte Energie in Wh (aus der Batterie-Leistung integriert), 0 wenn kein Akku verbunden. */
     val energyWh: Float = 0f,
     /** Verbrauchte Ladung in Ah (aus dem Strom integriert), 0 wenn kein Akku verbunden. */

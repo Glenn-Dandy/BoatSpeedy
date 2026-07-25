@@ -66,7 +66,9 @@ object TripRepository {
     private const val MIN_SPEED_MS = 0.5f      // unter ~1,8 km/h nicht als Fahrt zählen
     private const val MAX_ACCURACY_M = 25f     // schlechte Fixes für Distanz ignorieren
     private const val MAX_STEP_M = 200.0       // Ausreißer (Sprünge) verwerfen
-    private const val MIN_CURRENT_A = 0.05f    // darunter gilt der Motor als aus → Pause
+
+    /** Auto-Pause-Schwelle in A (0 = aus); vom ViewModel aus den Settings gesetzt. */
+    @Volatile var autoPauseAmps: Float = 0.05f
     private const val MAX_POINTS = 10_000      // Obergrenze der Track-Punkte
     private const val MIN_SAVE_DISTANCE_M = 10.0
     private const val MIN_SAVE_DURATION_MS = 10_000L
@@ -103,6 +105,7 @@ object TripRepository {
         emit()
 
         val duration = accumulatedMs
+        val total = if (tripStartRealtime > 0L) SystemClock.elapsedRealtime() - tripStartRealtime else duration
         if (distanceM >= MIN_SAVE_DISTANCE_M || duration >= MIN_SAVE_DURATION_MS) {
             val avg = if (duration > 0) (distanceM / (duration / 1000.0)).toFloat() else 0f
             _justFinished.value = SavedTrip(
@@ -110,6 +113,7 @@ object TripRepository {
                 startedAt = tripStartEpoch,
                 distanceM = distanceM,
                 durationMs = duration,
+                totalMs = total,
                 avgSpeedMs = avg,
                 maxSpeedMs = maxSpeedMs,
                 energyWh = energyWh,
@@ -164,7 +168,8 @@ object TripRepository {
     fun onBankSample(amps: Float, watts: Float) {
         if (!_tracking.value) return
         val now = SystemClock.elapsedRealtime()
-        val shouldRun = kotlin.math.abs(amps) >= MIN_CURRENT_A
+        val threshold = autoPauseAmps
+        val shouldRun = threshold <= 0f || kotlin.math.abs(amps) >= threshold
 
         if (shouldRun && !running) resumeAt(now)
         else if (!shouldRun && running) pauseAt(now)
@@ -203,12 +208,14 @@ object TripRepository {
 
     private fun emit() {
         val elapsed = activeElapsed()
+        val total = if (tripStartRealtime > 0L) SystemClock.elapsedRealtime() - tripStartRealtime else 0L
         val avg = if (elapsed > 0) (distanceM / (elapsed / 1000.0)).toFloat() else 0f
         _stats.value = TripStats(
             distanceM = distanceM,
             maxSpeedMs = maxSpeedMs,
             avgSpeedMs = avg,
             elapsedMs = elapsed,
+            totalMs = total,
             energyWh = energyWh,
             chargeAh = chargeAh,
         )

@@ -53,7 +53,7 @@
     <string name="stat_energy">Energy</string>
     <string name="stat_efficiency">Efficiency</string>
     <string name="stat_consumed">Consumed</string>
-    <string name="trip_paused">⏸ Paused (0 A)</string>
+    <string name="trip_paused">⏸ Auto-pause</string>
 
     <!-- Navigation drawer -->
     <string name="menu">Menu</string>
@@ -139,6 +139,41 @@
     <string name="mode_parallel">Parallel</string>
     <string name="mode_series">Series</string>
     <string name="combined_short">Σ</string>
+
+    <!-- Anchor watch -->
+    <string name="nav_anchor">Anchor</string>
+    <string name="anchor_watch_title">Anchor watch</string>
+    <string name="anchor_channel_name">Anchor watch</string>
+    <string name="anchor_hint">Drop the anchor at your current position — you\'ll be alerted if the boat drifts beyond the radius.</string>
+    <string name="anchor_set">Drop anchor</string>
+    <string name="anchor_raise">Raise anchor</string>
+    <string name="anchor_silence">Silence</string>
+    <string name="anchor_radius">Radius</string>
+    <string name="anchor_distance">Distance</string>
+    <string name="anchor_no_fix">Waiting for a GPS fix…</string>
+    <string name="anchor_holding">Anchor holding</string>
+    <string name="anchor_dragging">Anchor dragging!</string>
+    <string name="anchor_watch_text">%1$d m / radius %2$d m</string>
+    <string name="anchor_alarm_dragging">Dragging: %1$d m (radius %2$d m)</string>
+
+    <!-- Alarms -->
+    <string name="group_general">General</string>
+    <string name="cat_general_desc">Low-charge warning, auto-pause, alarms</string>
+    <string name="alarm_test">Test sound</string>
+    <string name="anchor_alarm_sound">Anchor alarm sound</string>
+    <string name="anchor_sound_label">Anchor sound</string>
+    <string name="soc_sound_label">Low-charge sound</string>
+    <string name="sound_piep">Beep</string>
+    <string name="sound_glocke">Bell</string>
+    <string name="sound_sirene">Siren</string>
+    <string name="soc_alarm_sound">Low-charge alarm sound</string>
+    <string name="auto_pause">Auto-pause below current (A)</string>
+    <string name="auto_pause_hint">0 or empty = off. Examples: 0.05, 0.5, 1.0</string>
+
+    <!-- Trip times -->
+    <string name="stat_total_time">Total time</string>
+    <string name="stat_moving_time">Moving time</string>
+    <string name="stat_pause">Pause</string>
 
     <!-- About -->
     <string name="about">About</string>
