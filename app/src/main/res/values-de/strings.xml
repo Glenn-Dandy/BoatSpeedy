@@ -137,6 +137,39 @@
     <string name="mode_series">Reihe</string>
     <string name="combined_short">Σ</string>
 
+    <!-- Anker-Wache -->
+    <string name="nav_anchor">Anker</string>
+    <string name="anchor_watch_title">Anker-Wache</string>
+    <string name="anchor_channel_name">Anker-Wache</string>
+    <string name="anchor_hint">Anker an der aktuellen Position setzen — Alarm, sobald das Boot über den Radius driftet.</string>
+    <string name="anchor_set">Anker setzen</string>
+    <string name="anchor_raise">Anker einholen</string>
+    <string name="anchor_silence">Stumm</string>
+    <string name="anchor_radius">Radius</string>
+    <string name="anchor_distance">Distanz</string>
+    <string name="anchor_no_fix">Warte auf GPS-Fix …</string>
+    <string name="anchor_holding">Anker hält</string>
+    <string name="anchor_dragging">Anker treibt!</string>
+    <string name="anchor_watch_text">%1$d m / Radius %2$d m</string>
+    <string name="anchor_alarm_dragging">Treibt: %1$d m (Radius %2$d m)</string>
+
+    <!-- Alarme -->
+    <string name="group_alarms">Alarme</string>
+    <string name="cat_alarms_desc">Alarmton, SoC-Ton</string>
+    <string name="alarm_sound">Alarmton</string>
+    <string name="alarm_test">Ton testen</string>
+    <string name="sound_piep">Piep</string>
+    <string name="sound_glocke">Glocke</string>
+    <string name="sound_sirene">Sirene</string>
+    <string name="soc_alarm_sound">SoC-Alarm mit Ton</string>
+    <string name="auto_pause">Auto-Pause unter Strom (A)</string>
+    <string name="auto_pause_hint">0 oder leer = aus. Beispiele: 0.05, 0.5, 1.0</string>
+
+    <!-- Fahrt-Zeiten -->
+    <string name="stat_total_time">Gesamtzeit</string>
+    <string name="stat_moving_time">Fahrzeit</string>
+    <string name="stat_pause">Pause</string>
+
     <!-- Über -->
     <string name="about">Über</string>
     <string name="version">Version</string>

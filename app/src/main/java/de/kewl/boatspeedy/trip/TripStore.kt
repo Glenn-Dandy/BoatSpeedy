@@ -45,6 +45,7 @@ class TripStore(context: Context) {
             .put("startedAt", t.startedAt)
             .put("distanceM", t.distanceM)
             .put("durationMs", t.durationMs)
+            .put("totalMs", t.totalMs)
             .put("avg", t.avgSpeedMs.toDouble())
             .put("max", t.maxSpeedMs.toDouble())
             .put("energyWh", t.energyWh.toDouble())
@@ -66,6 +67,7 @@ class TripStore(context: Context) {
             startedAt = o.getLong("startedAt"),
             distanceM = o.getDouble("distanceM"),
             durationMs = o.getLong("durationMs"),
+            totalMs = o.optLong("totalMs", o.getLong("durationMs")),
             avgSpeedMs = o.getDouble("avg").toFloat(),
             maxSpeedMs = o.getDouble("max").toFloat(),
             energyWh = o.getDouble("energyWh").toFloat(),

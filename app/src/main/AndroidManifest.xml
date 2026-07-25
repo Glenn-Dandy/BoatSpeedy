@@ -54,6 +54,11 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <service
+            android:name=".anchor.AnchorService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
         <!-- Teilt exportierte GPX-Dateien (Cache) sicher per content://-URI. -->
         <provider
             android:name="androidx.core.content.FileProvider"

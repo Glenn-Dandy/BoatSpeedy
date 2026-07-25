@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,11 +18,14 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -33,14 +37,17 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import de.kewl.boatspeedy.R
+import de.kewl.boatspeedy.data.AlarmSound
 import de.kewl.boatspeedy.data.RangeSmoothing
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
@@ -57,6 +64,7 @@ import kotlin.math.roundToInt
 fun SettingsHomeScreen(
     onDashboard: () -> Unit,
     onGps: () -> Unit,
+    onAlarms: () -> Unit,
     onAppearance: () -> Unit,
     onLanguage: () -> Unit,
     onOpenMenu: () -> Unit,
@@ -78,6 +86,13 @@ fun SettingsHomeScreen(
             stringResource(R.string.group_gps),
             stringResource(R.string.cat_gps_desc),
             onGps,
+        )
+        HorizontalDivider()
+        CategoryRow(
+            Icons.Filled.NotificationsActive,
+            stringResource(R.string.group_alarms),
+            stringResource(R.string.cat_alarms_desc),
+            onAlarms,
         )
         HorizontalDivider()
         CategoryRow(
@@ -121,6 +136,7 @@ fun DashboardSettingsScreen(
     onSmoothing: (Smoothing) -> Unit,
     onRangeSmoothing: (RangeSmoothing) -> Unit,
     onLowSocPercent: (Int) -> Unit,
+    onAutoPauseAmps: (Float) -> Unit,
     onShowBatteryTile: (Boolean) -> Unit,
     onShowRangeTile: (Boolean) -> Unit,
     onShowMapTile: (Boolean) -> Unit,
@@ -172,6 +188,7 @@ fun DashboardSettingsScreen(
             onSelect = onRangeSmoothing,
         )
         LowSocSliderRow(settings.lowSocPercent, onLowSocPercent)
+        AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SwitchRow(stringResource(R.string.tile_battery), settings.showBatteryTile, onShowBatteryTile)
         SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
@@ -295,7 +312,66 @@ fun LanguageSettingsScreen(
     }
 }
 
+/* ------------------------------ Alarme ------------------------------- */
+
+@Composable
+fun AlarmsSettingsScreen(
+    settings: Settings,
+    onAlarmSound: (AlarmSound) -> Unit,
+    onSocAlarmSound: (Boolean) -> Unit,
+    onTest: () -> Unit,
+    onBack: () -> Unit,
+) {
+    SettingsScaffold(stringResource(R.string.group_alarms), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
+        SegmentedRow(
+            label = stringResource(R.string.alarm_sound),
+            options = AlarmSound.entries,
+            selected = settings.alarmSound,
+            labelOf = {
+                when (it) {
+                    AlarmSound.PIEP -> stringResource(R.string.sound_piep)
+                    AlarmSound.GLOCKE -> stringResource(R.string.sound_glocke)
+                    AlarmSound.SIRENE -> stringResource(R.string.sound_sirene)
+                }
+            },
+            onSelect = onAlarmSound,
+        )
+        Button(onClick = onTest, modifier = Modifier.padding(top = 4.dp)) {
+            Text(stringResource(R.string.alarm_test))
+        }
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        SwitchRow(stringResource(R.string.soc_alarm_sound), settings.socAlarmSound, onSocAlarmSound)
+    }
+}
+
 /* ------------------------------ Helpers ------------------------------ */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AutoPauseField(amps: Float, onChange: (Float) -> Unit) {
+    var text by remember(amps) { mutableStateOf(if (amps <= 0f) "" else amps.toString()) }
+    Column(modifier = Modifier.padding(vertical = 10.dp)) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { new ->
+                val filtered = new.replace(',', '.').filter { it.isDigit() || it == '.' }.take(5)
+                text = filtered
+                onChange((filtered.toFloatOrNull() ?: 0f).coerceIn(0f, 50f))
+            },
+            label = { Text(stringResource(R.string.auto_pause)) },
+            suffix = { Text("A") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            stringResource(R.string.auto_pause_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

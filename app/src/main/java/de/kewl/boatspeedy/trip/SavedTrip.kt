@@ -8,7 +8,8 @@ data class SavedTrip(
     val id: Long,            // == startedAt (Epoch-ms), stabiler Schlüssel/Dateiname
     val startedAt: Long,     // Epoch-ms
     val distanceM: Double,
-    val durationMs: Long,
+    val durationMs: Long,        // reine Fahrzeit (ohne Auto-Pause)
+    val totalMs: Long = durationMs, // Gesamtzeit inkl. Pausen; Pause = total − duration
     val avgSpeedMs: Float,
     val maxSpeedMs: Float,
     val energyWh: Float,

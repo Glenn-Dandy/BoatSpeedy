@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Route
@@ -57,6 +58,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import de.kewl.boatspeedy.data.COMBINED_SELECTION
 import de.kewl.boatspeedy.data.ThemeMode
 import de.kewl.boatspeedy.ui.AboutScreen
+import de.kewl.boatspeedy.ui.AlarmsSettingsScreen
+import de.kewl.boatspeedy.ui.AnchorScreen
 import de.kewl.boatspeedy.ui.AppearanceSettingsScreen
 import de.kewl.boatspeedy.ui.BatteryOption
 import de.kewl.boatspeedy.ui.BatteryScreen
@@ -75,7 +78,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_GPS, SETTINGS_APPEARANCE, SETTINGS_LANGUAGE, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_GPS, SETTINGS_ALARMS, SETTINGS_APPEARANCE, SETTINGS_LANGUAGE, ABOUT }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -162,6 +165,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             val dashRange by vm.dashboardRange.collectAsStateWithLifecycle()
             val trips by vm.trips.collectAsStateWithLifecycle()
             val livePoints by vm.livePoints.collectAsStateWithLifecycle()
+            val anchor by vm.anchor.collectAsStateWithLifecycle()
             var selectedTrip by remember { mutableStateOf<SavedTrip?>(null) }
 
             LaunchedEffect(screen) { if (screen == Screen.TRIPS) vm.refreshTrips() }
@@ -209,7 +213,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
             BackHandler(enabled = !drawerState.isOpen && screen != Screen.SPEED) {
                 screen = when (screen) {
-                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE, Screen.SETTINGS_LANGUAGE -> Screen.SETTINGS
+                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_GPS, Screen.SETTINGS_ALARMS, Screen.SETTINGS_APPEARANCE, Screen.SETTINGS_LANGUAGE -> Screen.SETTINGS
                     Screen.TRIP_DETAIL -> Screen.TRIPS
                     Screen.TRIP_MAP -> Screen.TRIP_DETAIL
                     else -> Screen.SPEED
@@ -233,6 +237,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         DrawerItem(R.string.nav_speed, Icons.Filled.Speed, screen == Screen.SPEED) { goTo(Screen.SPEED) }
                         DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen.name.startsWith("TRIP")) { goTo(Screen.TRIPS) }
                         DrawerItem(R.string.nav_battery, Icons.Filled.BatteryFull, screen == Screen.BATTERY) { goTo(Screen.BATTERY) }
+                        DrawerItem(R.string.nav_anchor, Icons.Filled.Anchor, screen == Screen.ANCHOR) { goTo(Screen.ANCHOR) }
                         DrawerItem(R.string.settings, Icons.Filled.Settings, screen.name.startsWith("SETTINGS")) { goTo(Screen.SETTINGS) }
                         DrawerItem(R.string.about, Icons.Filled.Info, screen == Screen.ABOUT) { goTo(Screen.ABOUT) }
                     }
@@ -242,6 +247,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                     Screen.SETTINGS -> SettingsHomeScreen(
                         onDashboard = { screen = Screen.SETTINGS_DASHBOARD },
                         onGps = { screen = Screen.SETTINGS_GPS },
+                        onAlarms = { screen = Screen.SETTINGS_ALARMS },
                         onAppearance = { screen = Screen.SETTINGS_APPEARANCE },
                         onLanguage = { screen = Screen.SETTINGS_LANGUAGE },
                         onOpenMenu = { openDrawer() },
@@ -254,6 +260,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onSmoothing = vm::setSmoothing,
                         onRangeSmoothing = vm::setRangeSmoothing,
                         onLowSocPercent = vm::setLowSocPercent,
+                        onAutoPauseAmps = vm::setAutoPauseAmps,
                         onShowBatteryTile = vm::setShowBatteryTile,
                         onShowRangeTile = vm::setShowRangeTile,
                         onShowMapTile = vm::setShowMapTile,
@@ -263,6 +270,14 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
 
                     Screen.SETTINGS_GPS -> GpsSettingsScreen(
                         gps = gps,
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_ALARMS -> AlarmsSettingsScreen(
+                        settings = settings,
+                        onAlarmSound = vm::setAlarmSound,
+                        onSocAlarmSound = vm::setSocAlarmSound,
+                        onTest = vm::testAlarmSound,
                         onBack = { screen = Screen.SETTINGS },
                     )
 
@@ -330,6 +345,17 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onRemove = vm::removeBattery,
                         onBms = vm::setBms,
                         onBankMode = vm::setBankMode,
+                        onOpenMenu = { openDrawer() },
+                    )
+
+                    Screen.ANCHOR -> AnchorScreen(
+                        anchor = anchor,
+                        gps = gps,
+                        radiusM = settings.anchorRadiusM,
+                        onRadiusChange = vm::setAnchorRadius,
+                        onSetAnchor = vm::setAnchor,
+                        onRaise = vm::raiseAnchor,
+                        onSilence = vm::silenceAnchor,
                         onOpenMenu = { openDrawer() },
                     )
 

@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -35,6 +36,10 @@ class SettingsRepository(private val context: Context) {
         val BANK_MODE = stringPreferencesKey("bank_mode")
         val BATTERIES = stringPreferencesKey("batteries") // JSON-Array
         val DASH_BATTERY = stringPreferencesKey("dashboard_battery")
+        val AUTO_PAUSE_AMPS = floatPreferencesKey("auto_pause_amps")
+        val ALARM_SOUND = stringPreferencesKey("alarm_sound")
+        val SOC_ALARM_SOUND = booleanPreferencesKey("soc_alarm_sound")
+        val ANCHOR_RADIUS = intPreferencesKey("anchor_radius")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -54,6 +59,10 @@ class SettingsRepository(private val context: Context) {
             bankMode = p[Keys.BANK_MODE]?.let { enumOrNull<BankMode>(it) } ?: BankMode.SINGLE,
             batteries = p[Keys.BATTERIES]?.let { decodeBatteries(it) } ?: emptyList(),
             dashboardBattery = p[Keys.DASH_BATTERY] ?: COMBINED_SELECTION,
+            autoPauseAmps = (p[Keys.AUTO_PAUSE_AMPS] ?: 0.05f).coerceIn(0f, 50f),
+            alarmSound = p[Keys.ALARM_SOUND]?.let { enumOrNull<AlarmSound>(it) } ?: AlarmSound.PIEP,
+            socAlarmSound = p[Keys.SOC_ALARM_SOUND] ?: false,
+            anchorRadiusM = (p[Keys.ANCHOR_RADIUS] ?: 30).coerceIn(5, 1000),
         )
     }
 
@@ -72,6 +81,10 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBankMode(value: BankMode) = edit { it[Keys.BANK_MODE] = value.name }
     suspend fun setDashboardBattery(value: String) = edit { it[Keys.DASH_BATTERY] = value }
     suspend fun setBatteries(value: List<SavedBattery>) = edit { it[Keys.BATTERIES] = encodeBatteries(value) }
+    suspend fun setAutoPauseAmps(value: Float) = edit { it[Keys.AUTO_PAUSE_AMPS] = value.coerceIn(0f, 50f) }
+    suspend fun setAlarmSound(value: AlarmSound) = edit { it[Keys.ALARM_SOUND] = value.name }
+    suspend fun setSocAlarmSound(value: Boolean) = edit { it[Keys.SOC_ALARM_SOUND] = value }
+    suspend fun setAnchorRadius(value: Int) = edit { it[Keys.ANCHOR_RADIUS] = value.coerceIn(5, 1000) }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.dataStore.edit(block)

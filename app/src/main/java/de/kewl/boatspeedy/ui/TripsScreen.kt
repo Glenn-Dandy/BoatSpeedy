@@ -237,7 +237,12 @@ fun TripDetailScreen(trip: SavedTrip, settings: Settings, onShowMap: () -> Unit,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             DetailRow(stringResource(R.string.stat_distance), formatDistance(trip.distanceM))
-            DetailRow(stringResource(R.string.stat_time), formatDuration(trip.durationMs))
+            DetailRow(stringResource(R.string.stat_total_time), formatDuration(trip.totalMs))
+            DetailRow(stringResource(R.string.stat_moving_time), formatDuration(trip.durationMs))
+            DetailRow(
+                stringResource(R.string.stat_pause),
+                formatDuration((trip.totalMs - trip.durationMs).coerceAtLeast(0L)),
+            )
             DetailRow(
                 stringResource(R.string.stat_avg),
                 "${formatSpeed(trip.avgSpeedMs, settings.unit, settings.decimals)} ${settings.unit.label}",

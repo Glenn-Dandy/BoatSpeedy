@@ -32,6 +32,9 @@ enum class RangeSmoothing(val windowMs: Long) {
 }
 
 
+/** Mitgelieferte Alarmtöne (res/raw). */
+enum class AlarmSound { PIEP, GLOCKE, SIRENE }
+
 /**
  * Wie mehrere aktive Batterien elektrisch zusammengerechnet werden.
  *  - [SINGLE]   physisch getrennte Akkus, nacheinander genutzt → Kapazität summiert sich
@@ -71,4 +74,13 @@ data class Settings(
     val batteries: List<SavedBattery> = emptyList(),
     /** Ausgewählte Anzeige auf dem Dashboard: Adresse einer Batterie oder [COMBINED_SELECTION]. */
     val dashboardBattery: String = COMBINED_SELECTION,
+    // Fahrt / Alarme
+    /** Auto-Pause-Schwelle in A; 0 = aus (Fahrt läuft ohne Auto-Pause). */
+    val autoPauseAmps: Float = 0.05f,
+    /** Gewählter Alarmton für Anker- und SoC-Alarm. */
+    val alarmSound: AlarmSound = AlarmSound.PIEP,
+    /** SoC-Warnung zusätzlich mit Ton (sonst nur rot). */
+    val socAlarmSound: Boolean = false,
+    /** Zuletzt genutzter Anker-Radius in Metern. */
+    val anchorRadiusM: Int = 30,
 )
