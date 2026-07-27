@@ -275,7 +275,7 @@ fun TripDetailScreen(trip: SavedTrip, settings: Settings, onShowMap: () -> Unit,
                         trip = trip,
                         interactive = false,
                         showArrows = true,
-                        onPointTap = null,
+                        bubbleText = null,
                         modifier = Modifier.matchParentSize(),
                     )
                     Box(modifier = Modifier.matchParentSize().clickable(onClick = onShowMap))
