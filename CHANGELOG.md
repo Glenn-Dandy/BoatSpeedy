@@ -2,6 +2,20 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.0.7] – 2026-07-25
+
+### Neu
+- **Einstellungen → Tracks** (zwischen Darstellung und GPS): **Track-Farbe**
+  (Blau/Rot/Schwarz) und **Richtungspfeile an/aus**. Wirkt auf die Mini-Karte im
+  Fahrt-Detail und die große Karte; die Pfeile werden in der Track-Farbe eingefärbt.
+
+### Geändert
+- **Richtungspfeile** stabiler: der Kurs wird über ein kleines Punkt-Fenster gemittelt
+  (weniger GPS-Jitter).
+- Die große Track-Karte zeigt im Kopf **Datum · Uhrzeit** der Fahrt (statt „In Karte
+  anzeigen").
+- Menü: dezente Linie **zwischen Anker und Einstellungen**.
+
 ## [1.0.6] – 2026-07-25
 
 ### Geändert

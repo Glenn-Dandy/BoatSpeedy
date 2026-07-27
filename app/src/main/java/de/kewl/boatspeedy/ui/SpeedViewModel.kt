@@ -211,6 +211,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowBatteryTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowBatteryTile(v) }
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }
     fun setShowMapTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowMapTile(v) }
+    fun setTrackColor(v: de.kewl.boatspeedy.data.TrackColor) = viewModelScope.launch { settingsRepo.setTrackColor(v) }
+    fun setTrackArrows(v: Boolean) = viewModelScope.launch { settingsRepo.setTrackArrows(v) }
     fun setAutoPauseAmps(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseAmps(v) }
     fun setAnchorAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAnchorAlarmOn(v) }
     fun setAnchorSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setAnchorSound(v) }

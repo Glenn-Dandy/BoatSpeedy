@@ -58,7 +58,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private fun tripDate(epochMs: Long): String =
+fun tripDate(epochMs: Long): String =
     SimpleDateFormat("dd.MM.yyyy · HH:mm", Locale.getDefault()).format(Date(epochMs))
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -274,8 +274,9 @@ fun TripDetailScreen(trip: SavedTrip, settings: Settings, onShowMap: () -> Unit,
                     TrackMap(
                         trip = trip,
                         interactive = false,
-                        showArrows = true,
+                        showArrows = settings.trackArrows,
                         bubbleText = null,
+                        color = settings.trackColor.argb,
                         modifier = Modifier.matchParentSize(),
                     )
                     Box(modifier = Modifier.matchParentSize().clickable(onClick = onShowMap))

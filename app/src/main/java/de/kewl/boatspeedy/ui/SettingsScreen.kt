@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -53,6 +54,7 @@ import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.SpeedUnit
 import de.kewl.boatspeedy.data.ThemeMode
+import de.kewl.boatspeedy.data.TrackColor
 import de.kewl.boatspeedy.location.GpsState
 import de.kewl.boatspeedy.util.AppLanguage
 import kotlin.math.roundToInt
@@ -65,6 +67,7 @@ fun SettingsHomeScreen(
     onDashboard: () -> Unit,
     onGeneral: () -> Unit,
     onAppearance: () -> Unit,
+    onTracks: () -> Unit,
     onGps: () -> Unit,
     onOpenMenu: () -> Unit,
 ) {
@@ -92,6 +95,13 @@ fun SettingsHomeScreen(
             stringResource(R.string.appearance),
             stringResource(R.string.cat_appearance_desc),
             onAppearance,
+        )
+        HorizontalDivider()
+        CategoryRow(
+            Icons.Filled.Route,
+            stringResource(R.string.group_tracks),
+            stringResource(R.string.cat_tracks_desc),
+            onTracks,
         )
         HorizontalDivider()
         CategoryRow(
@@ -246,6 +256,33 @@ private fun InfoValueRow(label: String, value: String) {
     ) {
         Text(label, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
         Text(value, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+/* ------------------------------ Tracks ------------------------------- */
+
+@Composable
+fun TracksSettingsScreen(
+    settings: Settings,
+    onTrackColor: (TrackColor) -> Unit,
+    onTrackArrows: (Boolean) -> Unit,
+    onBack: () -> Unit,
+) {
+    SettingsScaffold(stringResource(R.string.group_tracks), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
+        SegmentedRow(
+            label = stringResource(R.string.track_color),
+            options = TrackColor.entries,
+            selected = settings.trackColor,
+            labelOf = {
+                when (it) {
+                    TrackColor.BLUE -> stringResource(R.string.color_blue)
+                    TrackColor.RED -> stringResource(R.string.color_red)
+                    TrackColor.BLACK -> stringResource(R.string.color_black)
+                }
+            },
+            onSelect = onTrackColor,
+        )
+        SwitchRow(stringResource(R.string.track_arrows), settings.trackArrows, onTrackArrows)
     }
 }
 

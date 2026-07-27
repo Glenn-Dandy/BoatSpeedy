@@ -43,7 +43,7 @@ fun TripMapScreen(trip: SavedTrip, settings: Settings, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.show_on_map)) },
+                title = { Text(tripDate(trip.startedAt)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -55,8 +55,9 @@ fun TripMapScreen(trip: SavedTrip, settings: Settings, onBack: () -> Unit) {
         TrackMap(
             trip = trip,
             interactive = true,
-            showArrows = true,
+            showArrows = settings.trackArrows,
             bubbleText = bubble,
+            color = settings.trackColor.argb,
             modifier = Modifier.padding(innerPadding).fillMaxSize(),
         )
     }
