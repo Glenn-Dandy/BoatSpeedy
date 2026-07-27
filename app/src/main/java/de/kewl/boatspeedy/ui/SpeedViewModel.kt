@@ -105,7 +105,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             combine(settings, battery, tracking) { s, hub, isTracking ->
                 if (isTracking) activeBatteryData(s, hub).takeIf { it.isNotEmpty() }
                     ?.let { combineBatteries(it, s.bankMode) } else null
-            }.collect { d -> if (d != null) TripRepository.onBankSample(d.currentA, d.powerW) }
+            }.collect { d -> if (d != null) TripRepository.onBankSample(d.currentA, d.powerW, d.soc) }
         }
         // Beendete Fahrten dauerhaft speichern.
         viewModelScope.launch {
@@ -165,6 +165,9 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     // Gleitender Mittelwert der rohen Geschwindigkeit (m/s).
     private val speedWindow = ArrayDeque<Float>()
+    // A+D: letzten Anzeigewert halten und schlechte Fixes fürs Tempo ignorieren.
+    private var lastDisplayMs: Float? = null
+    private var badTicks = 0
 
     /** Fertig formatierter Anzeigewert (bereits geglättet & umgerechnet). */
     val displaySpeed: StateFlow<String> =
@@ -177,6 +180,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun startUpdates() {
         if (collectJob?.isActive == true) return
         speedWindow.clear()
+        lastDisplayMs = null
+        badTicks = 0
         collectJob = viewModelScope.launch {
             locationProvider.state.collect { _gps.value = it }
         }
@@ -288,17 +293,34 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun disconnectBattery(address: String) = BatteryRepository.disconnect(address)
 
     private fun smoothAndFormat(gps: GpsState, settings: Settings): String {
-        val speedMs = gps.speedMs ?: run {
-            speedWindow.clear()
-            return NO_FIX
+        val raw = gps.speedMs
+        val acc = gps.accuracyM
+        // D: nur Fixes mit brauchbarer Genauigkeit fürs Tempo verwenden.
+        val good = raw != null && (acc == null || acc <= MAX_ACCURACY_M)
+
+        if (!good) {
+            // A: kurze Aussetzer/schlechte Fixes überbrücken – letzten Wert halten,
+            // erst nach längerem Verlust auf „--" fallen.
+            badTicks++
+            if (badTicks > MAX_HOLD_TICKS) {
+                speedWindow.clear()
+                lastDisplayMs = null
+                return NO_FIX
+            }
+            return lastDisplayMs?.let { formatMs(it, settings) } ?: NO_FIX
         }
+
+        badTicks = 0
         val window = settings.smoothing.window
-        speedWindow.addLast(speedMs)
+        speedWindow.addLast(raw!!)
         while (speedWindow.size > window) speedWindow.removeFirst()
         val avgMs = speedWindow.average().toFloat()
-        val converted = avgMs * settings.unit.factorFromMs
-        return formatNumber(converted, settings.decimals)
+        lastDisplayMs = avgMs
+        return formatMs(avgMs, settings)
     }
+
+    private fun formatMs(speedMs: Float, settings: Settings): String =
+        formatNumber(speedMs * settings.unit.factorFromMs, settings.decimals)
 
     private fun formatNumber(value: Double, decimals: Int): String =
         if (decimals <= 0) value.roundToInt().toString()
@@ -306,5 +328,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val NO_FIX = "--"
+        private const val MAX_ACCURACY_M = 25f  // schlechtere Fixes fürs Tempo ignorieren (D)
+        private const val MAX_HOLD_TICKS = 5    // so viele schlechte Fixes den letzten Wert halten (A)
     }
 }
