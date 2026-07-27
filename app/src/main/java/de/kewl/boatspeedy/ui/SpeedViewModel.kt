@@ -105,7 +105,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             combine(settings, battery, tracking) { s, hub, isTracking ->
                 if (isTracking) activeBatteryData(s, hub).takeIf { it.isNotEmpty() }
                     ?.let { combineBatteries(it, s.bankMode) } else null
-            }.collect { d -> if (d != null) TripRepository.onBankSample(d.currentA, d.powerW) }
+            }.collect { d -> if (d != null) TripRepository.onBankSample(d.currentA, d.powerW, d.soc) }
         }
         // Beendete Fahrten dauerhaft speichern.
         viewModelScope.launch {

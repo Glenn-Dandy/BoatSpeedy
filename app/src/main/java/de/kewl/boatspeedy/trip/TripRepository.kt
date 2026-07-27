@@ -56,6 +56,7 @@ object TripRepository {
     private val points = ArrayList<TrackPoint>()
     private var tripStartEpoch = 0L
     private var tripStartRealtime = 0L
+    private var lastSoc = -1
 
     // Aktivzeit (ohne Pausen) und Integrations-Zeitstempel.
     private var accumulatedMs = 0L
@@ -83,6 +84,7 @@ object TripRepository {
         lastLon = null
         points.clear()
         _livePoints.value = emptyList()
+        lastSoc = -1
         tripStartEpoch = System.currentTimeMillis()
         tripStartRealtime = SystemClock.elapsedRealtime()
         accumulatedMs = 0L
@@ -153,7 +155,16 @@ object TripRepository {
                 lastLat = lat
                 lastLon = lon
                 if (points.size < MAX_POINTS) {
-                    points.add(TrackPoint(lat, lon, SystemClock.elapsedRealtime() - tripStartRealtime))
+                    points.add(
+                        TrackPoint(
+                            lat = lat,
+                            lon = lon,
+                            tMs = SystemClock.elapsedRealtime() - tripStartRealtime,
+                            speedMs = speed ?: 0f,
+                            soc = lastSoc,
+                            chargeAh = chargeAh,
+                        ),
+                    )
                     _livePoints.value = points.toList()
                 }
             }
@@ -165,7 +176,8 @@ object TripRepository {
      * Momentane Bank-Werte (Strom A, Leistung W) einspeisen; integriert sie über die Zeit
      * zu Ah/Wh und steuert die Auto-Pause. Nur während einer Fahrt.
      */
-    fun onBankSample(amps: Float, watts: Float) {
+    fun onBankSample(amps: Float, watts: Float, soc: Int) {
+        lastSoc = soc
         if (!_tracking.value) return
         val now = SystemClock.elapsedRealtime()
         val threshold = autoPauseAmps

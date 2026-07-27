@@ -39,7 +39,12 @@ class TripStore(context: Context) {
 
     private fun encode(t: SavedTrip): String {
         val pts = JSONArray()
-        for (p in t.points) pts.put(JSONArray().put(p.lat).put(p.lon).put(p.tMs))
+        for (p in t.points) {
+            pts.put(
+                JSONArray().put(p.lat).put(p.lon).put(p.tMs)
+                    .put(p.speedMs.toDouble()).put(p.soc).put(p.chargeAh.toDouble()),
+            )
+        }
         return JSONObject()
             .put("id", t.id)
             .put("startedAt", t.startedAt)
@@ -60,7 +65,16 @@ class TripStore(context: Context) {
         val pts = ArrayList<TrackPoint>(ptsArr.length())
         for (i in 0 until ptsArr.length()) {
             val a = ptsArr.getJSONArray(i)
-            pts.add(TrackPoint(a.getDouble(0), a.getDouble(1), a.getLong(2)))
+            pts.add(
+                TrackPoint(
+                    lat = a.getDouble(0),
+                    lon = a.getDouble(1),
+                    tMs = a.getLong(2),
+                    speedMs = if (a.length() > 3) a.getDouble(3).toFloat() else 0f,
+                    soc = if (a.length() > 4) a.getInt(4) else -1,
+                    chargeAh = if (a.length() > 5) a.getDouble(5).toFloat() else 0f,
+                ),
+            )
         }
         return SavedTrip(
             id = o.getLong("id"),

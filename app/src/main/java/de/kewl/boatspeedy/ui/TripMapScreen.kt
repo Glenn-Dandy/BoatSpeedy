@@ -1,77 +1,44 @@
 package de.kewl.boatspeedy.ui
 
-import android.graphics.Color
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import de.kewl.boatspeedy.R
+import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.trip.SavedTrip
-import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.BoundingBox
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Polyline
-import java.io.File
+import de.kewl.boatspeedy.trip.TrackPoint
+import java.util.Locale
 
+/** Vollbild-Track auf Karte: Richtungspfeile + Antippen zeigt die Track-Daten am Punkt. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TripMapScreen(trip: SavedTrip, onBack: () -> Unit) {
-    val context = LocalContext.current
-
-    // osmdroid: eigener User-Agent (sonst blockt der Tile-Server) und Cache im App-Verzeichnis.
-    val mapView = remember {
-        Configuration.getInstance().apply {
-            userAgentValue = context.packageName
-            osmdroidBasePath = File(context.cacheDir, "osmdroid")
-            osmdroidTileCache = File(osmdroidBasePath, "tiles")
-        }
-        MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
-
-            val pts = trip.points.map { GeoPoint(it.lat, it.lon) }
-            if (pts.isNotEmpty()) {
-                val line = Polyline(this).apply {
-                    setPoints(pts)
-                    outlinePaint.color = Color.parseColor("#1E88E5")
-                    outlinePaint.strokeWidth = 10f
-                }
-                overlays.add(line)
-                post {
-                    if (pts.size >= 2) {
-                        zoomToBoundingBox(BoundingBox.fromGeoPointsSafe(pts), false, 64)
-                    } else {
-                        controller.setZoom(16.0)
-                        controller.setCenter(pts.first())
-                    }
-                }
-            }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        mapView.onResume()
-        onDispose {
-            mapView.onPause()
-            mapView.onDetach()
-        }
-    }
-
+fun TripMapScreen(trip: SavedTrip, settings: Settings, onBack: () -> Unit) {
+    var selected by remember { mutableStateOf<TrackPoint?>(null) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -84,9 +51,62 @@ fun TripMapScreen(trip: SavedTrip, onBack: () -> Unit) {
             )
         },
     ) { innerPadding ->
-        AndroidView(
-            modifier = Modifier.padding(innerPadding).fillMaxSize(),
-            factory = { mapView },
-        )
+        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            TrackMap(
+                trip = trip,
+                interactive = true,
+                showArrows = true,
+                onPointTap = { selected = it },
+                modifier = Modifier.fillMaxSize(),
+            )
+            selected?.let { p ->
+                PointInfoCard(
+                    p = p,
+                    settings = settings,
+                    onClose = { selected = null },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PointInfoCard(p: TrackPoint, settings: Settings, onClose: () -> Unit, modifier: Modifier) {
+    Card(modifier = modifier) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.trip_point_title), fontWeight = FontWeight.SemiBold)
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.back))
+                }
+            }
+            InfoRow(stringResource(R.string.stat_total_time), formatDuration(p.tMs))
+            InfoRow(
+                stringResource(R.string.speed_label),
+                "${formatSpeed(p.speedMs, settings.unit, settings.decimals)} ${settings.unit.label}",
+            )
+            if (p.chargeAh > 0f) {
+                InfoRow(stringResource(R.string.stat_consumed), String.format(Locale.getDefault(), "%.1f Ah", p.chargeAh))
+            }
+            if (p.soc >= 0) {
+                InfoRow(stringResource(R.string.soc_short), "${p.soc} %")
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+        Text(value, fontWeight = FontWeight.SemiBold)
     }
 }

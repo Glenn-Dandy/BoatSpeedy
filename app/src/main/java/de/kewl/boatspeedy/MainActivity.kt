@@ -317,7 +317,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         if (trip == null) {
                             screen = Screen.TRIPS
                         } else {
-                            TripMapScreen(trip = trip, onBack = { screen = Screen.TRIP_DETAIL })
+                            TripMapScreen(trip = trip, settings = settings, onBack = { screen = Screen.TRIP_DETAIL })
                         }
                     }
 

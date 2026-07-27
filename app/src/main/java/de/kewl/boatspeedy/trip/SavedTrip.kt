@@ -1,7 +1,17 @@
 package de.kewl.boatspeedy.trip
 
-/** Ein aufgezeichneter Wegpunkt (tMs = ms seit Fahrtbeginn). */
-data class TrackPoint(val lat: Double, val lon: Double, val tMs: Long)
+/**
+ * Ein aufgezeichneter Wegpunkt (tMs = ms seit Fahrtbeginn) samt Telemetrie an dieser
+ * Stelle: Geschwindigkeit, Ladezustand (−1 = unbekannt) und kumulativer Verbrauch.
+ */
+data class TrackPoint(
+    val lat: Double,
+    val lon: Double,
+    val tMs: Long,
+    val speedMs: Float = 0f,
+    val soc: Int = -1,
+    val chargeAh: Float = 0f,
+)
 
 /** Eine gespeicherte, abgeschlossene Fahrt inkl. optionalem Track. */
 data class SavedTrip(
