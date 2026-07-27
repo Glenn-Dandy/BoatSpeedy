@@ -97,25 +97,26 @@ fun TrackMap(
             if (showArrows && trip.points.size >= 4) {
                 val arrow = ContextCompat.getDrawable(context, R.drawable.ic_track_arrow)?.mutate()
                 arrow?.setTint(color)
-                val n = trip.points.size
+                val pts = trip.points
+                val n = pts.size
                 val step = (n / 12).coerceAtLeast(2)
                 var i = step
                 while (i < n - 1) {
-                    val a = trip.points[i]
-                    // Richtung über ein kleines Fenster mitteln → weniger GPS-Jitter.
-                    val from = trip.points[(i - 2).coerceAtLeast(0)]
-                    val to = trip.points[(i + 2).coerceAtMost(n - 1)]
-                    val res = FloatArray(2)
-                    Location.distanceBetween(from.lat, from.lon, to.lat, to.lon, res)
-                    val marker = Marker(mapView).apply {
-                        position = GeoPoint(a.lat, a.lon)
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        icon = arrow
-                        rotation = res[1]
-                        setInfoWindow(null)
-                        if (bubbleText != null) setOnMarkerClickListener { _, _ -> showBubble(a); true }
+                    // Kurs über ~25 m echten Track (nicht geglättet); zu verrauschte
+                    // Stellen bekommen keinen Pfeil statt einem zufälligen.
+                    val bearing = bearingAt(pts, i)
+                    if (bearing != null) {
+                        val a = pts[i]
+                        val marker = Marker(mapView).apply {
+                            position = GeoPoint(a.lat, a.lon)
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                            icon = arrow
+                            rotation = bearing
+                            setInfoWindow(null)
+                            if (bubbleText != null) setOnMarkerClickListener { _, _ -> showBubble(a); true }
+                        }
+                        mapView.overlays.add(marker)
                     }
-                    mapView.overlays.add(marker)
                     i += step
                 }
             }
@@ -131,6 +132,30 @@ fun TrackMap(
     }
 
     AndroidView(factory = { mapView }, modifier = modifier)
+}
+
+// ~25 m Basislinie (12 m je Seite); darunter zeigt die Positions-Differenz nur Rauschen.
+private const val ARROW_HALF_BASELINE_M = 12.0
+private const val ARROW_MIN_DISPLACEMENT_M = 10f
+
+private fun segDist(a: TrackPoint, b: TrackPoint): Double {
+    val r = FloatArray(1)
+    Location.distanceBetween(a.lat, a.lon, b.lat, b.lon, r)
+    return r[0].toDouble()
+}
+
+/** Kurs am Punkt i über eine Mindeststrecke im echten Track; null, wenn zu kurz/verrauscht. */
+private fun bearingAt(points: List<TrackPoint>, i: Int): Float? {
+    var j = i
+    var back = 0.0
+    while (j > 0 && back < ARROW_HALF_BASELINE_M) { back += segDist(points[j], points[j - 1]); j-- }
+    var k = i
+    var fwd = 0.0
+    val last = points.size - 1
+    while (k < last && fwd < ARROW_HALF_BASELINE_M) { fwd += segDist(points[k], points[k + 1]); k++ }
+    val res = FloatArray(2)
+    Location.distanceBetween(points[j].lat, points[j].lon, points[k].lat, points[k].lon, res)
+    return if (res[0] < ARROW_MIN_DISPLACEMENT_M) null else res[1]
 }
 
 private fun nearestPoint(points: List<TrackPoint>, at: GeoPoint): TrackPoint? {
