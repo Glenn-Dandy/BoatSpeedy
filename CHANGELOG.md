@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.0.8] – 2026-07-28
+
+### Behoben
+- **Richtungspfeile zeigen jetzt zuverlässig in Fahrtrichtung**: der Kurs wird über eine
+  ~25-m-Basislinie entlang des **unveränderten** Tracks berechnet (nicht mehr aus
+  benachbarten Punkten, deren Abstand bei Langsamfahrt kleiner als das GPS-Rauschen war).
+  Zu kurze/verrauschte Stellen bekommen keinen Pfeil statt eines zufälligen. Der Track
+  selbst wird nicht geglättet.
+
 ## [1.0.7] – 2026-07-25
 
 ### Neu
