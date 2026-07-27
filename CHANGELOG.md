@@ -2,6 +2,21 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.0.5] – 2026-07-25
+
+### Neu
+- **Track auf Karte**: im Fahrt-Detail wird der Track direkt als **kleine Karte**
+  gezeigt (Antippen öffnet die große Ansicht), mit **dezenten Richtungspfeilen**.
+  **Antippen des Tracks** zeigt eine Info-Karte mit **Zeit, Geschwindigkeit,
+  Verbrauch (Ah) und Ladestand** an dieser Stelle. Neue Fahrten zeichnen diese
+  Telemetrie je Wegpunkt auf.
+
+### Geändert / Behoben
+- **Ruhigere Geschwindigkeit**: Fixes mit schlechter Genauigkeit werden fürs Tempo
+  **ignoriert** und kurze Aussetzer **überbrückt** (letzter Wert wird gehalten) — kein
+  kurzes „Zusammenbrechen" der Anzeige mehr. Auch die Max-Geschwindigkeit ignoriert
+  jetzt schlechte Fixes.
+
 ## [1.0.4] – 2026-07-25
 
 ### Neu

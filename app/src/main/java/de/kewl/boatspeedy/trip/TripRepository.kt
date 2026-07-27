@@ -136,7 +136,8 @@ object TripRepository {
         if (!_tracking.value) return
 
         val speed = gps.speedMs
-        if (speed != null && speed > maxSpeedMs) maxSpeedMs = speed
+        val accOk = (gps.accuracyM ?: Float.MAX_VALUE) <= MAX_ACCURACY_M
+        if (speed != null && accOk && speed > maxSpeedMs) maxSpeedMs = speed
 
         // Distanz nur zählen, wenn nicht pausiert.
         if (running && speed != null) {
