@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.0.6] – 2026-07-25
+
+### Geändert
+- **Track-Sprechblase direkt am angetippten Punkt** (folgt der Karte) statt Info-Karte
+  am unteren Rand.
+- **Richtungspfeile größer** und besser sichtbar.
+
 ## [1.0.5] – 2026-07-25
 
 ### Neu

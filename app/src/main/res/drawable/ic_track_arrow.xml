@@ -1,10 +1,10 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="18dp"
-    android:height="18dp"
+    android:width="30dp"
+    android:height="30dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <!-- Pfeilspitze nach oben (Norden); wird zum Kurs gedreht. -->
     <path
         android:fillColor="#1E88E5"
-        android:pathData="M12,4 L18,17 L12,13.5 L6,17 Z" />
+        android:pathData="M12,3 L19,18 L12,14 L5,18 Z" />
 </vector>
