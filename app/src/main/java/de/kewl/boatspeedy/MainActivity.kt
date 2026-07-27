@@ -68,6 +68,7 @@ import de.kewl.boatspeedy.ui.GeneralSettingsScreen
 import de.kewl.boatspeedy.ui.GpsSettingsScreen
 import de.kewl.boatspeedy.ui.LiveMapScreen
 import de.kewl.boatspeedy.ui.SettingsHomeScreen
+import de.kewl.boatspeedy.ui.TracksSettingsScreen
 import de.kewl.boatspeedy.trip.SavedTrip
 import de.kewl.boatspeedy.ui.SpeedViewModel
 import de.kewl.boatspeedy.ui.TripDetailScreen
@@ -77,7 +78,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_GENERAL, SETTINGS_GPS, SETTINGS_APPEARANCE, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_APPEARANCE, ABOUT }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -212,7 +213,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
             BackHandler(enabled = !drawerState.isOpen && screen != Screen.SPEED) {
                 screen = when (screen) {
-                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_GENERAL, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE -> Screen.SETTINGS
+                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_GENERAL, Screen.SETTINGS_TRACKS, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE -> Screen.SETTINGS
                     Screen.TRIP_DETAIL -> Screen.TRIPS
                     Screen.TRIP_MAP -> Screen.TRIP_DETAIL
                     else -> Screen.SPEED
@@ -237,6 +238,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen.name.startsWith("TRIP")) { goTo(Screen.TRIPS) }
                         DrawerItem(R.string.nav_battery, Icons.Filled.BatteryFull, screen == Screen.BATTERY) { goTo(Screen.BATTERY) }
                         DrawerItem(R.string.nav_anchor, Icons.Filled.Anchor, screen == Screen.ANCHOR) { goTo(Screen.ANCHOR) }
+                        HorizontalDivider()
                         DrawerItem(R.string.settings, Icons.Filled.Settings, screen.name.startsWith("SETTINGS")) { goTo(Screen.SETTINGS) }
                         DrawerItem(R.string.about, Icons.Filled.Info, screen == Screen.ABOUT) { goTo(Screen.ABOUT) }
                     }
@@ -247,6 +249,7 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onDashboard = { screen = Screen.SETTINGS_DASHBOARD },
                         onGeneral = { screen = Screen.SETTINGS_GENERAL },
                         onAppearance = { screen = Screen.SETTINGS_APPEARANCE },
+                        onTracks = { screen = Screen.SETTINGS_TRACKS },
                         onGps = { screen = Screen.SETTINGS_GPS },
                         onOpenMenu = { openDrawer() },
                     )
@@ -274,6 +277,13 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         onSocSound = vm::setSocSound,
                         onTestAnchor = vm::testAnchorSound,
                         onTestSoc = vm::testSocSound,
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_TRACKS -> TracksSettingsScreen(
+                        settings = settings,
+                        onTrackColor = vm::setTrackColor,
+                        onTrackArrows = vm::setTrackArrows,
                         onBack = { screen = Screen.SETTINGS },
                     )
 

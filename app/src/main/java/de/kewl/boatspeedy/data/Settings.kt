@@ -35,6 +35,13 @@ enum class RangeSmoothing(val windowMs: Long) {
 /** Mitgelieferte Alarmtöne (res/raw). */
 enum class AlarmSound { PIEP, GLOCKE, SIRENE }
 
+/** Farbe der Track-Linie auf der Karte (ARGB). */
+enum class TrackColor(val argb: Int) {
+    BLUE(0xFF1E88E5.toInt()),
+    RED(0xFFE53935.toInt()),
+    BLACK(0xFF222222.toInt()),
+}
+
 /**
  * Wie mehrere aktive Batterien elektrisch zusammengerechnet werden.
  *  - [SINGLE]   physisch getrennte Akkus, nacheinander genutzt → Kapazität summiert sich
@@ -68,6 +75,9 @@ data class Settings(
     val showBatteryTile: Boolean = true,
     val showRangeTile: Boolean = true,
     val showMapTile: Boolean = true,
+    // Tracks / Karte
+    val trackColor: TrackColor = TrackColor.BLUE,
+    val trackArrows: Boolean = true,
     // Batterie
     val batteryBms: BmsType = BmsType.JBD,
     val bankMode: BankMode = BankMode.SINGLE,

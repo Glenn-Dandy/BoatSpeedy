@@ -34,6 +34,7 @@ fun TrackMap(
     interactive: Boolean,
     showArrows: Boolean,
     bubbleText: ((TrackPoint) -> String)?,
+    color: Int = Color.parseColor("#1E88E5"),
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -82,7 +83,7 @@ fun TrackMap(
         if (geo.size >= 2) {
             val line = Polyline(mapView).apply {
                 setPoints(geo)
-                outlinePaint.color = Color.parseColor("#1E88E5")
+                outlinePaint.color = color
                 outlinePaint.strokeWidth = 9f
             }
             if (bubbleText != null) {
@@ -94,14 +95,18 @@ fun TrackMap(
             mapView.overlays.add(line)
 
             if (showArrows && trip.points.size >= 4) {
-                val arrow = ContextCompat.getDrawable(context, R.drawable.ic_track_arrow)
-                val step = (trip.points.size / 12).coerceAtLeast(2)
+                val arrow = ContextCompat.getDrawable(context, R.drawable.ic_track_arrow)?.mutate()
+                arrow?.setTint(color)
+                val n = trip.points.size
+                val step = (n / 12).coerceAtLeast(2)
                 var i = step
-                while (i < trip.points.size - 1) {
+                while (i < n - 1) {
                     val a = trip.points[i]
-                    val b = trip.points[i + 1]
+                    // Richtung über ein kleines Fenster mitteln → weniger GPS-Jitter.
+                    val from = trip.points[(i - 2).coerceAtLeast(0)]
+                    val to = trip.points[(i + 2).coerceAtMost(n - 1)]
                     val res = FloatArray(2)
-                    Location.distanceBetween(a.lat, a.lon, b.lat, b.lon, res)
+                    Location.distanceBetween(from.lat, from.lon, to.lat, to.lon, res)
                     val marker = Marker(mapView).apply {
                         position = GeoPoint(a.lat, a.lon)
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
