@@ -58,6 +58,7 @@ fun TripMapScreen(trip: SavedTrip, settings: Settings, onBack: () -> Unit) {
             showArrows = settings.trackArrows,
             bubbleText = bubble,
             color = settings.trackColor.argb,
+            strokeWidth = settings.trackWidth.px,
             modifier = Modifier.padding(innerPadding).fillMaxSize(),
         )
     }

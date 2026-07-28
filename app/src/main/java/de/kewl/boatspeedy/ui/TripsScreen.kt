@@ -292,6 +292,7 @@ fun TripDetailScreen(trip: SavedTrip, settings: Settings, onShowMap: () -> Unit,
                         showArrows = settings.trackArrows,
                         bubbleText = null,
                         color = settings.trackColor.argb,
+                        strokeWidth = settings.trackWidth.px,
                         modifier = Modifier.matchParentSize(),
                     )
                     Box(modifier = Modifier.matchParentSize().clickable(onClick = onShowMap))

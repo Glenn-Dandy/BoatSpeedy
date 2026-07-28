@@ -61,9 +61,13 @@
     <string name="trip_points">Track-Punkte</string>
     <string name="trip_point_title">Punkt</string>
     <string name="speed_label">Geschwindigkeit</string>
-    <string name="group_tracks">Tracks</string>
-    <string name="cat_tracks_desc">Track-Farbe, Richtungspfeile</string>
+    <string name="group_tracks">Fahrten</string>
+    <string name="cat_tracks_desc">Track-Farbe, Linienstärke, Richtungspfeile</string>
     <string name="track_color">Track-Farbe</string>
+    <string name="track_width">Linienstärke</string>
+    <string name="width_thin">Dünn</string>
+    <string name="width_normal">Normal</string>
+    <string name="width_thick">Dick</string>
     <string name="track_arrows">Richtungspfeile</string>
     <string name="color_blue">Blau</string>
     <string name="color_red">Rot</string>

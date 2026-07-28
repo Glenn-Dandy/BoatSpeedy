@@ -319,6 +319,7 @@ private fun BoatSpeedyApp(
                     Screen.SETTINGS_TRACKS -> TracksSettingsScreen(
                         settings = settings,
                         onTrackColor = vm::setTrackColor,
+                        onTrackWidth = vm::setTrackWidth,
                         onTrackArrows = vm::setTrackArrows,
                         onBack = { screen = Screen.SETTINGS },
                     )

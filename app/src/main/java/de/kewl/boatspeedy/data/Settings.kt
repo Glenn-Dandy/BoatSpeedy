@@ -42,6 +42,13 @@ enum class TrackColor(val argb: Int) {
     BLACK(0xFF222222.toInt()),
 }
 
+/** Strichstärke der Track-Linie (px); NORMAL = bisheriger Wert. */
+enum class TrackWidth(val px: Float) {
+    THIN(6.5f),
+    NORMAL(9f),
+    THICK(12f),
+}
+
 /**
  * Wie mehrere aktive Batterien elektrisch zusammengerechnet werden.
  *  - [SINGLE]   physisch getrennte Akkus, nacheinander genutzt → Kapazität summiert sich
@@ -77,6 +84,7 @@ data class Settings(
     val showMapTile: Boolean = true,
     // Tracks / Karte
     val trackColor: TrackColor = TrackColor.BLUE,
+    val trackWidth: TrackWidth = TrackWidth.NORMAL,
     val trackArrows: Boolean = true,
     // Batterie
     val batteryBms: BmsType = BmsType.JBD,

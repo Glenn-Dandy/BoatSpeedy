@@ -35,6 +35,7 @@ fun TrackMap(
     showArrows: Boolean,
     bubbleText: ((TrackPoint) -> String)?,
     color: Int = Color.parseColor("#1E88E5"),
+    strokeWidth: Float = 9f,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -84,7 +85,7 @@ fun TrackMap(
             val line = Polyline(mapView).apply {
                 setPoints(geo)
                 outlinePaint.color = color
-                outlinePaint.strokeWidth = 9f
+                outlinePaint.strokeWidth = strokeWidth
                 // Durchgehende, glatte Linie: runde Verbindungen/Enden + Kantenglättung.
                 // Verschiebt keinen Punkt – schließt nur die optischen Mikro-Lücken.
                 outlinePaint.isAntiAlias = true
