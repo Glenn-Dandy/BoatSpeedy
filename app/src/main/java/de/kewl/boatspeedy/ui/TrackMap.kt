@@ -111,7 +111,9 @@ fun TrackMap(
                             position = GeoPoint(a.lat, a.lon)
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                             icon = arrow
-                            rotation = bearing
+                            // osmdroid dreht die Marker-Grafik gegen den Uhrzeigersinn,
+                            // der Kompass-Kurs läuft im Uhrzeigersinn → Vorzeichen umkehren.
+                            rotation = ((-bearing % 360f) + 360f) % 360f
                             setInfoWindow(null)
                             if (bubbleText != null) setOnMarkerClickListener { _, _ -> showBubble(a); true }
                         }
