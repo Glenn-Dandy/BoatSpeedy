@@ -81,16 +81,38 @@ import kotlinx.coroutines.launch
 private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_APPEARANCE, ABOUT }
 
 class MainActivity : ComponentActivity() {
+    // Von außen zum Import übergebene GPX-Datei (Öffnen-mit / Teilen an BoatSpeedy).
+    private val pendingGpx = mutableStateOf<android.net.Uri?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LanguageHelper.ensureDefault(this) // beim ersten Start Englisch erzwingen
+        pendingGpx.value = extractGpx(intent)
         enableEdgeToEdge()
-        setContent { BoatSpeedyApp() }
+        setContent { BoatSpeedyApp(pendingGpx = pendingGpx.value, onGpxConsumed = { pendingGpx.value = null }) }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        extractGpx(intent)?.let { pendingGpx.value = it }
+    }
+
+    private fun extractGpx(intent: android.content.Intent?): android.net.Uri? = when (intent?.action) {
+        android.content.Intent.ACTION_VIEW -> intent.data
+        android.content.Intent.ACTION_SEND ->
+            androidx.core.content.IntentCompat.getParcelableExtra(
+                intent, android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java,
+            )
+        else -> null
     }
 }
 
 @Composable
-private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
+private fun BoatSpeedyApp(
+    pendingGpx: android.net.Uri? = null,
+    onGpxConsumed: () -> Unit = {},
+    vm: SpeedViewModel = viewModel(),
+) {
     val settings by vm.settings.collectAsStateWithLifecycle()
 
     val darkTheme = when (settings.theme) {
@@ -169,6 +191,20 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
             var selectedTrip by remember { mutableStateOf<SavedTrip?>(null) }
 
             LaunchedEffect(screen) { if (screen == Screen.TRIPS) vm.refreshTrips() }
+
+            // Von außen geöffnete GPX-Datei importieren und zu den Fahrten wechseln.
+            LaunchedEffect(pendingGpx) {
+                val uri = pendingGpx ?: return@LaunchedEffect
+                vm.importGpx(uri) { ok ->
+                    android.widget.Toast.makeText(
+                        context,
+                        context.getString(if (ok) R.string.import_ok else R.string.import_failed),
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+                screen = Screen.TRIPS
+                onGpxConsumed()
+            }
 
             // Bluetooth-Berechtigungen für die Batterie-Verbindung.
             var pendingBt by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -305,6 +341,15 @@ private fun BoatSpeedyApp(vm: SpeedViewModel = viewModel()) {
                         trips = trips,
                         onOpenDetail = { trip -> selectedTrip = trip; screen = Screen.TRIP_DETAIL },
                         onDelete = vm::deleteTrips,
+                        onImport = { uri ->
+                            vm.importGpx(uri) { ok ->
+                                android.widget.Toast.makeText(
+                                    context,
+                                    context.getString(if (ok) R.string.import_ok else R.string.import_failed),
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
                         onOpenMenu = { openDrawer() },
                     )
 

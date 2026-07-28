@@ -70,6 +70,9 @@
     <string name="color_black">Schwarz</string>
     <string name="export">Exportieren</string>
     <string name="no_track">Für die Auswahl ist kein Track vorhanden.</string>
+    <string name="import_gpx">GPX importieren</string>
+    <string name="import_ok">Fahrt importiert.</string>
+    <string name="import_failed">GPX-Datei konnte nicht importiert werden.</string>
     <string name="show_on_map">In Karte anzeigen</string>
 
     <!-- Einstellungs-Kategorien -->

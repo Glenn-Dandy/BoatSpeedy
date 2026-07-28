@@ -47,6 +47,23 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- GPX öffnen: BoatSpeedy erscheint im „Öffnen mit"-Dialog. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="application/gpx+xml" />
+                <data android:scheme="file" android:mimeType="application/gpx+xml" />
+                <data android:scheme="content" android:mimeType="application/octet-stream" android:pathPattern=".*\\.gpx" />
+                <data android:scheme="file" android:host="*" android:pathPattern=".*\\.gpx" />
+            </intent-filter>
+            <!-- GPX an BoatSpeedy teilen. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/gpx+xml" />
+            </intent-filter>
         </activity>
 
         <service

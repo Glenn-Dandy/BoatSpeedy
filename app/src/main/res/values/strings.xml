@@ -73,6 +73,9 @@
     <string name="color_black">Black</string>
     <string name="export">Export</string>
     <string name="no_track">No track recorded for the selection.</string>
+    <string name="import_gpx">Import GPX</string>
+    <string name="import_ok">Trip imported.</string>
+    <string name="import_failed">Could not import that GPX file.</string>
     <string name="show_on_map">Show on map</string>
 
     <!-- Settings categories -->

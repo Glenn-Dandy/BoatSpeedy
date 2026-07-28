@@ -145,6 +145,13 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         _trips.value = tripStore.list()
     }
 
+    /** Eine GPX-Datei importieren; ruft [onDone] mit true/false (Erfolg) auf dem Main-Thread. */
+    fun importGpx(uri: android.net.Uri, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val trip = de.kewl.boatspeedy.trip.GpxImport.import(getApplication(), uri, tripStore)
+        if (trip != null) _trips.value = tripStore.list()
+        onDone(trip != null)
+    }
+
     private fun updateRange(sample: RangeSample) {
         val (data, speed, mode) = sample
         if (mode == RangeSmoothing.OFF || data == null) {
