@@ -2,6 +2,21 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.0.9] – 2026-07-28
+
+### Neu
+- **GPX-Import**: Fahrten aus GPX-Dateien laden — Import-Symbol in „Fahrten" **und**
+  BoatSpeedy erscheint im „Öffnen mit"-Dialog (auch für Cloud-/Download-Dateien).
+- **Start-/Ziel-Marker** auf der Track-Karte (grüne Fahne / karierte Zielflagge).
+- **Linienstärke** der Track-Linie einstellbar (Dünn / Normal / Dick) unter
+  **Einstellungen → Fahrten**, dazu die durchgehende, geglättete Linie (kein Punkt
+  verschoben).
+
+### Behoben / Geändert
+- **Richtungspfeile** zeigen jetzt korrekt in Fahrtrichtung (Dreh-Vorzeichen für
+  osmdroid korrigiert).
+- Einstellungs-Kategorie heißt jetzt **„Fahrten"** (DE) / **„Trips"** (EN).
+
 ## [1.0.8] – 2026-07-28
 
 ### Behoben

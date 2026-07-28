@@ -33,6 +33,7 @@ class SettingsRepository(private val context: Context) {
         val SHOW_RANGE_TILE = booleanPreferencesKey("show_range_tile")
         val SHOW_MAP_TILE = booleanPreferencesKey("show_map_tile")
         val TRACK_COLOR = stringPreferencesKey("track_color")
+        val TRACK_WIDTH = stringPreferencesKey("track_width")
         val TRACK_ARROWS = booleanPreferencesKey("track_arrows")
         val BAT_BMS = stringPreferencesKey("bat_bms")
         val BANK_MODE = stringPreferencesKey("bank_mode")
@@ -60,6 +61,7 @@ class SettingsRepository(private val context: Context) {
             showRangeTile = p[Keys.SHOW_RANGE_TILE] ?: true,
             showMapTile = p[Keys.SHOW_MAP_TILE] ?: true,
             trackColor = p[Keys.TRACK_COLOR]?.let { enumOrNull<TrackColor>(it) } ?: TrackColor.BLUE,
+            trackWidth = p[Keys.TRACK_WIDTH]?.let { enumOrNull<TrackWidth>(it) } ?: TrackWidth.NORMAL,
             trackArrows = p[Keys.TRACK_ARROWS] ?: true,
             batteryBms = p[Keys.BAT_BMS]?.let { enumOrNull<BmsType>(it) } ?: BmsType.JBD,
             bankMode = p[Keys.BANK_MODE]?.let { enumOrNull<BankMode>(it) } ?: BankMode.SINGLE,
@@ -86,6 +88,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setShowRangeTile(value: Boolean) = edit { it[Keys.SHOW_RANGE_TILE] = value }
     suspend fun setShowMapTile(value: Boolean) = edit { it[Keys.SHOW_MAP_TILE] = value }
     suspend fun setTrackColor(value: TrackColor) = edit { it[Keys.TRACK_COLOR] = value.name }
+    suspend fun setTrackWidth(value: TrackWidth) = edit { it[Keys.TRACK_WIDTH] = value.name }
     suspend fun setTrackArrows(value: Boolean) = edit { it[Keys.TRACK_ARROWS] = value }
     suspend fun setBatteryBms(value: BmsType) = edit { it[Keys.BAT_BMS] = value.name }
     suspend fun setBankMode(value: BankMode) = edit { it[Keys.BANK_MODE] = value.name }

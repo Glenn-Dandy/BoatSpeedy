@@ -2,6 +2,8 @@ package de.kewl.boatspeedy.ui
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Route
@@ -67,12 +70,16 @@ fun TripsScreen(
     trips: List<SavedTrip>,
     onOpenDetail: (SavedTrip) -> Unit,
     onDelete: (Set<Long>) -> Unit,
+    onImport: (android.net.Uri) -> Unit,
     onOpenMenu: () -> Unit,
 ) {
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
     val selecting = selection.isNotEmpty()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) onImport(uri) }
 
     Scaffold(
         topBar = {
@@ -119,6 +126,14 @@ fun TripsScreen(
                     navigationIcon = {
                         IconButton(onClick = onOpenMenu) {
                             Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.menu))
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            // GPX/XML zulassen; manche Dateimanager melden GPX als */*.
+                            importLauncher.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "*/*"))
+                        }) {
+                            Icon(Icons.Filled.FileDownload, contentDescription = stringResource(R.string.import_gpx))
                         }
                     },
                 )
@@ -277,6 +292,7 @@ fun TripDetailScreen(trip: SavedTrip, settings: Settings, onShowMap: () -> Unit,
                         showArrows = settings.trackArrows,
                         bubbleText = null,
                         color = settings.trackColor.argb,
+                        strokeWidth = settings.trackWidth.px,
                         modifier = Modifier.matchParentSize(),
                     )
                     Box(modifier = Modifier.matchParentSize().clickable(onClick = onShowMap))

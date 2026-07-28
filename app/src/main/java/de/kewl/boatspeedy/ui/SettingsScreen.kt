@@ -55,6 +55,7 @@ import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.SpeedUnit
 import de.kewl.boatspeedy.data.ThemeMode
 import de.kewl.boatspeedy.data.TrackColor
+import de.kewl.boatspeedy.data.TrackWidth
 import de.kewl.boatspeedy.location.GpsState
 import de.kewl.boatspeedy.util.AppLanguage
 import kotlin.math.roundToInt
@@ -265,6 +266,7 @@ private fun InfoValueRow(label: String, value: String) {
 fun TracksSettingsScreen(
     settings: Settings,
     onTrackColor: (TrackColor) -> Unit,
+    onTrackWidth: (TrackWidth) -> Unit,
     onTrackArrows: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -281,6 +283,19 @@ fun TracksSettingsScreen(
                 }
             },
             onSelect = onTrackColor,
+        )
+        SegmentedRow(
+            label = stringResource(R.string.track_width),
+            options = TrackWidth.entries,
+            selected = settings.trackWidth,
+            labelOf = {
+                when (it) {
+                    TrackWidth.THIN -> stringResource(R.string.width_thin)
+                    TrackWidth.NORMAL -> stringResource(R.string.width_normal)
+                    TrackWidth.THICK -> stringResource(R.string.width_thick)
+                }
+            },
+            onSelect = onTrackWidth,
         )
         SwitchRow(stringResource(R.string.track_arrows), settings.trackArrows, onTrackArrows)
     }

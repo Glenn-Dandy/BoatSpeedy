@@ -64,15 +64,22 @@
     <string name="trip_points">Track points</string>
     <string name="trip_point_title">Point</string>
     <string name="speed_label">Speed</string>
-    <string name="group_tracks">Tracks</string>
-    <string name="cat_tracks_desc">Track colour, direction arrows</string>
+    <string name="group_tracks">Trips</string>
+    <string name="cat_tracks_desc">Track colour, line width, direction arrows</string>
     <string name="track_color">Track colour</string>
+    <string name="track_width">Line width</string>
+    <string name="width_thin">Thin</string>
+    <string name="width_normal">Normal</string>
+    <string name="width_thick">Thick</string>
     <string name="track_arrows">Direction arrows</string>
     <string name="color_blue">Blue</string>
     <string name="color_red">Red</string>
     <string name="color_black">Black</string>
     <string name="export">Export</string>
     <string name="no_track">No track recorded for the selection.</string>
+    <string name="import_gpx">Import GPX</string>
+    <string name="import_ok">Trip imported.</string>
+    <string name="import_failed">Could not import that GPX file.</string>
     <string name="show_on_map">Show on map</string>
 
     <!-- Settings categories -->

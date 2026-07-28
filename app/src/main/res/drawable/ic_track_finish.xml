@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="22dp"
+    android:height="28dp"
+    android:viewportWidth="24"
+    android:viewportHeight="30">
+    <!-- Mast -->
+    <path android:fillColor="#37474F" android:pathData="M5,2 L7,2 L7,29 L5,29 Z" />
+    <!-- Karierte Zielflagge (3x3), weißer Grund + schwarze Felder -->
+    <path android:fillColor="#FFFFFF" android:pathData="M7,3 L20,3 L20,13 L7,13 Z" />
+    <path android:fillColor="#212121" android:pathData="M7,3h4.33v3.33h-4.33z M15.67,3h4.33v3.33h-4.33z M11.33,6.33h4.33v3.33h-4.33z M7,9.67h4.33v3.33h-4.33z M15.67,9.67h4.33v3.33h-4.33z" />
+    <!-- Rahmen -->
+    <path android:strokeColor="#212121" android:strokeWidth="0.5" android:fillColor="#00000000" android:pathData="M7,3 L20,3 L20,13 L7,13 Z" />
+</vector>

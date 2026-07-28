@@ -145,6 +145,13 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         _trips.value = tripStore.list()
     }
 
+    /** Eine GPX-Datei importieren; ruft [onDone] mit true/false (Erfolg) auf dem Main-Thread. */
+    fun importGpx(uri: android.net.Uri, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val trip = de.kewl.boatspeedy.trip.GpxImport.import(getApplication(), uri, tripStore)
+        if (trip != null) _trips.value = tripStore.list()
+        onDone(trip != null)
+    }
+
     private fun updateRange(sample: RangeSample) {
         val (data, speed, mode) = sample
         if (mode == RangeSmoothing.OFF || data == null) {
@@ -212,6 +219,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }
     fun setShowMapTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowMapTile(v) }
     fun setTrackColor(v: de.kewl.boatspeedy.data.TrackColor) = viewModelScope.launch { settingsRepo.setTrackColor(v) }
+    fun setTrackWidth(v: de.kewl.boatspeedy.data.TrackWidth) = viewModelScope.launch { settingsRepo.setTrackWidth(v) }
     fun setTrackArrows(v: Boolean) = viewModelScope.launch { settingsRepo.setTrackArrows(v) }
     fun setAutoPauseAmps(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseAmps(v) }
     fun setAnchorAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAnchorAlarmOn(v) }

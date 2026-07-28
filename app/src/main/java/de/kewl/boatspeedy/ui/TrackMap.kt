@@ -35,6 +35,7 @@ fun TrackMap(
     showArrows: Boolean,
     bubbleText: ((TrackPoint) -> String)?,
     color: Int = Color.parseColor("#1E88E5"),
+    strokeWidth: Float = 9f,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -84,7 +85,12 @@ fun TrackMap(
             val line = Polyline(mapView).apply {
                 setPoints(geo)
                 outlinePaint.color = color
-                outlinePaint.strokeWidth = 9f
+                outlinePaint.strokeWidth = strokeWidth
+                // Durchgehende, glatte Linie: runde Verbindungen/Enden + Kantenglättung.
+                // Verschiebt keinen Punkt – schließt nur die optischen Mikro-Lücken.
+                outlinePaint.isAntiAlias = true
+                outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                outlinePaint.strokeJoin = android.graphics.Paint.Join.ROUND
             }
             if (bubbleText != null) {
                 line.setOnClickListener { _, _, eventPos ->
@@ -111,7 +117,9 @@ fun TrackMap(
                             position = GeoPoint(a.lat, a.lon)
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                             icon = arrow
-                            rotation = bearing
+                            // osmdroid dreht die Marker-Grafik gegen den Uhrzeigersinn,
+                            // der Kompass-Kurs läuft im Uhrzeigersinn → Vorzeichen umkehren.
+                            rotation = ((-bearing % 360f) + 360f) % 360f
                             setInfoWindow(null)
                             if (bubbleText != null) setOnMarkerClickListener { _, _ -> showBubble(a); true }
                         }
@@ -120,6 +128,22 @@ fun TrackMap(
                     i += step
                 }
             }
+
+            // Start- (grün) und Ziel-Marker (kariert), wie bei OSM-Apps.
+            val startIcon = ContextCompat.getDrawable(context, R.drawable.ic_track_start)
+            val finishIcon = ContextCompat.getDrawable(context, R.drawable.ic_track_finish)
+            mapView.overlays.add(Marker(mapView).apply {
+                position = geo.first()
+                setAnchor(Marker.ANCHOR_LEFT, Marker.ANCHOR_BOTTOM)
+                icon = startIcon
+                setInfoWindow(null)
+            })
+            mapView.overlays.add(Marker(mapView).apply {
+                position = geo.last()
+                setAnchor(Marker.ANCHOR_LEFT, Marker.ANCHOR_BOTTOM)
+                icon = finishIcon
+                setInfoWindow(null)
+            })
 
             mapView.post {
                 runCatching { mapView.zoomToBoundingBox(BoundingBox.fromGeoPointsSafe(geo), false, 48) }

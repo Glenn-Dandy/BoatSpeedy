@@ -47,6 +47,36 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- GPX öffnen: BoatSpeedy erscheint im „Öffnen mit"-Dialog. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="application/gpx+xml" />
+                <data android:scheme="content" android:mimeType="application/xml" />
+                <data android:scheme="content" android:mimeType="text/xml" />
+                <data android:scheme="file" android:mimeType="application/gpx+xml" />
+                <data android:scheme="file" android:host="*" android:pathPattern=".*\\.gpx" />
+                <data android:scheme="file" android:host="*" android:pathPattern=".*\\.GPX" />
+            </intent-filter>
+            <!-- Cloud-/Download-Apps liefern GPX oft als generischen Typ
+                 (application/octet-stream) über eine content://-URI ohne .gpx-Endung.
+                 Damit BoatSpeedy dort in der „Öffnen mit"-Auswahl auftaucht (wie OsmAnd),
+                 diesen Typ mitmatchen. Es wird nur EIN Eintrag in der Liste – nicht als
+                 Standard gesetzt, solange der Nutzer nicht „immer" wählt. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <!-- GPX an BoatSpeedy teilen. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/gpx+xml" />
+            </intent-filter>
         </activity>
 
         <service
