@@ -54,9 +54,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" android:mimeType="application/gpx+xml" />
+                <data android:scheme="content" android:mimeType="application/xml" />
+                <data android:scheme="content" android:mimeType="text/xml" />
                 <data android:scheme="file" android:mimeType="application/gpx+xml" />
-                <data android:scheme="content" android:mimeType="application/octet-stream" android:pathPattern=".*\\.gpx" />
                 <data android:scheme="file" android:host="*" android:pathPattern=".*\\.gpx" />
+                <data android:scheme="file" android:host="*" android:pathPattern=".*\\.GPX" />
             </intent-filter>
             <!-- GPX an BoatSpeedy teilen. -->
             <intent-filter>
