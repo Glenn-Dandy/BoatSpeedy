@@ -12,6 +12,8 @@ object Repo {
     const val NAME = "BoatSpeedy"
     const val URL = "https://github.com/$OWNER/$NAME"
     const val LATEST_RELEASE_URL = "$URL/releases/latest"
+    const val ISSUES_NEW_URL = "$URL/issues/new"
+    const val SUPPORT_URL = "https://paypal.me/GlennDandy"
     private const val API_LATEST = "https://api.github.com/repos/$OWNER/$NAME/releases/latest"
 
     val apiLatest: String get() = API_LATEST

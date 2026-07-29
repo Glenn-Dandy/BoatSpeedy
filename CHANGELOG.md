@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.1.0] – 2026-07-30
+
+### Neu
+- **Neu gestaltete „Über"-Seite**: App-Icon + Version im Kopf, Karten für **Feedback**
+  (Fehler melden / Funktion anfragen — öffnet vorausgefüllte GitHub-Issues mit App-,
+  Android- und Geräte-Info), **Projekt** (Stern auf GitHub, Quellcode, **Projekt
+  unterstützen** via PayPal) und **Update**. Dezenter **DE·EN**-Umschalter oben rechts;
+  der alte rohe GitHub-Link ist raus.
+
 ## [1.0.9] – 2026-07-28
 
 ### Neu
