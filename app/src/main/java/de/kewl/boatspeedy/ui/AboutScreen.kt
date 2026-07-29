@@ -3,6 +3,7 @@ package de.kewl.boatspeedy.ui
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -56,6 +58,7 @@ import de.kewl.boatspeedy.update.Repo
 import de.kewl.boatspeedy.update.UpdateChecker
 import de.kewl.boatspeedy.update.UpdateResult
 import de.kewl.boatspeedy.util.AppLanguage
+import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.launch
 
 private sealed interface UpdateUi {
@@ -111,21 +114,32 @@ fun AboutScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // --- Kopf: Icon, Name, Version ---
+            // --- Kopf: echtes App-Icon (Tacho + Welle), Name, Version ---
             Spacer(Modifier.size(20.dp))
-            androidx.compose.foundation.layout.Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Filled.DirectionsBoat,
+            val appIcon = remember {
+                runCatching {
+                    context.packageManager.getApplicationIcon(context.packageName)
+                        .toBitmap(width = 144, height = 144).asImageBitmap()
+                }.getOrNull()
+            }
+            if (appIcon != null) {
+                Image(
+                    bitmap = appIcon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(18.dp)),
                 )
+            } else {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.DirectionsBoat, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
             }
             Spacer(Modifier.size(10.dp))
             Text(
