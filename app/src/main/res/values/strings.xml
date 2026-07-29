@@ -199,6 +199,14 @@
     <string name="open_on_github">Open on GitHub</string>
     <string name="license_label">License</string>
     <string name="license_value">MIT</string>
+    <string name="about_feedback">Feedback</string>
+    <string name="about_project">Project</string>
+    <string name="update_section">Update</string>
+    <string name="report_bug">Report a bug</string>
+    <string name="request_feature">Request a feature</string>
+    <string name="star_github">Star on GitHub</string>
+    <string name="view_source">View source</string>
+    <string name="support_project">Support the project</string>
     <string name="check_update">Check for updates</string>
     <string name="checking">Checking …</string>
     <string name="up_to_date">You have the latest version.</string>
