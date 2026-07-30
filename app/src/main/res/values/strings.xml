@@ -186,6 +186,24 @@
     <string name="auto_pause">Auto-pause below current (A)</string>
     <string name="auto_pause_hint">0 or empty = off. Examples: 0.05, 0.5, 1.0</string>
 
+    <!-- Weather warnings (DWD) -->
+    <string name="weather_enabled">DWD weather warnings</string>
+    <string name="weather_hint">Checks thunderstorm/storm warnings for your position (Germany, data source: Deutscher Wetterdienst). Alerts you during a trip.</string>
+    <string name="weather_alarm_sound">Weather alarm sound</string>
+    <string name="weather_sound_label">Weather sound</string>
+    <string name="weather_channel">Weather warning (DWD)</string>
+    <string name="weather_notif_title">Weather warning</string>
+
+    <!-- Charging mode -->
+    <string name="charge_mode">Charging – GPS off</string>
+    <string name="charge_current">Charge current</string>
+    <string name="charge_time_to_full">Full in</string>
+    <string name="charge_full_at">Done at</string>
+    <string name="charge_channel">Charging</string>
+    <string name="charge_full_title">Battery full</string>
+    <string name="charge_full_text">Charge current dropped off — %1$d %%.</string>
+    <string name="follow_position">Follow position</string>
+
     <!-- Trip times -->
     <string name="stat_total_time">Total time</string>
     <string name="stat_moving_time">Moving time</string>

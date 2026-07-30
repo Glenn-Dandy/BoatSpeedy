@@ -359,8 +359,12 @@ fun GeneralSettingsScreen(
     onAnchorSound: (AlarmSound) -> Unit,
     onSocAlarmOn: (Boolean) -> Unit,
     onSocSound: (AlarmSound) -> Unit,
+    onWeatherEnabled: (Boolean) -> Unit,
+    onWeatherAlarmOn: (Boolean) -> Unit,
+    onWeatherSound: (AlarmSound) -> Unit,
     onTestAnchor: () -> Unit,
     onTestSoc: () -> Unit,
+    onTestWeather: () -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_general), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -376,6 +380,19 @@ fun GeneralSettingsScreen(
         SwitchRow(stringResource(R.string.soc_alarm_sound), settings.socAlarmOn, onSocAlarmOn)
         AlarmSoundRow(stringResource(R.string.soc_sound_label), settings.socSound, onSocSound)
         Button(onClick = onTestSoc) { Text(stringResource(R.string.alarm_test)) }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        SwitchRow(stringResource(R.string.weather_enabled), settings.weatherWarnEnabled, onWeatherEnabled)
+        Text(
+            stringResource(R.string.weather_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+        if (settings.weatherWarnEnabled) {
+            SwitchRow(stringResource(R.string.weather_alarm_sound), settings.weatherAlarmOn, onWeatherAlarmOn)
+            AlarmSoundRow(stringResource(R.string.weather_sound_label), settings.weatherSound, onWeatherSound)
+            Button(onClick = onTestWeather) { Text(stringResource(R.string.alarm_test)) }
+        }
     }
 }
 

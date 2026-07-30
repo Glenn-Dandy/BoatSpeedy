@@ -103,4 +103,10 @@ data class Settings(
     val socSound: AlarmSound = AlarmSound.PIEP,
     /** Zuletzt genutzter Anker-Radius in Metern. */
     val anchorRadiusM: Int = 30,
+    // Wetterwarnungen (DWD)
+    /** DWD-Wetterwarnungen (Gewitter/Sturm) prüfen und melden. */
+    val weatherWarnEnabled: Boolean = false,
+    /** Wetterwarnung zusätzlich mit Ton. */
+    val weatherAlarmOn: Boolean = true,
+    val weatherSound: AlarmSound = AlarmSound.SIRENE,
 )

@@ -183,6 +183,24 @@
     <string name="auto_pause">Auto-Pause unter Strom (A)</string>
     <string name="auto_pause_hint">0 oder leer = aus. Beispiele: 0.05, 0.5, 1.0</string>
 
+    <!-- Wetterwarnungen (DWD) -->
+    <string name="weather_enabled">DWD-Wetterwarnungen</string>
+    <string name="weather_hint">Prüft Gewitter-/Sturmwarnungen für deine Position (Deutschland, Datenbasis: Deutscher Wetterdienst). Meldet auch während der Fahrt.</string>
+    <string name="weather_alarm_sound">Wetteralarm mit Ton</string>
+    <string name="weather_sound_label">Wetterton</string>
+    <string name="weather_channel">Wetterwarnung (DWD)</string>
+    <string name="weather_notif_title">Wetterwarnung</string>
+
+    <!-- Lademodus -->
+    <string name="charge_mode">Lademodus – GPS aus</string>
+    <string name="charge_current">Ladestrom</string>
+    <string name="charge_time_to_full">Voll in</string>
+    <string name="charge_full_at">Fertig um</string>
+    <string name="charge_channel">Laden</string>
+    <string name="charge_full_title">Batterie voll</string>
+    <string name="charge_full_text">Ladestrom abgeklungen — %1$d %%.</string>
+    <string name="follow_position">Position folgen</string>
+
     <!-- Fahrt-Zeiten -->
     <string name="stat_total_time">Gesamtzeit</string>
     <string name="stat_moving_time">Fahrzeit</string>
