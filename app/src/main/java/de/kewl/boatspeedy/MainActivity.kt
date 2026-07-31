@@ -308,7 +308,6 @@ private fun BoatSpeedyApp(
                     Screen.SETTINGS_GENERAL -> GeneralSettingsScreen(
                         settings = settings,
                         onLowSocPercent = vm::setLowSocPercent,
-                        onAutoPauseAmps = vm::setAutoPauseAmps,
                         onAnchorAlarmOn = vm::setAnchorAlarmOn,
                         onAnchorSound = vm::setAnchorSound,
                         onSocAlarmOn = vm::setSocAlarmOn,
@@ -327,6 +326,7 @@ private fun BoatSpeedyApp(
                         onTrackColor = vm::setTrackColor,
                         onTrackWidth = vm::setTrackWidth,
                         onTrackArrows = vm::setTrackArrows,
+                        onAutoPauseAmps = vm::setAutoPauseAmps,
                         onBack = { screen = Screen.SETTINGS },
                     )
 

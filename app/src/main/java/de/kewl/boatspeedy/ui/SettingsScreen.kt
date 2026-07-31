@@ -268,6 +268,7 @@ fun TracksSettingsScreen(
     onTrackColor: (TrackColor) -> Unit,
     onTrackWidth: (TrackWidth) -> Unit,
     onTrackArrows: (Boolean) -> Unit,
+    onAutoPauseAmps: (Float) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_tracks), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -298,6 +299,9 @@ fun TracksSettingsScreen(
             onSelect = onTrackWidth,
         )
         SwitchRow(stringResource(R.string.track_arrows), settings.trackArrows, onTrackArrows)
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
     }
 }
 
@@ -354,7 +358,6 @@ fun LanguageRow(language: AppLanguage, onLanguage: (AppLanguage) -> Unit) {
 fun GeneralSettingsScreen(
     settings: Settings,
     onLowSocPercent: (Int) -> Unit,
-    onAutoPauseAmps: (Float) -> Unit,
     onAnchorAlarmOn: (Boolean) -> Unit,
     onAnchorSound: (AlarmSound) -> Unit,
     onSocAlarmOn: (Boolean) -> Unit,
@@ -369,7 +372,6 @@ fun GeneralSettingsScreen(
 ) {
     SettingsScaffold(stringResource(R.string.group_general), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
         LowSocSliderRow(settings.lowSocPercent, onLowSocPercent)
-        AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SwitchRow(stringResource(R.string.anchor_alarm_sound), settings.anchorAlarmOn, onAnchorAlarmOn)

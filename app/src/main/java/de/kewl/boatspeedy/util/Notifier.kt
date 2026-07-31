@@ -44,4 +44,38 @@ object Notifier {
             .build()
         nm.notify(notifId, n)
     }
+
+    /** Laufende (nicht wegwischbare) Statusmeldung, z. B. Ladefortschritt. */
+    fun ongoing(
+        context: Context,
+        channelId: String,
+        channelName: String,
+        notifId: Int,
+        title: String,
+        text: String,
+    ) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.createNotificationChannel(
+            NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW),
+        )
+        val tap = PendingIntent.getActivity(
+            context, 0,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
+        val n = NotificationCompat.Builder(context, channelId)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(tap)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+        nm.notify(notifId, n)
+    }
+
+    fun cancel(context: Context, notifId: Int) {
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(notifId)
+    }
 }

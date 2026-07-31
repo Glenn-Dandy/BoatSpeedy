@@ -173,7 +173,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     private fun updateCharge(d: BatteryData?) {
         // Während einer Fahrt kein Lademodus (GPS soll laufen).
         if (d == null || d.voltage <= 0f || tracking.value) {
-            if (chargeSessionActive) { chargeSessionActive = false; applyGps() }
+            if (chargeSessionActive) { chargeSessionActive = false; applyGps(); cancelChargeNotif() }
             _charge.value = ChargeState(soc = d?.soc ?: 0)
             return
         }
@@ -185,11 +185,11 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         if (chargeSessionActive) {
             when {
                 cur < 0f -> { // wieder Entladen → Ladevorgang beendet (abgeklemmt)
-                    chargeSessionActive = false; applyGps()
+                    chargeSessionActive = false; applyGps(); cancelChargeNotif()
                     _charge.value = ChargeState(soc = d.soc)
                 }
                 cur < CHARGE_FULL_A -> { // Strom auf ~0 abgeklungen → voll
-                    chargeSessionActive = false; applyGps()
+                    chargeSessionActive = false; applyGps(); cancelChargeNotif()
                     if (d.soc >= FULL_SOC_MIN) notifyFull(d.soc)
                     _charge.value = ChargeState(soc = d.soc)
                 }
@@ -202,12 +202,29 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                     val hours = if (cur > 0.1f && missingAh > 0f) missingAh / cur.toDouble() else null
                     val fullAt = hours?.let { System.currentTimeMillis() + (it * 3600_000).toLong() }
                     _charge.value = ChargeState(charging = true, chargeA = cur, soc = d.soc, hoursToFull = hours, fullAtEpochMs = fullAt)
+                    notifyCharging(d.soc, hours)
                 }
             }
         } else {
             _charge.value = ChargeState(soc = d.soc)
         }
     }
+
+    /** Laufende Lade-Meldung mit SoC (und ggf. Restdauer). */
+    private fun notifyCharging(soc: Int, hoursToFull: Double?) {
+        val time = hoursToFull?.let { formatDuration((it * 3600_000).toLong()) }
+        val text = if (time != null) {
+            "${getString(R.string.soc_short)} $soc % · ${getString(R.string.charge_time_to_full)} $time"
+        } else {
+            "${getString(R.string.soc_short)} $soc %"
+        }
+        Notifier.ongoing(
+            getApplication(), "charge_status", getString(R.string.charge_status_channel), CHARGE_NOTIF_ID,
+            getString(R.string.charge_notif_title), text,
+        )
+    }
+
+    private fun cancelChargeNotif() = Notifier.cancel(getApplication(), CHARGE_NOTIF_ID)
 
     private fun notifyFull(soc: Int) {
         Notifier.notify(
@@ -329,7 +346,16 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setAnchorRadius(v: Int) = viewModelScope.launch { settingsRepo.setAnchorRadius(v) }
     fun setWeatherEnabled(v: Boolean) = viewModelScope.launch {
         settingsRepo.setWeatherEnabled(v)
-        if (!v) WeatherRepository.clear()
+        if (!v) {
+            WeatherRepository.clear()
+        } else {
+            // Sofort prüfen, damit man den Schalter direkt testen kann (nicht erst nach 10 Min).
+            val g = _gps.value
+            val s = settings.value
+            if (g.latitude != null && g.longitude != null) {
+                WeatherRepository.check(getApplication(), g.latitude!!, g.longitude!!, s.weatherAlarmOn, s.weatherSound)
+            }
+        }
     }
     fun setWeatherAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setWeatherAlarmOn(v) }
     fun setWeatherSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setWeatherSound(v) }
@@ -450,6 +476,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         private const val CHARGE_ON_A = 0.5f    // ab diesem positiven Strom gilt „lädt"
         private const val CHARGE_FULL_A = 0.1f  // darunter: Strom abgeklungen → voll
         private const val FULL_SOC_MIN = 90     // „voll" nur ab diesem Ladestand melden
+        private const val CHARGE_NOTIF_ID = 6   // laufende Lade-Meldung
         private const val WEATHER_INTERVAL_MS = 10 * 60_000L // DWD-Prüfintervall
     }
 }

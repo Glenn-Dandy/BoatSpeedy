@@ -65,7 +65,7 @@
     <string name="trip_point_title">Point</string>
     <string name="speed_label">Speed</string>
     <string name="group_tracks">Trips</string>
-    <string name="cat_tracks_desc">Track colour, line width, direction arrows</string>
+    <string name="cat_tracks_desc">Track colour, line width, arrows, auto-pause</string>
     <string name="track_color">Track colour</string>
     <string name="track_width">Line width</string>
     <string name="width_thin">Thin</string>
@@ -174,7 +174,7 @@
 
     <!-- Alarms -->
     <string name="group_general">General</string>
-    <string name="cat_general_desc">Low-charge warning, auto-pause, alarms</string>
+    <string name="cat_general_desc">Low-charge warning, alarms, weather</string>
     <string name="alarm_test">Test sound</string>
     <string name="anchor_alarm_sound">Anchor alarm sound</string>
     <string name="anchor_sound_label">Anchor sound</string>
@@ -200,6 +200,8 @@
     <string name="charge_time_to_full">Full in</string>
     <string name="charge_full_at">Done at</string>
     <string name="charge_channel">Charging</string>
+    <string name="charge_status_channel">Charging status</string>
+    <string name="charge_notif_title">Charging</string>
     <string name="charge_full_title">Battery full</string>
     <string name="charge_full_text">Charge current dropped off — %1$d %%.</string>
     <string name="follow_position">Follow position</string>

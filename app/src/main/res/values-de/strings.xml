@@ -62,7 +62,7 @@
     <string name="trip_point_title">Punkt</string>
     <string name="speed_label">Geschwindigkeit</string>
     <string name="group_tracks">Fahrten</string>
-    <string name="cat_tracks_desc">Track-Farbe, Linienstärke, Richtungspfeile</string>
+    <string name="cat_tracks_desc">Track-Farbe, Linienstärke, Pfeile, Auto-Pause</string>
     <string name="track_color">Track-Farbe</string>
     <string name="track_width">Linienstärke</string>
     <string name="width_thin">Dünn</string>
@@ -171,7 +171,7 @@
 
     <!-- Alarme -->
     <string name="group_general">Allgemein</string>
-    <string name="cat_general_desc">Warnung, Auto-Pause, Alarme</string>
+    <string name="cat_general_desc">Warnung, Alarme, Wetter</string>
     <string name="alarm_test">Ton testen</string>
     <string name="anchor_alarm_sound">Ankeralarm-Ton</string>
     <string name="anchor_sound_label">Ankerton</string>
@@ -197,6 +197,8 @@
     <string name="charge_time_to_full">Voll in</string>
     <string name="charge_full_at">Fertig um</string>
     <string name="charge_channel">Laden</string>
+    <string name="charge_status_channel">Ladevorgang</string>
+    <string name="charge_notif_title">Lädt</string>
     <string name="charge_full_title">Batterie voll</string>
     <string name="charge_full_text">Ladestrom abgeklungen — %1$d %%.</string>
     <string name="follow_position">Position folgen</string>
