@@ -109,6 +109,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     private val _charge = MutableStateFlow(ChargeState())
     val charge: StateFlow<ChargeState> = _charge.asStateFlow()
     private var chargeSessionActive = false
+    private var chargeTargetNotified = false
 
     // Aktive DWD-Wetterwarnungen (prozessweit gepflegt).
     val weatherWarnings: StateFlow<List<WeatherWarning>> = WeatherRepository.active
@@ -199,6 +200,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         val cur = d.currentA
         if (!chargeSessionActive && cur >= CHARGE_ON_A) {
             chargeSessionActive = true
+            chargeTargetNotified = false // neue Ladesitzung → Ziel-Meldung wieder scharf
             applyGps() // GPS deaktivieren, solange geladen wird
         }
         if (chargeSessionActive) {
@@ -222,6 +224,17 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                     val fullAt = hours?.let { System.currentTimeMillis() + (it * 3600_000).toLong() }
                     _charge.value = ChargeState(charging = true, chargeA = cur, soc = d.soc, hoursToFull = hours, fullAtEpochMs = fullAt)
                     notifyCharging(d.soc, hours)
+                    // Individuelle Meldung, wenn der eingestellte Ladestand erreicht ist.
+                    val target = settings.value.chargeTargetSoc
+                    if (target in 1..100 && d.soc >= target && !chargeTargetNotified) {
+                        chargeTargetNotified = true
+                        Notifier.notify(
+                            getApplication(), "charge", getString(R.string.charge_channel), 7,
+                            getString(R.string.charge_reached_title),
+                            getString(R.string.charge_reached_text, d.soc),
+                            high = false,
+                        )
+                    }
                 }
             }
         } else {
@@ -296,10 +309,11 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     private var lastDisplayMs: Float? = null
     private var badTicks = 0
 
-    /** Fertig formatierter Anzeigewert (bereits geglättet & umgerechnet). */
+    /** Fertig formatierter Anzeigewert (bereits geglättet & umgerechnet). Im Lademodus „--". */
     val displaySpeed: StateFlow<String> =
-        combine(_gps, settings) { gps, settings -> smoothAndFormat(gps, settings) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, NO_FIX)
+        combine(_gps, settings, _charge) { gps, settings, charge ->
+            if (charge.charging) NO_FIX else smoothAndFormat(gps, settings)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, NO_FIX)
 
     private var collectJob: Job? = null
     private var wantGps = false // Vordergrund (onResume) will GPS
@@ -362,6 +376,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setAnchorSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setAnchorSound(v) }
     fun setSocAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setSocAlarmOn(v) }
     fun setSocSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setSocSound(v) }
+    fun setChargeTargetSoc(v: Int) = viewModelScope.launch { settingsRepo.setChargeTargetSoc(v) }
     fun setAnchorRadius(v: Int) = viewModelScope.launch { settingsRepo.setAnchorRadius(v) }
     fun setWeatherEnabled(v: Boolean) = viewModelScope.launch {
         settingsRepo.setWeatherEnabled(v)

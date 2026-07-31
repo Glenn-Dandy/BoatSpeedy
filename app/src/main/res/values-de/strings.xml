@@ -179,6 +179,11 @@
     <string name="sound_piep">Piep</string>
     <string name="sound_glocke">Glocke</string>
     <string name="sound_sirene">Sirene</string>
+    <string name="section_charge">Ladestand</string>
+    <string name="group_weather">Wetter</string>
+    <string name="charge_target_label">Meldung bei Ladestand (%)</string>
+    <string name="charge_reached_title">Ladestand erreicht</string>
+    <string name="charge_reached_text">%1$d %% erreicht.</string>
     <string name="soc_alarm_sound">SoC-Alarm mit Ton</string>
     <string name="auto_pause">Auto-Pause unter Strom (A)</string>
     <string name="auto_pause_hint">0 oder leer = aus. Beispiele: 0.05, 0.5, 1.0</string>

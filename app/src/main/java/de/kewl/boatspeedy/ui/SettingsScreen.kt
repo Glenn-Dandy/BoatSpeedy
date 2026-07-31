@@ -362,6 +362,7 @@ fun GeneralSettingsScreen(
     onAnchorSound: (AlarmSound) -> Unit,
     onSocAlarmOn: (Boolean) -> Unit,
     onSocSound: (AlarmSound) -> Unit,
+    onChargeTargetSoc: (Int) -> Unit,
     onWeatherEnabled: (Boolean) -> Unit,
     onWeatherAlarmOn: (Boolean) -> Unit,
     onWeatherSound: (AlarmSound) -> Unit,
@@ -371,19 +372,24 @@ fun GeneralSettingsScreen(
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_general), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
+        // --- Ladestand (Warnung, SoC-Alarmton, Lade-Meldung gehören zusammen) ---
+        SectionLabel(stringResource(R.string.section_charge))
         LowSocSliderRow(settings.lowSocPercent, onLowSocPercent)
+        SwitchRow(stringResource(R.string.soc_alarm_sound), settings.socAlarmOn, onSocAlarmOn)
+        AlarmSoundRow(stringResource(R.string.soc_sound_label), settings.socSound, onSocSound)
+        Button(onClick = onTestSoc) { Text(stringResource(R.string.alarm_test)) }
+        ChargeTargetSliderRow(settings.chargeTargetSoc, onChargeTargetSoc)
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        // --- Anker ---
+        SectionLabel(stringResource(R.string.anchor_watch_title))
         SwitchRow(stringResource(R.string.anchor_alarm_sound), settings.anchorAlarmOn, onAnchorAlarmOn)
         AlarmSoundRow(stringResource(R.string.anchor_sound_label), settings.anchorSound, onAnchorSound)
         Button(onClick = onTestAnchor) { Text(stringResource(R.string.alarm_test)) }
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        SwitchRow(stringResource(R.string.soc_alarm_sound), settings.socAlarmOn, onSocAlarmOn)
-        AlarmSoundRow(stringResource(R.string.soc_sound_label), settings.socSound, onSocSound)
-        Button(onClick = onTestSoc) { Text(stringResource(R.string.alarm_test)) }
-
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        // --- Wetter ---
+        SectionLabel(stringResource(R.string.group_weather))
         SwitchRow(stringResource(R.string.weather_enabled), settings.weatherWarnEnabled, onWeatherEnabled)
         Text(
             stringResource(R.string.weather_hint),
@@ -495,6 +501,38 @@ private fun <T> SegmentedRow(
                 ) { Text(labelOf(option)) }
             }
         }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+    )
+}
+
+@Composable
+private fun ChargeTargetSliderRow(percent: Int, onChange: (Int) -> Unit) {
+    var pos by remember(percent) { mutableFloatStateOf(percent.toFloat()) }
+    val current = pos.toInt()
+    Column(modifier = Modifier.padding(vertical = 10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(stringResource(R.string.charge_target_label), style = MaterialTheme.typography.titleMedium)
+            Text(if (current <= 0) stringResource(R.string.smoothing_off) else "$current %")
+        }
+        Slider(
+            value = pos,
+            onValueChange = { pos = it },
+            onValueChangeFinished = { onChange(pos.toInt()) },
+            valueRange = 0f..100f,
+            steps = 19, // 0,5,…,100
+        )
     }
 }
 

@@ -182,6 +182,11 @@
     <string name="sound_piep">Beep</string>
     <string name="sound_glocke">Bell</string>
     <string name="sound_sirene">Siren</string>
+    <string name="section_charge">Charge level</string>
+    <string name="group_weather">Weather</string>
+    <string name="charge_target_label">Notify at charge level (%)</string>
+    <string name="charge_reached_title">Charge level reached</string>
+    <string name="charge_reached_text">%1$d %% reached.</string>
     <string name="soc_alarm_sound">Low-charge alarm sound</string>
     <string name="auto_pause">Auto-pause below current (A)</string>
     <string name="auto_pause_hint">0 or empty = off. Examples: 0.05, 0.5, 1.0</string>

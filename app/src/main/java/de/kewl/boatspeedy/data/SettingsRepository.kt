@@ -44,6 +44,7 @@ class SettingsRepository(private val context: Context) {
         val ANCHOR_SOUND = stringPreferencesKey("anchor_sound")
         val SOC_ALARM_ON = booleanPreferencesKey("soc_alarm_on")
         val SOC_SOUND = stringPreferencesKey("soc_sound")
+        val CHARGE_TARGET_SOC = intPreferencesKey("charge_target_soc")
         val ANCHOR_RADIUS = intPreferencesKey("anchor_radius")
         val WEATHER_ENABLED = booleanPreferencesKey("weather_enabled")
         val WEATHER_ALARM_ON = booleanPreferencesKey("weather_alarm_on")
@@ -75,6 +76,7 @@ class SettingsRepository(private val context: Context) {
             anchorSound = p[Keys.ANCHOR_SOUND]?.let { enumOrNull<AlarmSound>(it) } ?: AlarmSound.SIRENE,
             socAlarmOn = p[Keys.SOC_ALARM_ON] ?: false,
             socSound = p[Keys.SOC_SOUND]?.let { enumOrNull<AlarmSound>(it) } ?: AlarmSound.PIEP,
+            chargeTargetSoc = (p[Keys.CHARGE_TARGET_SOC] ?: 0).coerceIn(0, 100),
             anchorRadiusM = (p[Keys.ANCHOR_RADIUS] ?: 30).coerceIn(5, 1000),
             weatherWarnEnabled = p[Keys.WEATHER_ENABLED] ?: false,
             weatherAlarmOn = p[Keys.WEATHER_ALARM_ON] ?: true,
@@ -105,6 +107,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAnchorSound(value: AlarmSound) = edit { it[Keys.ANCHOR_SOUND] = value.name }
     suspend fun setSocAlarmOn(value: Boolean) = edit { it[Keys.SOC_ALARM_ON] = value }
     suspend fun setSocSound(value: AlarmSound) = edit { it[Keys.SOC_SOUND] = value.name }
+    suspend fun setChargeTargetSoc(value: Int) = edit { it[Keys.CHARGE_TARGET_SOC] = value.coerceIn(0, 100) }
     suspend fun setAnchorRadius(value: Int) = edit { it[Keys.ANCHOR_RADIUS] = value.coerceIn(5, 1000) }
     suspend fun setWeatherEnabled(value: Boolean) = edit { it[Keys.WEATHER_ENABLED] = value }
     suspend fun setWeatherAlarmOn(value: Boolean) = edit { it[Keys.WEATHER_ALARM_ON] = value }

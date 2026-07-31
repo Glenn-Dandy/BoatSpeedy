@@ -312,6 +312,7 @@ private fun BoatSpeedyApp(
                         onAnchorSound = vm::setAnchorSound,
                         onSocAlarmOn = vm::setSocAlarmOn,
                         onSocSound = vm::setSocSound,
+                        onChargeTargetSoc = vm::setChargeTargetSoc,
                         onWeatherEnabled = vm::setWeatherEnabled,
                         onWeatherAlarmOn = vm::setWeatherAlarmOn,
                         onWeatherSound = vm::setWeatherSound,
