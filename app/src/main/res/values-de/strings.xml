@@ -190,6 +190,10 @@
     <string name="weather_sound_label">Wetterton</string>
     <string name="weather_channel">Wetterwarnung (DWD)</string>
     <string name="weather_notif_title">Wetterwarnung</string>
+    <string name="weather_check_now">Jetzt prüfen</string>
+    <string name="weather_test_no_pos">Keine GPS-Position (erreicht Fake-GPS die App?)</string>
+    <string name="weather_test_neterr">Netzwerkfehler — Wetterdienst nicht erreichbar.</string>
+    <string name="weather_test_result">Position %1$.4f, %2$.4f — %3$d relevante Warnung(en)</string>
 
     <!-- Lademodus -->
     <string name="charge_mode">Lademodus – GPS aus</string>

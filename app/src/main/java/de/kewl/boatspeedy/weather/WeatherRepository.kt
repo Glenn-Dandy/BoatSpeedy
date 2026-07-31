@@ -48,14 +48,15 @@ object WeatherRepository {
     )
     private val SEVERITIES = listOf("moderate", "severe", "extreme")
 
+    /** Prüft & meldet neue Warnungen. Rückgabe: Anzahl aktiver relevanter Warnungen, -1 = Netzfehler. */
     suspend fun check(
         context: Context,
         lat: Double,
         lon: Double,
         alarmOn: Boolean,
         sound: AlarmSound,
-    ) = withContext(Dispatchers.IO) {
-        val warnings = runCatching { fetch(lat, lon) }.getOrNull() ?: return@withContext
+    ): Int = withContext(Dispatchers.IO) {
+        val warnings = runCatching { fetch(lat, lon) }.getOrNull() ?: return@withContext -1
         _active.value = warnings
         val fresh = warnings.filter { it.id !in notified }
         if (fresh.isNotEmpty()) {
@@ -74,6 +75,7 @@ object WeatherRepository {
         }
         // „Schon gemeldet"-Liste auf die noch aktiven Warnungen eindampfen.
         notified.retainAll(warnings.map { it.id }.toSet())
+        warnings.size
     }
 
     fun clear() {

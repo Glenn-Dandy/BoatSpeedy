@@ -25,6 +25,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -368,6 +369,7 @@ fun GeneralSettingsScreen(
     onTestAnchor: () -> Unit,
     onTestSoc: () -> Unit,
     onTestWeather: () -> Unit,
+    onCheckWeather: () -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_general), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -393,7 +395,10 @@ fun GeneralSettingsScreen(
         if (settings.weatherWarnEnabled) {
             SwitchRow(stringResource(R.string.weather_alarm_sound), settings.weatherAlarmOn, onWeatherAlarmOn)
             AlarmSoundRow(stringResource(R.string.weather_sound_label), settings.weatherSound, onWeatherSound)
-            Button(onClick = onTestWeather) { Text(stringResource(R.string.alarm_test)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onCheckWeather) { Text(stringResource(R.string.weather_check_now)) }
+                OutlinedButton(onClick = onTestWeather) { Text(stringResource(R.string.alarm_test)) }
+            }
         }
     }
 }

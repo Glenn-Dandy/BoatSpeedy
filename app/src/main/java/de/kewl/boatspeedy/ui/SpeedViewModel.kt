@@ -1,6 +1,9 @@
 package de.kewl.boatspeedy.ui
 
+import android.annotation.SuppressLint
 import android.app.Application
+import android.content.Context
+import android.location.LocationManager
 import android.os.SystemClock
 import de.kewl.boatspeedy.R
 import androidx.lifecycle.AndroidViewModel
@@ -350,12 +353,41 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             WeatherRepository.clear()
         } else {
             // Sofort prüfen, damit man den Schalter direkt testen kann (nicht erst nach 10 Min).
-            val g = _gps.value
+            val pos = bestPosition()
             val s = settings.value
-            if (g.latitude != null && g.longitude != null) {
-                WeatherRepository.check(getApplication(), g.latitude!!, g.longitude!!, s.weatherAlarmOn, s.weatherSound)
-            }
+            if (pos != null) WeatherRepository.check(getApplication(), pos.first, pos.second, s.weatherAlarmOn, s.weatherSound)
         }
+    }
+
+    /** Manuelle Wetterprüfung mit Klartext-Rückmeldung (zum Testen). */
+    fun checkWeatherNow(onResult: (String) -> Unit) = viewModelScope.launch {
+        val pos = bestPosition()
+        if (pos == null) {
+            onResult(getString(R.string.weather_test_no_pos))
+            return@launch
+        }
+        val s = settings.value
+        val n = WeatherRepository.check(getApplication(), pos.first, pos.second, s.weatherAlarmOn, s.weatherSound)
+        onResult(
+            when {
+                n < 0 -> getString(R.string.weather_test_neterr)
+                else -> getString(R.string.weather_test_result, pos.first, pos.second, n)
+            },
+        )
+    }
+
+    /** Beste verfügbare Position: Fused-GPS aus dem State, sonst LocationManager-Last-Known
+     *  (den Fake-GPS-Apps meist füttern, auch wenn der Fused-Provider sie nicht durchreicht). */
+    @SuppressLint("MissingPermission")
+    private fun bestPosition(): Pair<Double, Double>? {
+        val g = _gps.value
+        if (g.latitude != null && g.longitude != null) return g.latitude!! to g.longitude!!
+        val lm = getApplication<Application>().getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        for (p in listOf(LocationManager.GPS_PROVIDER, LocationManager.FUSED_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
+            val loc = runCatching { lm.getLastKnownLocation(p) }.getOrNull()
+            if (loc != null) return loc.latitude to loc.longitude
+        }
+        return null
     }
     fun setWeatherAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setWeatherAlarmOn(v) }
     fun setWeatherSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setWeatherSound(v) }
