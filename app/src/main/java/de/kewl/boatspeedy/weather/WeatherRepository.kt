@@ -80,6 +80,9 @@ object WeatherRepository {
 
     fun clear() {
         _active.value = emptyList()
+        // Auch die „schon gemeldet"-Merkliste leeren, damit nach Aus/Ein (oder beim
+        // erneuten Testen) dieselbe Warnung wieder Benachrichtigung + Ton auslöst.
+        notified.clear()
     }
 
     private fun fetch(lat: Double, lon: Double): List<WeatherWarning> {
