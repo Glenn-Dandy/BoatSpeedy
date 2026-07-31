@@ -51,6 +51,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.ArrayDeque
@@ -160,16 +162,30 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         // (während der Fahrt übernimmt das der Vordergrunddienst).
         viewModelScope.launch {
             while (true) {
-                val s = settings.value
-                val g = _gps.value
-                if (s.weatherWarnEnabled && !tracking.value && g.latitude != null && g.longitude != null) {
-                    WeatherRepository.check(getApplication(), g.latitude!!, g.longitude!!, s.weatherAlarmOn, s.weatherSound)
-                } else if (!s.weatherWarnEnabled) {
-                    WeatherRepository.clear()
-                }
+                if (!settings.value.weatherWarnEnabled) WeatherRepository.clear() else maybeWeather(force = false)
                 delay(WEATHER_INTERVAL_MS)
             }
         }
+        // Sobald eine Position da ist (GPS-Fix), sofort prüfen – beim Rausfahren
+        // soll eine Warnung gleich kommen, nicht erst beim nächsten 10-Min-Tick.
+        viewModelScope.launch {
+            _gps.map { it.latitude != null && it.longitude != null }
+                .distinctUntilChanged()
+                .collect { hasPos -> if (hasPos) maybeWeather(force = true) }
+        }
+    }
+
+    private var lastWeatherMs = 0L
+
+    /** Prüft DWD-Warnungen für die beste verfügbare Position (throttled, außer [force]). */
+    private suspend fun maybeWeather(force: Boolean) {
+        val s = settings.value
+        if (!s.weatherWarnEnabled || tracking.value) return // Fahrt: Dienst übernimmt
+        val pos = bestPosition() ?: return
+        val now = SystemClock.elapsedRealtime()
+        if (!force && now - lastWeatherMs < WEATHER_INTERVAL_MS) return
+        lastWeatherMs = now
+        WeatherRepository.check(getApplication(), pos.first, pos.second, s.weatherAlarmOn, s.weatherSound)
     }
 
     /** Ladezustand aus den ausgewählten Batteriewerten ableiten. Positiver Strom = Laden. */
@@ -349,31 +365,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setAnchorRadius(v: Int) = viewModelScope.launch { settingsRepo.setAnchorRadius(v) }
     fun setWeatherEnabled(v: Boolean) = viewModelScope.launch {
         settingsRepo.setWeatherEnabled(v)
-        if (!v) {
-            WeatherRepository.clear()
-        } else {
-            // Sofort prüfen, damit man den Schalter direkt testen kann (nicht erst nach 10 Min).
-            val pos = bestPosition()
-            val s = settings.value
-            if (pos != null) WeatherRepository.check(getApplication(), pos.first, pos.second, s.weatherAlarmOn, s.weatherSound)
-        }
-    }
-
-    /** Manuelle Wetterprüfung mit Klartext-Rückmeldung (zum Testen). */
-    fun checkWeatherNow(onResult: (String) -> Unit) = viewModelScope.launch {
-        val pos = bestPosition()
-        if (pos == null) {
-            onResult(getString(R.string.weather_test_no_pos))
-            return@launch
-        }
-        val s = settings.value
-        val n = WeatherRepository.check(getApplication(), pos.first, pos.second, s.weatherAlarmOn, s.weatherSound)
-        onResult(
-            when {
-                n < 0 -> getString(R.string.weather_test_neterr)
-                else -> getString(R.string.weather_test_result, pos.first, pos.second, n)
-            },
-        )
+        if (!v) WeatherRepository.clear() else maybeWeather(force = true)
     }
 
     /** Beste verfügbare Position: Fused-GPS aus dem State, sonst LocationManager-Last-Known

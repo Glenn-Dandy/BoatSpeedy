@@ -318,11 +318,6 @@ private fun BoatSpeedyApp(
                         onTestAnchor = vm::testAnchorSound,
                         onTestSoc = vm::testSocSound,
                         onTestWeather = vm::testWeatherSound,
-                        onCheckWeather = {
-                            vm.checkWeatherNow { msg ->
-                                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
-                            }
-                        },
                         onBack = { screen = Screen.SETTINGS },
                     )
 

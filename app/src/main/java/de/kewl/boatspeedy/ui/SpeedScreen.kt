@@ -304,6 +304,13 @@ private fun WeatherBanner(warnings: List<WeatherWarning>) {
                         color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f),
                     )
                 }
+                w.expiresMs?.let { exp ->
+                    Text(
+                        stringResource(R.string.weather_valid_until, clockTime(exp)),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
+                    )
+                }
             }
         }
     }

@@ -193,10 +193,7 @@
     <string name="weather_sound_label">Weather sound</string>
     <string name="weather_channel">Weather warning (DWD)</string>
     <string name="weather_notif_title">Weather warning</string>
-    <string name="weather_check_now">Check now</string>
-    <string name="weather_test_no_pos">No GPS position (does fake GPS reach the app?)</string>
-    <string name="weather_test_neterr">Network error — could not reach the weather service.</string>
-    <string name="weather_test_result">Position %1$.4f, %2$.4f — %3$d relevant warning(s)</string>
+    <string name="weather_valid_until">valid until %s</string>
 
     <!-- Charging mode -->
     <string name="charge_mode">Charging – GPS off</string>
