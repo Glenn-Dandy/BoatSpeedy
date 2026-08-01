@@ -34,7 +34,11 @@ object GpxExport {
         val name = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
         val sb = StringBuilder()
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-        sb.append("<gpx version=\"1.1\" creator=\"BoatSpeedy\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n")
+        sb.append(
+            "<gpx version=\"1.1\" creator=\"BoatSpeedy\" " +
+                "xmlns=\"http://www.topografix.com/GPX/1/1\" " +
+                "xmlns:boatspeedy=\"https://github.com/Glenn-Dandy/BoatSpeedy\">\n",
+        )
         for (trip in trips) {
             sb.append("  <trk>\n    <name>")
             sb.append(escape(name.format(Date(trip.startedAt))))
@@ -43,6 +47,17 @@ object GpxExport {
                 sb.append("      <trkpt lat=\"")
                     .append(fmt(p.lat)).append("\" lon=\"").append(fmt(p.lon)).append("\">")
                 sb.append("<time>").append(iso.format(Date(trip.startedAt + p.tMs))).append("</time>")
+                // Geschwindigkeit (m/s) + Verbrauch/SoC als GPX-Erweiterungen.
+                sb.append("<extensions>")
+                sb.append("<speed>").append(fmt3(p.speedMs)).append("</speed>")
+                sb.append("<boatspeedy:speed>").append(fmt3(p.speedMs)).append("</boatspeedy:speed>")
+                if (p.chargeAh > 0f) {
+                    sb.append("<boatspeedy:chargeAh>").append(fmt3(p.chargeAh)).append("</boatspeedy:chargeAh>")
+                }
+                if (p.soc >= 0) {
+                    sb.append("<boatspeedy:soc>").append(p.soc).append("</boatspeedy:soc>")
+                }
+                sb.append("</extensions>")
                 sb.append("</trkpt>\n")
             }
             sb.append("    </trkseg>\n  </trk>\n")
@@ -52,6 +67,7 @@ object GpxExport {
     }
 
     private fun fmt(v: Double) = String.format(Locale.US, "%.6f", v)
+    private fun fmt3(v: Float) = String.format(Locale.US, "%.3f", v)
 
     private fun escape(s: String) = s
         .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
