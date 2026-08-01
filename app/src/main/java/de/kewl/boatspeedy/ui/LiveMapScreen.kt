@@ -8,14 +8,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +29,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -36,16 +40,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.LaunchedEffect
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.trip.TrackPoint
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
-/** Vollbild-Live-Karte: Position + Track (folgt/verlassen) und ein DWD-Wetterradar (Regen + Blitze). */
+/** Vollbild-Live-Karte: Position + Track (folgt/verlassen) und DWD-Wetterradar (Regen + optional Blitze). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LiveMapScreen(
@@ -58,16 +62,18 @@ fun LiveMapScreen(
     val context = LocalContext.current
     var follow by remember { mutableStateOf(true) }
     var showWeather by remember { mutableStateOf(false) }
+    var showLightning by remember { mutableStateOf(false) }
     var playing by remember { mutableStateOf(true) }
     var frameIndex by remember { mutableIntStateOf(0) }
     val frames = remember { radarFrames() }
+    val radarTimes = remember(frames) { frames.map { it.timeIso } }
     val bubble: (TrackPoint) -> String = { p -> buildTrackBubble(context, settings, p) }
 
     // Vorhersage-Schleife (jetzt → +2 h), solange „Abspielen" aktiv.
     LaunchedEffect(showWeather, playing) {
         if (showWeather && playing) {
             while (true) {
-                delay(if (frameIndex == frames.lastIndex) 1200 else 650)
+                delay(if (frameIndex == frames.lastIndex) 1400 else 800)
                 frameIndex = (frameIndex + 1) % frames.size
             }
         }
@@ -107,8 +113,9 @@ fun LiveMapScreen(
                 onUserPan = { follow = false },
                 bubbleText = bubble,
                 showRadar = showWeather,
-                radarTime = frames[frameIndex.coerceIn(0, frames.lastIndex)].timeIso,
-                showLightning = showWeather, // Regen + Blitze immer zusammen
+                radarTimes = radarTimes,
+                radarFrameIndex = frameIndex.coerceIn(0, frames.lastIndex),
+                showLightning = showWeather && showLightning,
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -117,19 +124,20 @@ fun LiveMapScreen(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        // höher, damit der GPS-Folgen-Knopf den Regler nicht verdeckt
+                        .padding(start = 12.dp, end = 12.dp, bottom = 84.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                                 RoundedCornerShape(24.dp),
                             )
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
                     ) {
                         IconButton(onClick = { playing = !playing }) {
                             Icon(
@@ -138,10 +146,12 @@ fun LiveMapScreen(
                             )
                         }
                         val label = frames[frameIndex.coerceIn(0, frames.lastIndex)].label
+                        // feste Breite → der Regler bleibt immer gleich lang
                         Text(
                             if (label.isBlank()) stringResource(R.string.radar_now) else label,
                             fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(end = 4.dp),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.width(58.dp),
                         )
                         Slider(
                             value = frameIndex.toFloat(),
@@ -150,14 +160,17 @@ fun LiveMapScreen(
                             steps = (frames.size - 2).coerceAtLeast(0),
                             modifier = Modifier.weight(1f),
                         )
+                        FilledIconToggleButton(checked = showLightning, onCheckedChange = { showLightning = it }) {
+                            Icon(Icons.Filled.FlashOn, contentDescription = stringResource(R.string.lightning_toggle))
+                        }
                     }
                     Text(
                         stringResource(R.string.weather_radar_source),
                         fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                         modifier = Modifier
                             .background(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                                 RoundedCornerShape(6.dp),
                             )
                             .padding(horizontal = 6.dp, vertical = 2.dp),

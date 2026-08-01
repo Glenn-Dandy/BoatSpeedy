@@ -46,7 +46,8 @@ fun OsmMap(
     onUserPan: () -> Unit = {},
     bubbleText: ((TrackPoint) -> String)? = null,
     showRadar: Boolean = false,
-    radarTime: String? = null,
+    radarTimes: List<String> = emptyList(),
+    radarFrameIndex: Int = 0,
     showLightning: Boolean = false,
 ) {
     val context = LocalContext.current
@@ -85,9 +86,18 @@ fun OsmMap(
             infoWindow = TrackInfoWindow(mapView)
         }
     }
-    // DWD-Radar (RV-Nowcast) und Blitze als eigene Kachel-Overlays.
-    val radarProvider = remember(mapView) { MapTileProviderBasic(context) }
-    val radarOverlay = remember(mapView) { TilesOverlay(radarProvider, context).apply { loadingBackgroundColor = android.graphics.Color.TRANSPARENT } }
+    // Ein Overlay je Radar-Frame – jedes mit EIGENEM Cache (osmdroid cacht nach z/x/y,
+    // nicht nach Zeit; nur so zeigt der Frame-Wechsel wirklich neue Daten).
+    val radarLayers = remember(radarTimes) {
+        radarTimes.map { t ->
+            val p = MapTileProviderBasic(context).apply { setTileSource(DwdWmsTileSource(DWD_RADAR_LAYER, t)) }
+            val ov = TilesOverlay(p, context).apply {
+                loadingBackgroundColor = android.graphics.Color.TRANSPARENT
+                isEnabled = false
+            }
+            ov to p
+        }
+    }
     val lightningProvider = remember(mapView) { MapTileProviderBasic(context) }
     val lightningOverlay = remember(mapView) { TilesOverlay(lightningProvider, context).apply { loadingBackgroundColor = android.graphics.Color.TRANSPARENT } }
 
@@ -96,37 +106,34 @@ fun OsmMap(
         onDispose {
             mapView.onPause()
             mapView.onDetach()
-            radarProvider.detach()
+            radarLayers.forEach { (_, p) -> p.detach() }
             lightningProvider.detach()
         }
     }
 
-    // Radar-Overlay ein-/ausblenden (unter den Markern).
-    DisposableEffect(showRadar) {
-        if (showRadar) {
-            if (!mapView.overlays.contains(radarOverlay)) mapView.overlays.add(0, radarOverlay)
-        } else {
-            mapView.overlays.remove(radarOverlay)
+    // Alle Frame-Overlays unten einhängen/aushängen (nur einer ist jeweils sichtbar).
+    DisposableEffect(showRadar, radarLayers) {
+        radarLayers.forEach { (ov, _) ->
+            if (showRadar) { if (!mapView.overlays.contains(ov)) mapView.overlays.add(0, ov) }
+            else mapView.overlays.remove(ov)
         }
         mapView.invalidate()
         onDispose { }
     }
 
-    // Aktuellen Radar-Frame anzeigen (Frame-Wahl/Animation steuert der Aufrufer).
-    LaunchedEffect(showRadar, radarTime) {
-        if (showRadar) {
-            radarProvider.setTileSource(DwdWmsTileSource(DWD_RADAR_LAYER, radarTime))
-            mapView.invalidate()
-        }
+    // Nur den aktuellen Frame sichtbar schalten.
+    LaunchedEffect(showRadar, radarFrameIndex, radarLayers) {
+        radarLayers.forEachIndexed { i, (ov, _) -> ov.isEnabled = showRadar && i == radarFrameIndex }
+        mapView.invalidate()
     }
 
     // Blitze (Ist-Zeit), über dem Regen, unter den Markern.
-    DisposableEffect(showLightning, showRadar) {
+    DisposableEffect(showLightning, radarLayers) {
         if (showLightning) {
             lightningProvider.setTileSource(DwdWmsTileSource(DWD_LIGHTNING_LAYER, null))
             if (!mapView.overlays.contains(lightningOverlay)) {
-                val idx = if (mapView.overlays.contains(radarOverlay)) mapView.overlays.indexOf(radarOverlay) + 1 else 0
-                mapView.overlays.add(idx, lightningOverlay)
+                val radarCount = radarLayers.count { mapView.overlays.contains(it.first) }
+                mapView.overlays.add(radarCount, lightningOverlay)
             }
         } else {
             mapView.overlays.remove(lightningOverlay)
