@@ -40,7 +40,8 @@ class DwdWmsTileSource(
             .append("?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap")
             .append("&LAYERS=").append(layer)
             .append("&STYLES=&FORMAT=image/png&TRANSPARENT=TRUE")
-            .append("&CRS=EPSG:3857&WIDTH=256&HEIGHT=256")
+            // 512 px je 256-Kachel = doppelte Auflösung (schärfer); der Drawable skaliert.
+            .append("&CRS=EPSG:3857&WIDTH=512&HEIGHT=512")
             .append("&BBOX=").append("$minX,$minY,$maxX,$maxY")
         if (time != null) sb.append("&TIME=").append(time)
         return sb.toString()
@@ -51,18 +52,15 @@ class DwdWmsTileSource(
     }
 }
 
-/**
- * Frames von jetzt bis +90 Min in 15-Min-Schritten (RV-Nowcast, auf 5 Min gerundet).
- * +120 wird bewusst weggelassen – am Vorhersage-Rand liefert der DWD teils kein Bild.
- */
+/** Frames von jetzt bis +100 Min in 10-Min-Schritten (RV-Nowcast, auf 5 Min gerundet). */
 fun radarFrames(): List<RadarFrame> {
     val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
     val now = System.currentTimeMillis()
     val base = now - (now % (5 * 60_000L)) // auf 5 Min abrunden
-    return (0..6).map { i ->
-        val offMin = i * 15
+    return (0..10).map { i ->
+        val offMin = i * 10
         RadarFrame(
             timeIso = fmt.format(Date(base + offMin * 60_000L)),
             label = if (offMin == 0) "" else "+$offMin min",

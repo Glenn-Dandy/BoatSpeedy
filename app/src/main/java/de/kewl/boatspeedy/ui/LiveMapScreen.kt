@@ -151,7 +151,7 @@ fun LiveMapScreen(
                             if (label.isBlank()) stringResource(R.string.radar_now) else label,
                             fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.width(58.dp),
+                            modifier = Modifier.width(64.dp),
                         )
                         Slider(
                             value = frameIndex.toFloat(),
