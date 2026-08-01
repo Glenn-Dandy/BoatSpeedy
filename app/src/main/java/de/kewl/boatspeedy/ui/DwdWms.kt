@@ -40,7 +40,9 @@ class DwdWmsTileSource(
             .append("?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap")
             .append("&LAYERS=").append(layer)
             .append("&STYLES=&FORMAT=image/png&TRANSPARENT=TRUE")
-            .append("&CRS=EPSG:3857&WIDTH=256&HEIGHT=256")
+            // Bewusst in halber Auflösung anfordern: die App skaliert die 128-px-Kachel
+            // bilinear auf 256 hoch → weiche Übergänge statt harter 1-km-Kanten (Ansatz A).
+            .append("&CRS=EPSG:3857&WIDTH=128&HEIGHT=128")
             .append("&BBOX=").append("$minX,$minY,$maxX,$maxY")
         if (time != null) sb.append("&TIME=").append(time)
         return sb.toString()
