@@ -40,9 +40,7 @@ class DwdWmsTileSource(
             .append("?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap")
             .append("&LAYERS=").append(layer)
             .append("&STYLES=&FORMAT=image/png&TRANSPARENT=TRUE")
-            // Bewusst klein anfordern (64 px): SmoothTilesOverlay skaliert bilinear auf die
-            // volle Kachel hoch → runde/weiche Kanten statt harter 1-km-Klötze (Ansatz A).
-            .append("&CRS=EPSG:3857&WIDTH=64&HEIGHT=64")
+            .append("&CRS=EPSG:3857&WIDTH=256&HEIGHT=256")
             .append("&BBOX=").append("$minX,$minY,$maxX,$maxY")
         if (time != null) sb.append("&TIME=").append(time)
         return sb.toString()
