@@ -1,0 +1,7 @@
+1.2.0
+* DWD-Wetterwarnungen (Gewitter/Sturm): Benachrichtigung, optionaler Ton, Dashboard-Banner
+* Wetterradar auf der Live-Karte (DWD RADOLAN-RV Nowcast, animiert) + optional Blitze
+* Lademodus: „Voll in", „Batterie voll" und Meldung bei einstellbarem Ladestand
+* Live-Karte: Schwenken pausiert das Folgen (Recenter-Knopf); Track antippen für Details
+* Vollständig frei / Open Source: Google Play Services entfernt (nutzt jetzt AOSP-LocationManager)
+* Fake-GPS-Fix; Einstellungen umgruppiert; „Über" mit Datenquellen

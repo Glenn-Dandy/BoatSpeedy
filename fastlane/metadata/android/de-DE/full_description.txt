@@ -1,0 +1,26 @@
+Ein GPS-Boots-Tacho für Elektro- / Trolling-Motoren mit einer Bluetooth-Batterie (BLE). Große, gut ablesbare Geschwindigkeitsanzeige für die Kontrolle im langsamen Bereich (~5–10 km/h), Live-Batteriedaten und eine Schätzung, wie weit und wie lange du noch fahren kannst — alles auf einem Bild.
+
+Tempo & Fahrt
+* Große Geschwindigkeitsanzeige; km/h oder Knoten, Nachkommastellen einstellbar
+* Fahrt Start/Stopp über Vordergrunddienst — misst auch bei ausgeschaltetem Display weiter
+* Trip-Distanz und Statistik (Max, Ø, Zeit, Verbrauch, Energie, Wh/km)
+* Satelliten-/GPS-Status mit Glättung des rohen Werts (wichtig bei langsamer Fahrt)
+
+Batterie-Auswertung (Bluetooth LE)
+* Mehrere Batterien, mehrere gleichzeitig verbunden, Verschaltung Einzeln / Parallel / Reihe
+* Live-Werte: Spannung, Strom, Ladezustand, Rest-Ah, Temperatur, Zellen
+* Reichweite & Restzeit bei aktueller Geschwindigkeit, zeitlich gemittelt (kein Zappeln)
+* BMS-Unterstützung: JBD / Jiabaida (getestet), Daly und JK / Jikong (experimentell)
+
+Fahrten, Karten & Wetter
+* Fahrten-Historie mit Track-Karte (Richtungspfeile, Start/Ziel, Antippen für Details)
+* GPX-Export und -Import
+* Live-Karte (OpenStreetMap) mit DWD-Regenradar-Overlay (RADOLAN-RV Nowcast) und Blitzen
+* DWD-Wetterwarnungen (Gewitter / Sturm) mit Benachrichtigung und Dashboard-Banner
+* Anker-Wache mit Abdrift-Alarm
+
+Laden & Alarme
+* Lademodus: „Voll in", „Batterie voll" und Meldung bei einstellbarem Ladestand
+* Warnung bei niedrigem Ladestand, Auto-Pause, mitgelieferte Alarmtöne
+
+Vollständig frei / Open Source (ohne Google Play Services). Karten © OpenStreetMap-Mitwirkende; Wetterdaten vom Deutschen Wetterdienst (DWD), CC BY 4.0.

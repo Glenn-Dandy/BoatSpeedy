@@ -15,6 +15,15 @@ battery data, and an estimate of how far and how long you can still go.
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="23%" alt="Dashboard: speed, range, battery, live map, trip stats"/>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" width="23%" alt="Track map with direction arrows and details bubble"/>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.png" width="23%" alt="Battery details with cell voltages"/>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.png" width="23%" alt="Settings"/>
+</p>
+
 ## What it's for
 
 Electric boats and kayaks with a trolling motor usually run on a LiFePO4 pack whose
@@ -129,7 +138,7 @@ The APK is written to `app/build/outputs/apk/`.
 | Language | Kotlin |
 | UI | Jetpack Compose (Material 3) |
 | minSdk / targetSdk | 33 (Android 13) / 35 (Android 15) |
-| Speed / satellites | `FusedLocationProviderClient` / `GnssStatus.Callback` |
+| Speed / satellites | AOSP `LocationManager` (GPS) / `GnssStatus.Callback` — **no Google Play Services** |
 | Battery | Bluetooth LE (`BluetoothGatt`), per-device connections |
 | Background trip | Foreground service (`foregroundServiceType=location`) |
 | Settings | Jetpack DataStore |

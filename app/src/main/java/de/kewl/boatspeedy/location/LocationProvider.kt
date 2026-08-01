@@ -3,13 +3,10 @@ package de.kewl.boatspeedy.location
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.GnssStatus
+import android.location.Location
+import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Looper
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -18,18 +15,17 @@ import kotlinx.coroutines.flow.onStart
 
 /**
  * Bündelt zwei Quellen zu einem [GpsState]-Flow:
- *  - FusedLocationProvider → Geschwindigkeit, Genauigkeit, Kurs, Höhe, Position
- *  - GnssStatus            → Satellitenzahl, Signalstärke, genutzte Konstellationen
+ *  - [LocationManager] GPS-Provider (AOSP) → Geschwindigkeit, Genauigkeit, Kurs, Höhe, Position
+ *  - GnssStatus                            → Satellitenzahl, Signalstärke, Konstellationen
  *
- * Der FusedLocationProvider fusioniert alle vom Gerät unterstützten GNSS-Systeme
- * (GPS, GLONASS, Galileo, BeiDou …) — nicht nur GPS.
+ * Bewusst **ohne Google Play Services** (nur AOSP-`LocationManager`), damit die App
+ * vollständig frei ist (F-Droid). Der GPS-Provider moderner Geräte nutzt intern bereits
+ * mehrere GNSS-Systeme (GPS, GLONASS, Galileo, BeiDou …).
  *
- * Der Aufrufer muss ACCESS_FINE_LOCATION bereits erteilt haben, bevor
- * [state] gesammelt wird.
+ * Der Aufrufer muss ACCESS_FINE_LOCATION bereits erteilt haben, bevor [state] gesammelt wird.
  */
 class LocationProvider(private val context: Context) {
 
-    private val fused = LocationServices.getFusedLocationProviderClient(context)
     private val locationManager =
         context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
@@ -49,30 +45,31 @@ class LocationProvider(private val context: Context) {
         val constellations: List<String>,
     )
 
+    private fun Location.toSample() = LocSample(
+        speedMs = if (hasSpeed()) speed else null,
+        accuracyM = if (hasAccuracy()) accuracy else null,
+        latitude = latitude,
+        longitude = longitude,
+        bearingDeg = if (hasBearing()) bearing else null,
+        altitudeM = if (hasAltitude()) altitude else null,
+    )
+
     @SuppressLint("MissingPermission")
     private val locationFlow: Flow<LocSample> = callbackFlow {
-        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
-            .setMinUpdateIntervalMillis(500L)
-            .build()
+        val listener = LocationListener { loc -> trySend(loc.toSample()) }
 
-        val callback = object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                val loc = result.lastLocation ?: return
-                trySend(
-                    LocSample(
-                        speedMs = if (loc.hasSpeed()) loc.speed else null,
-                        accuracyM = if (loc.hasAccuracy()) loc.accuracy else null,
-                        latitude = loc.latitude,
-                        longitude = loc.longitude,
-                        bearingDeg = if (loc.hasBearing()) loc.bearing else null,
-                        altitudeM = if (loc.hasAltitude()) loc.altitude else null,
-                    ),
-                )
-            }
-        }
+        // Sofort den letzten bekannten Fix schicken (schnellerer Start).
+        runCatching { locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER) }
+            .getOrNull()?.let { trySend(it.toSample()) }
 
-        fused.requestLocationUpdates(request, callback, Looper.getMainLooper())
-        awaitClose { fused.removeLocationUpdates(callback) }
+        locationManager.requestLocationUpdates(
+            LocationManager.GPS_PROVIDER,
+            1000L, // min. 1 s
+            0f, // jede Bewegung
+            listener,
+            Looper.getMainLooper(),
+        )
+        awaitClose { locationManager.removeUpdates(listener) }
     }
 
     @SuppressLint("MissingPermission")
