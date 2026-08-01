@@ -29,6 +29,7 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
+import org.osmdroid.views.overlay.TilesOverlay
 import java.io.File
 
 /**
@@ -97,7 +98,7 @@ fun OsmMap(
                 // Fertige Downloads sollen die Karte neu zeichnen (sonst erst beim Antippen).
                 setTileRequestCompleteHandler(SimpleInvalidationHandler(mapView))
             }
-            val ov = SmoothTilesOverlay(p, context).apply {
+            val ov = TilesOverlay(p, context).apply {
                 loadingBackgroundColor = android.graphics.Color.TRANSPARENT
                 isEnabled = false
             }
@@ -107,7 +108,7 @@ fun OsmMap(
     val lightningProvider = remember(mapView) {
         MapTileProviderBasic(context).apply { setTileRequestCompleteHandler(SimpleInvalidationHandler(mapView)) }
     }
-    val lightningOverlay = remember(mapView) { SmoothTilesOverlay(lightningProvider, context).apply { loadingBackgroundColor = android.graphics.Color.TRANSPARENT } }
+    val lightningOverlay = remember(mapView) { TilesOverlay(lightningProvider, context).apply { loadingBackgroundColor = android.graphics.Color.TRANSPARENT } }
 
     DisposableEffect(Unit) {
         mapView.onResume()
