@@ -73,7 +73,7 @@ fun LiveMapScreen(
     LaunchedEffect(showWeather, playing) {
         if (showWeather && playing) {
             while (true) {
-                delay(if (frameIndex == frames.lastIndex) 1400 else 800)
+                delay(if (frameIndex == frames.lastIndex) 1600 else 1100)
                 frameIndex = (frameIndex + 1) % frames.size
             }
         }

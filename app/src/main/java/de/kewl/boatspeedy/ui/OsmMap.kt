@@ -19,6 +19,7 @@ import de.kewl.boatspeedy.trip.TrackPoint
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.MapTileProviderBasic
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.util.SimpleInvalidationHandler
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.util.BoundingBox
@@ -90,7 +91,11 @@ fun OsmMap(
     // nicht nach Zeit; nur so zeigt der Frame-Wechsel wirklich neue Daten).
     val radarLayers = remember(radarTimes) {
         radarTimes.map { t ->
-            val p = MapTileProviderBasic(context).apply { setTileSource(DwdWmsTileSource(DWD_RADAR_LAYER, t)) }
+            val p = MapTileProviderBasic(context).apply {
+                setTileSource(DwdWmsTileSource(DWD_RADAR_LAYER, t))
+                // Fertige Downloads sollen die Karte neu zeichnen (sonst erst beim Antippen).
+                setTileRequestCompleteHandler(SimpleInvalidationHandler(mapView))
+            }
             val ov = TilesOverlay(p, context).apply {
                 loadingBackgroundColor = android.graphics.Color.TRANSPARENT
                 isEnabled = false
@@ -98,7 +103,9 @@ fun OsmMap(
             ov to p
         }
     }
-    val lightningProvider = remember(mapView) { MapTileProviderBasic(context) }
+    val lightningProvider = remember(mapView) {
+        MapTileProviderBasic(context).apply { setTileRequestCompleteHandler(SimpleInvalidationHandler(mapView)) }
+    }
     val lightningOverlay = remember(mapView) { TilesOverlay(lightningProvider, context).apply { loadingBackgroundColor = android.graphics.Color.TRANSPARENT } }
 
     DisposableEffect(Unit) {

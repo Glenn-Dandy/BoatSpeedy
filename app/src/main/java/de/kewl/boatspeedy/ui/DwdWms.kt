@@ -51,14 +51,17 @@ class DwdWmsTileSource(
     }
 }
 
-/** Frames von jetzt bis +2 h in 15-Min-Schritten (RV-Nowcast, auf 5 Min gerundet). */
+/**
+ * Frames von jetzt bis +90 Min in 15-Min-Schritten (RV-Nowcast, auf 5 Min gerundet).
+ * +120 wird bewusst weggelassen – am Vorhersage-Rand liefert der DWD teils kein Bild.
+ */
 fun radarFrames(): List<RadarFrame> {
     val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
     val now = System.currentTimeMillis()
     val base = now - (now % (5 * 60_000L)) // auf 5 Min abrunden
-    return (0..8).map { i ->
+    return (0..6).map { i ->
         val offMin = i * 15
         RadarFrame(
             timeIso = fmt.format(Date(base + offMin * 60_000L)),
