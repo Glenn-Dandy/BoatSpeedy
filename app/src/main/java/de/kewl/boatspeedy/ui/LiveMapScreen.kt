@@ -63,7 +63,9 @@ fun LiveMapScreen(
     var follow by remember { mutableStateOf(true) }
     var showWeather by remember { mutableStateOf(false) }
     var showLightning by remember { mutableStateOf(false) }
-    var playing by remember { mutableStateOf(true) }
+    // Start pausiert auf „Jetzt": während der Pause lädt der Preload alle Frames im
+    // Hintergrund; „Play" läuft dann sofort flüssig.
+    var playing by remember { mutableStateOf(false) }
     var frameIndex by remember { mutableIntStateOf(0) }
     val frames = remember { radarFrames() }
     val radarTimes = remember(frames) { frames.map { it.timeIso } }
