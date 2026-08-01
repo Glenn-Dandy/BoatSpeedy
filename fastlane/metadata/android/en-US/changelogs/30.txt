@@ -1,0 +1,7 @@
+1.2.0
+* DWD weather warnings (thunderstorm/storm): notification, optional alarm, dashboard banner
+* Weather radar on the live map (DWD RADOLAN-RV nowcast, animated) + optional lightning
+* Charging mode: time-to-full, battery-full and configurable charge-level alerts
+* Live map: panning pauses follow (recenter button); tap the track for details
+* Fully free / open source: removed Google Play Services (now uses AOSP LocationManager)
+* Fixed location not showing with mock GPS; settings regrouped; About data attribution

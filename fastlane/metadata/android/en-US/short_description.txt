@@ -1,0 +1,1 @@
+GPS boat speedometer with battery analytics, range, trips and weather radar

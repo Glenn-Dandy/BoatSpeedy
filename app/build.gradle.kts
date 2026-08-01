@@ -38,7 +38,7 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 30                       // manuell, altes kleines Schema (steigt je Release)
+        versionCode = 31                       // manuell, altes kleines Schema (steigt je Release)
         versionName = versionNameFromGit        // aus Git-Tag (Option A)
         resValue("string", "app_name", "BoatSpeedy")
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
@@ -109,6 +109,5 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
 
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.play.services.location)
     implementation(libs.osmdroid.android)
 }

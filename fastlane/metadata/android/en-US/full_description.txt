@@ -1,0 +1,26 @@
+A GPS boat speedometer for electric / trolling motors running on a Bluetooth (BLE) battery. A large, easy-to-read speed readout for low-speed control (~5–10 km/h), live battery data, and an estimate of how far and how long you can still go — all on one screen.
+
+Speed & trip
+* Large speed readout; km/h or knots, configurable decimals
+* Start/Stop trip via a foreground service — keeps measuring with the screen off
+* Trip distance and stats (max, average, time, consumption, energy, Wh/km)
+* Satellite & GPS status with smoothing of the raw value (important at slow speeds)
+
+Battery analytics (Bluetooth LE)
+* Multiple batteries, several connected at once, single / parallel / series wiring
+* Live values: voltage, current, state of charge, remaining Ah, temperature, cells
+* Range & remaining time at the current speed, time-averaged so it doesn't jitter
+* BMS support: JBD / Jiabaida (tested), Daly and JK / Jikong (experimental)
+
+Trips, maps & weather
+* Trip history with a track map (direction arrows, start/finish, tap for details)
+* GPX export and import
+* Live map (OpenStreetMap) with a DWD rain radar overlay (RADOLAN-RV nowcast) and lightning
+* DWD weather warnings (thunderstorm / storm) with notification and dashboard banner
+* Anchor watch with drift alarm
+
+Charging & alarms
+* Charging mode: time-to-full, battery-full and configurable charge-level alerts
+* Low-charge warning, auto-pause, bundled alarm tones
+
+Fully free / open source (no Google Play Services). Maps © OpenStreetMap contributors; weather data by the Deutscher Wetterdienst (DWD), CC BY 4.0.

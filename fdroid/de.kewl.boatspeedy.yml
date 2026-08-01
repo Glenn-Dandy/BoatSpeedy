@@ -1,0 +1,32 @@
+# F-Droid metadata for BoatSpeedy — submit this as a merge request to
+# https://gitlab.com/fdroid/fdroiddata (path: metadata/de.kewl.boatspeedy.yml)
+#
+# IMPORTANT: it must target the first Google-Play-Services-free release
+# (v1.2.1). Older tags (<= v1.2.0) still depend on Play Services and will
+# not build in F-Droid's environment.
+
+Categories:
+  - Sports & Health
+  - Navigation
+License: MIT
+AuthorName: Glenn-Dandy
+SourceCode: https://github.com/Glenn-Dandy/BoatSpeedy
+IssueTracker: https://github.com/Glenn-Dandy/BoatSpeedy/issues
+Changelog: https://github.com/Glenn-Dandy/BoatSpeedy/blob/main/CHANGELOG.md
+Donate: https://paypal.me/GlennDandy
+
+RepoType: git
+Repo: https://github.com/Glenn-Dandy/BoatSpeedy.git
+
+Builds:
+  - versionName: 1.2.1
+    versionCode: 31
+    commit: v1.2.1
+    subdir: app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: 1.2.1
+CurrentVersionCode: 31
