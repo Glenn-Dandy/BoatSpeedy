@@ -75,7 +75,23 @@ class LocationService : Service() {
             combine(provider.state, settings) { gps, s -> gps to s }.collect { (gps, s) ->
                 TripRepository.onLocation(gps)
                 updateNotification(notificationText(gps.speedMs, s.unit))
+                maybeCheckWeather(gps.latitude, gps.longitude, s)
             }
+        }
+    }
+
+    private var lastWeatherMs = 0L
+
+    /** Während der Fahrt (auch bei ausgeschaltetem Bildschirm) DWD-Warnungen prüfen. */
+    private fun maybeCheckWeather(lat: Double?, lon: Double?, s: de.kewl.boatspeedy.data.Settings) {
+        if (!s.weatherWarnEnabled || lat == null || lon == null) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastWeatherMs < WEATHER_INTERVAL_MS) return
+        lastWeatherMs = now
+        scope.launch {
+            de.kewl.boatspeedy.weather.WeatherRepository.check(
+                applicationContext, lat, lon, s.weatherAlarmOn, s.weatherSound,
+            )
         }
     }
 
@@ -131,6 +147,7 @@ class LocationService : Service() {
     companion object {
         private const val CHANNEL_ID = "trip"
         private const val NOTIF_ID = 1
+        private const val WEATHER_INTERVAL_MS = 10 * 60_000L
         const val ACTION_START = "de.kewl.boatspeedy.action.START"
         const val ACTION_STOP = "de.kewl.boatspeedy.action.STOP"
 

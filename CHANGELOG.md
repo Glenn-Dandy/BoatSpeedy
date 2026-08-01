@@ -2,6 +2,29 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.2.0] – 2026-08-01
+
+### Neu
+- **DWD-Wetterwarnungen** (Gewitter/Sturm): Prüfung sofort bei GPS-Fix und alle 10 Min –
+  auch während der Fahrt im Hintergrund. Benachrichtigung + optionaler Alarmton +
+  Dashboard-Banner mit „gültig bis". Schalter unter Einstellungen → Allgemein.
+- **Wetterradar auf der Live-Karte** („Wetter anzeigen"): DWD-Regenradar (RADOLAN-RV)
+  als Overlay, animiert von jetzt bis +100 Min in 5-Min-Schritten, mit Play/Pause,
+  Schieberegler und Hintergrund-Vorladen; zuschaltbare **Blitzdichte**. Datenbasis:
+  Deutscher Wetterdienst (CC BY 4.0).
+- **Lademodus**: erkennt Laden (positiver Strom) → GPS aus, Tempo „--", Reichweiten-Kachel
+  wird zur Lade-Kachel („Voll in" / „Fertig um"), laufende Lade-Meldung mit SoC,
+  „Batterie voll"-Meldung sowie individuelle Meldung bei einstellbarem Ladestand.
+- **Live-Karte**: Schwenken pausiert das Folgen (Recenter-Button); Antippen des Tracks
+  zeigt dieselbe Sprechblase wie bei den Fahrten.
+- **Über**: neuer Abschnitt „Daten & Karten" (OpenStreetMap, DWD/Bright Sky).
+
+### Behoben / Geändert
+- **GPS erschien bei Fake-GPS/Mock-Location nicht** (Position kam ohne Satelliten-Status
+  nicht durch) – behoben; auch schnellerer Start.
+- Einstellungen „Allgemein" gruppiert (Ladestand-Block zusammen); **Auto-Pause** nach
+  Einstellungen → Fahrten verschoben.
+
 ## [1.1.0] – 2026-07-30
 
 ### Neu

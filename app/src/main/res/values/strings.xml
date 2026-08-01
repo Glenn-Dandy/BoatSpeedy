@@ -65,7 +65,7 @@
     <string name="trip_point_title">Point</string>
     <string name="speed_label">Speed</string>
     <string name="group_tracks">Trips</string>
-    <string name="cat_tracks_desc">Track colour, line width, direction arrows</string>
+    <string name="cat_tracks_desc">Track colour, line width, arrows, auto-pause</string>
     <string name="track_color">Track colour</string>
     <string name="track_width">Line width</string>
     <string name="width_thin">Thin</string>
@@ -174,7 +174,7 @@
 
     <!-- Alarms -->
     <string name="group_general">General</string>
-    <string name="cat_general_desc">Low-charge warning, auto-pause, alarms</string>
+    <string name="cat_general_desc">Low-charge warning, alarms, weather</string>
     <string name="alarm_test">Test sound</string>
     <string name="anchor_alarm_sound">Anchor alarm sound</string>
     <string name="anchor_sound_label">Anchor sound</string>
@@ -182,9 +182,40 @@
     <string name="sound_piep">Beep</string>
     <string name="sound_glocke">Bell</string>
     <string name="sound_sirene">Siren</string>
+    <string name="section_charge">Charge level</string>
+    <string name="group_weather">Weather</string>
+    <string name="charge_target_label">Notify at charge level (%)</string>
+    <string name="charge_reached_title">Charge level reached</string>
+    <string name="charge_reached_text">%1$d %% reached.</string>
     <string name="soc_alarm_sound">Low-charge alarm sound</string>
     <string name="auto_pause">Auto-pause below current (A)</string>
     <string name="auto_pause_hint">0 or empty = off. Examples: 0.05, 0.5, 1.0</string>
+
+    <!-- Weather warnings (DWD) -->
+    <string name="weather_enabled">DWD weather warnings</string>
+    <string name="weather_hint">Checks thunderstorm/storm warnings for your position (Germany, data source: Deutscher Wetterdienst). Alerts you during a trip.</string>
+    <string name="weather_alarm_sound">Weather alarm sound</string>
+    <string name="weather_sound_label">Weather sound</string>
+    <string name="weather_channel">Weather warning (DWD)</string>
+    <string name="weather_notif_title">Weather warning</string>
+    <string name="weather_valid_until">valid until %s</string>
+    <string name="weather_show">Show weather</string>
+    <string name="weather_play">Play/pause</string>
+    <string name="radar_now">now</string>
+    <string name="lightning_toggle">Lightning</string>
+    <string name="weather_radar_source">Data: Deutscher Wetterdienst</string>
+
+    <!-- Charging mode -->
+    <string name="charge_mode">Charging – GPS off</string>
+    <string name="charge_current">Charge current</string>
+    <string name="charge_time_to_full">Full in</string>
+    <string name="charge_full_at">Done at</string>
+    <string name="charge_channel">Charging</string>
+    <string name="charge_status_channel">Charging status</string>
+    <string name="charge_notif_title">Charging</string>
+    <string name="charge_full_title">Battery full</string>
+    <string name="charge_full_text">Charge current dropped off — %1$d %%.</string>
+    <string name="follow_position">Follow position</string>
 
     <!-- Trip times -->
     <string name="stat_total_time">Total time</string>
@@ -200,6 +231,8 @@
     <string name="license_label">License</string>
     <string name="license_value">MIT</string>
     <string name="about_feedback">Feedback</string>
+    <string name="about_data">Data &amp; maps</string>
+    <string name="about_data_text">Maps: © OpenStreetMap contributors (ODbL).\n\nWeather warnings, rain radar and lightning: Deutscher Wetterdienst (DWD), licensed CC BY 4.0. Warnings retrieved via Bright Sky; radar via the DWD open GeoServer (WMS).\n\nBoatSpeedy is not affiliated with the DWD.</string>
     <string name="about_project">Project</string>
     <string name="update_section">Update</string>
     <string name="report_bug">Report a bug</string>

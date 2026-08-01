@@ -14,6 +14,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
 
 /**
  * Bündelt zwei Quellen zu einem [GpsState]-Flow:
@@ -106,7 +107,12 @@ class LocationProvider(private val context: Context) {
         awaitClose { locationManager.unregisterGnssStatusCallback(callback) }
     }
 
-    val state: Flow<GpsState> = combine(locationFlow, gnssFlow) { loc, gnss ->
+    // Satelliten-Flow mit leerem Startwert: so kommt die Position auch dann durch,
+    // wenn (noch) kein Satelliten-Status kommt – u. a. bei Fake-GPS / Mock-Location.
+    private val gnssFlowOrEmpty: Flow<GnssSample> =
+        gnssFlow.onStart { emit(GnssSample(used = 0, visible = 0, cn0DbHz = null, constellations = emptyList())) }
+
+    val state: Flow<GpsState> = combine(locationFlow, gnssFlowOrEmpty) { loc, gnss ->
         GpsState(
             speedMs = loc.speedMs,
             accuracyM = loc.accuracyM,

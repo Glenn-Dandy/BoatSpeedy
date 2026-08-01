@@ -180,6 +180,17 @@ fun AboutScreen(
             }
             Spacer(Modifier.size(16.dp))
 
+            // --- Datenquellen / Attribution ---
+            SectionCard(stringResource(R.string.about_data)) {
+                Text(
+                    stringResource(R.string.about_data_text),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+            Spacer(Modifier.size(16.dp))
+
             // --- Update ---
             SectionCard(stringResource(R.string.update_section)) {
                 UpdateBlock(

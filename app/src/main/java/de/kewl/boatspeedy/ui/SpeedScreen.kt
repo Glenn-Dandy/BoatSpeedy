@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.battery.BatteryData
+import de.kewl.boatspeedy.battery.ChargeState
 import de.kewl.boatspeedy.battery.RangeEstimate
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.location.GpsState
@@ -51,6 +53,9 @@ import de.kewl.boatspeedy.ui.theme.SpeedTextStyle
 import de.kewl.boatspeedy.ui.theme.StatusGood
 import de.kewl.boatspeedy.ui.theme.StatusNone
 import de.kewl.boatspeedy.ui.theme.StatusWeak
+import de.kewl.boatspeedy.weather.WeatherWarning
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 private const val PLACEHOLDER = "--"
@@ -68,6 +73,8 @@ fun DashboardScreen(
     tripPaused: Boolean,
     batteryData: BatteryData?,
     range: RangeEstimate?,
+    charge: ChargeState,
+    weatherWarnings: List<WeatherWarning>,
     batteryOptions: List<BatteryOption>,
     selectedBattery: String,
     livePoints: List<TrackPoint>,
@@ -126,8 +133,13 @@ fun DashboardScreen(
             ) {
                 Spacer(Modifier.height(16.dp))
 
+                if (weatherWarnings.isNotEmpty()) {
+                    WeatherBanner(weatherWarnings)
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 if (settings.showRangeTile) {
-                    RangeTile(range)
+                    if (charge.charging) ChargeTile(charge) else RangeTile(range)
                     Spacer(Modifier.height(12.dp))
                 }
                 if (settings.showBatteryTile) {
@@ -242,6 +254,70 @@ private fun RangeTile(range: RangeEstimate?) {
         }
     }
 }
+
+@Composable
+private fun ChargeTile(charge: ChargeState) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                stringResource(R.string.charge_mode),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                TileStat(stringResource(R.string.charge_current), num(charge.chargeA, "A"))
+                TileStat(stringResource(R.string.soc_short), "${charge.soc} %")
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                TileStat(
+                    stringResource(R.string.charge_time_to_full),
+                    charge.hoursToFull?.let { formatDuration((it * 3600_000).toLong()) } ?: PLACEHOLDER,
+                    big = true,
+                )
+                TileStat(
+                    stringResource(R.string.charge_full_at),
+                    charge.fullAtEpochMs?.let { clockTime(it) } ?: PLACEHOLDER,
+                    big = true,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeatherBanner(warnings: List<WeatherWarning>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            warnings.forEach { w ->
+                Text(
+                    "⚠ ${w.event}",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                if (w.headline.isNotBlank()) {
+                    Text(
+                        w.headline,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f),
+                    )
+                }
+                w.expiresMs?.let { exp ->
+                    Text(
+                        stringResource(R.string.weather_valid_until, clockTime(exp)),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun clockTime(epochMs: Long): String =
+    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(epochMs))
 
 @Composable
 private fun TileStat(label: String, value: String, big: Boolean = false, alert: Boolean = false) {

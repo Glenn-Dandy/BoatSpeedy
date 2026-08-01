@@ -1,7 +1,11 @@
 package de.kewl.boatspeedy.ui
 
+import android.annotation.SuppressLint
 import android.app.Application
+import android.content.Context
+import android.location.LocationManager
 import android.os.SystemClock
+import de.kewl.boatspeedy.R
 import androidx.lifecycle.AndroidViewModel
 import de.kewl.boatspeedy.alarm.AlarmPlayer
 import de.kewl.boatspeedy.anchor.AnchorRepository
@@ -12,6 +16,7 @@ import androidx.lifecycle.viewModelScope
 import de.kewl.boatspeedy.battery.BatteryData
 import de.kewl.boatspeedy.battery.BatteryHub
 import de.kewl.boatspeedy.battery.BatteryRepository
+import de.kewl.boatspeedy.battery.ChargeState
 import de.kewl.boatspeedy.battery.BmsType
 import de.kewl.boatspeedy.battery.RangeEstimate
 import de.kewl.boatspeedy.battery.ScanDevice
@@ -36,12 +41,18 @@ import de.kewl.boatspeedy.trip.SavedTrip
 import de.kewl.boatspeedy.trip.TripRepository
 import de.kewl.boatspeedy.trip.TripStats
 import de.kewl.boatspeedy.trip.TripStore
+import de.kewl.boatspeedy.util.Notifier
+import de.kewl.boatspeedy.weather.WeatherRepository
+import de.kewl.boatspeedy.weather.WeatherWarning
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.ArrayDeque
@@ -94,6 +105,15 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     private data class RangeSample(val data: BatteryData?, val speedMs: Float?, val mode: RangeSmoothing)
 
+    // Ladezustand fürs Dashboard (Lademodus).
+    private val _charge = MutableStateFlow(ChargeState())
+    val charge: StateFlow<ChargeState> = _charge.asStateFlow()
+    private var chargeSessionActive = false
+    private var chargeTargetNotified = false
+
+    // Aktive DWD-Wetterwarnungen (prozessweit gepflegt).
+    val weatherWarnings: StateFlow<List<WeatherWarning>> = WeatherRepository.active
+
     init {
         viewModelScope.launch {
             combine(settings, battery, _gps) { s, hub, gps ->
@@ -135,7 +155,120 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                 lastSocLow = low
             }
         }
+        // Ladeerkennung (Strom positiv) → Lademodus + GPS aus + „voll"-Meldung.
+        viewModelScope.launch {
+            dashboardBattery.collect { d -> updateCharge(d) }
+        }
+        // DWD-Wetterwarnungen periodisch prüfen, solange keine Fahrt läuft
+        // (während der Fahrt übernimmt das der Vordergrunddienst).
+        viewModelScope.launch {
+            while (true) {
+                if (!settings.value.weatherWarnEnabled) WeatherRepository.clear() else maybeWeather(force = false)
+                delay(WEATHER_INTERVAL_MS)
+            }
+        }
+        // Sobald eine Position da ist (GPS-Fix), sofort prüfen – beim Rausfahren
+        // soll eine Warnung gleich kommen, nicht erst beim nächsten 10-Min-Tick.
+        viewModelScope.launch {
+            _gps.map { it.latitude != null && it.longitude != null }
+                .distinctUntilChanged()
+                .collect { hasPos -> if (hasPos) maybeWeather(force = true) }
+        }
     }
+
+    private var lastWeatherMs = 0L
+
+    /** Prüft DWD-Warnungen für die beste verfügbare Position (throttled, außer [force]). */
+    private suspend fun maybeWeather(force: Boolean) {
+        val s = settings.value
+        if (!s.weatherWarnEnabled || tracking.value) return // Fahrt: Dienst übernimmt
+        val pos = bestPosition() ?: return
+        val now = SystemClock.elapsedRealtime()
+        if (!force && now - lastWeatherMs < WEATHER_INTERVAL_MS) return
+        lastWeatherMs = now
+        WeatherRepository.check(getApplication(), pos.first, pos.second, s.weatherAlarmOn, s.weatherSound)
+    }
+
+    /** Ladezustand aus den ausgewählten Batteriewerten ableiten. Positiver Strom = Laden. */
+    private fun updateCharge(d: BatteryData?) {
+        // Während einer Fahrt kein Lademodus (GPS soll laufen).
+        if (d == null || d.voltage <= 0f || tracking.value) {
+            if (chargeSessionActive) { chargeSessionActive = false; applyGps(); cancelChargeNotif() }
+            _charge.value = ChargeState(soc = d?.soc ?: 0)
+            return
+        }
+        val cur = d.currentA
+        if (!chargeSessionActive && cur >= CHARGE_ON_A) {
+            chargeSessionActive = true
+            chargeTargetNotified = false // neue Ladesitzung → Ziel-Meldung wieder scharf
+            applyGps() // GPS deaktivieren, solange geladen wird
+        }
+        if (chargeSessionActive) {
+            when {
+                cur < 0f -> { // wieder Entladen → Ladevorgang beendet (abgeklemmt)
+                    chargeSessionActive = false; applyGps(); cancelChargeNotif()
+                    _charge.value = ChargeState(soc = d.soc)
+                }
+                cur < CHARGE_FULL_A -> { // Strom auf ~0 abgeklungen → voll
+                    chargeSessionActive = false; applyGps(); cancelChargeNotif()
+                    if (d.soc >= FULL_SOC_MIN) notifyFull(d.soc)
+                    _charge.value = ChargeState(soc = d.soc)
+                }
+                else -> { // lädt (Bulk oder Nachladen)
+                    val missingAh = when {
+                        d.nominalAh > 0f && d.remainingAh > 0f -> (d.nominalAh - d.remainingAh).coerceAtLeast(0f)
+                        d.nominalAh > 0f -> d.nominalAh * (100 - d.soc) / 100f
+                        else -> 0f
+                    }
+                    val hours = if (cur > 0.1f && missingAh > 0f) missingAh / cur.toDouble() else null
+                    val fullAt = hours?.let { System.currentTimeMillis() + (it * 3600_000).toLong() }
+                    _charge.value = ChargeState(charging = true, chargeA = cur, soc = d.soc, hoursToFull = hours, fullAtEpochMs = fullAt)
+                    notifyCharging(d.soc, hours)
+                    // Individuelle Meldung, wenn der eingestellte Ladestand erreicht ist.
+                    val target = settings.value.chargeTargetSoc
+                    if (target in 1..100 && d.soc >= target && !chargeTargetNotified) {
+                        chargeTargetNotified = true
+                        Notifier.notify(
+                            getApplication(), "charge", getString(R.string.charge_channel), 7,
+                            getString(R.string.charge_reached_title),
+                            getString(R.string.charge_reached_text, d.soc),
+                            high = false,
+                        )
+                    }
+                }
+            }
+        } else {
+            _charge.value = ChargeState(soc = d.soc)
+        }
+    }
+
+    /** Laufende Lade-Meldung mit SoC (und ggf. Restdauer). */
+    private fun notifyCharging(soc: Int, hoursToFull: Double?) {
+        val time = hoursToFull?.let { formatDuration((it * 3600_000).toLong()) }
+        val text = if (time != null) {
+            "${getString(R.string.soc_short)} $soc % · ${getString(R.string.charge_time_to_full)} $time"
+        } else {
+            "${getString(R.string.soc_short)} $soc %"
+        }
+        Notifier.ongoing(
+            getApplication(), "charge_status", getString(R.string.charge_status_channel), CHARGE_NOTIF_ID,
+            getString(R.string.charge_notif_title), text,
+        )
+    }
+
+    private fun cancelChargeNotif() = Notifier.cancel(getApplication(), CHARGE_NOTIF_ID)
+
+    private fun notifyFull(soc: Int) {
+        Notifier.notify(
+            getApplication(), "charge", getString(R.string.charge_channel), 5,
+            getString(R.string.charge_full_title),
+            getString(R.string.charge_full_text, soc),
+            high = false,
+        )
+    }
+
+    private fun getString(resId: Int, vararg args: Any): String =
+        getApplication<Application>().getString(resId, *args)
 
     /** Fahrten-Liste aus dem Speicher laden (z. B. beim Öffnen des Historie-Screens). */
     fun refreshTrips() = viewModelScope.launch { _trips.value = tripStore.list() }
@@ -176,15 +309,33 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     private var lastDisplayMs: Float? = null
     private var badTicks = 0
 
-    /** Fertig formatierter Anzeigewert (bereits geglättet & umgerechnet). */
+    /** Fertig formatierter Anzeigewert (bereits geglättet & umgerechnet). Im Lademodus „--". */
     val displaySpeed: StateFlow<String> =
-        combine(_gps, settings) { gps, settings -> smoothAndFormat(gps, settings) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, NO_FIX)
+        combine(_gps, settings, _charge) { gps, settings, charge ->
+            if (charge.charging) NO_FIX else smoothAndFormat(gps, settings)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, NO_FIX)
 
     private var collectJob: Job? = null
+    private var wantGps = false // Vordergrund (onResume) will GPS
 
     /** GPS-Updates starten (Aufruf in onResume, nachdem die Berechtigung da ist). */
     fun startUpdates() {
+        wantGps = true
+        applyGps()
+    }
+
+    /** GPS-Updates für den Vordergrund-Tacho stoppen (onPause). */
+    fun stopUpdates() {
+        wantGps = false
+        applyGps()
+    }
+
+    /** GPS läuft, wenn der Vordergrund es will UND nicht gerade geladen wird. */
+    private fun applyGps() {
+        if (wantGps && !chargeSessionActive) startCollect() else stopCollect()
+    }
+
+    private fun startCollect() {
         if (collectJob?.isActive == true) return
         speedWindow.clear()
         lastDisplayMs = null
@@ -194,8 +345,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** GPS-Updates für den Vordergrund-Tacho stoppen (onPause). */
-    fun stopUpdates() {
+    private fun stopCollect() {
         collectJob?.cancel()
         collectJob = null
     }
@@ -226,7 +376,29 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setAnchorSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setAnchorSound(v) }
     fun setSocAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setSocAlarmOn(v) }
     fun setSocSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setSocSound(v) }
+    fun setChargeTargetSoc(v: Int) = viewModelScope.launch { settingsRepo.setChargeTargetSoc(v) }
     fun setAnchorRadius(v: Int) = viewModelScope.launch { settingsRepo.setAnchorRadius(v) }
+    fun setWeatherEnabled(v: Boolean) = viewModelScope.launch {
+        settingsRepo.setWeatherEnabled(v)
+        if (!v) WeatherRepository.clear() else maybeWeather(force = true)
+    }
+
+    /** Beste verfügbare Position: Fused-GPS aus dem State, sonst LocationManager-Last-Known
+     *  (den Fake-GPS-Apps meist füttern, auch wenn der Fused-Provider sie nicht durchreicht). */
+    @SuppressLint("MissingPermission")
+    private fun bestPosition(): Pair<Double, Double>? {
+        val g = _gps.value
+        if (g.latitude != null && g.longitude != null) return g.latitude!! to g.longitude!!
+        val lm = getApplication<Application>().getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        for (p in listOf(LocationManager.GPS_PROVIDER, LocationManager.FUSED_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
+            val loc = runCatching { lm.getLastKnownLocation(p) }.getOrNull()
+            if (loc != null) return loc.latitude to loc.longitude
+        }
+        return null
+    }
+    fun setWeatherAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setWeatherAlarmOn(v) }
+    fun setWeatherSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setWeatherSound(v) }
+    fun testWeatherSound() = AlarmPlayer.play(getApplication(), settings.value.weatherSound, loop = false)
 
     // --- Ankeralarm ---
     /** Anker an der aktuellen Position setzen und die Wache (Vordergrunddienst) starten. */
@@ -340,5 +512,10 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         const val NO_FIX = "--"
         private const val MAX_ACCURACY_M = 25f  // schlechtere Fixes fürs Tempo ignorieren (D)
         private const val MAX_HOLD_TICKS = 5    // so viele schlechte Fixes den letzten Wert halten (A)
+        private const val CHARGE_ON_A = 0.5f    // ab diesem positiven Strom gilt „lädt"
+        private const val CHARGE_FULL_A = 0.1f  // darunter: Strom abgeklungen → voll
+        private const val FULL_SOC_MIN = 90     // „voll" nur ab diesem Ladestand melden
+        private const val CHARGE_NOTIF_ID = 6   // laufende Lade-Meldung
+        private const val WEATHER_INTERVAL_MS = 10 * 60_000L // DWD-Prüfintervall
     }
 }

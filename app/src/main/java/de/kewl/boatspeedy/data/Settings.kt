@@ -101,6 +101,14 @@ data class Settings(
     /** SoC-Warnung zusätzlich mit Ton (sonst nur rot). */
     val socAlarmOn: Boolean = false,
     val socSound: AlarmSound = AlarmSound.PIEP,
+    /** Beim Laden Meldung, wenn dieser Ladestand (%) erreicht ist; 0 = aus. */
+    val chargeTargetSoc: Int = 0,
     /** Zuletzt genutzter Anker-Radius in Metern. */
     val anchorRadiusM: Int = 30,
+    // Wetterwarnungen (DWD)
+    /** DWD-Wetterwarnungen (Gewitter/Sturm) prüfen und melden. */
+    val weatherWarnEnabled: Boolean = false,
+    /** Wetterwarnung zusätzlich mit Ton. */
+    val weatherAlarmOn: Boolean = true,
+    val weatherSound: AlarmSound = AlarmSound.SIRENE,
 )

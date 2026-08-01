@@ -185,6 +185,8 @@ private fun BoatSpeedyApp(
             val battery by vm.battery.collectAsStateWithLifecycle()
             val dashBattery by vm.dashboardBattery.collectAsStateWithLifecycle()
             val dashRange by vm.dashboardRange.collectAsStateWithLifecycle()
+            val charge by vm.charge.collectAsStateWithLifecycle()
+            val weatherWarnings by vm.weatherWarnings.collectAsStateWithLifecycle()
             val trips by vm.trips.collectAsStateWithLifecycle()
             val livePoints by vm.livePoints.collectAsStateWithLifecycle()
             val anchor by vm.anchor.collectAsStateWithLifecycle()
@@ -306,13 +308,17 @@ private fun BoatSpeedyApp(
                     Screen.SETTINGS_GENERAL -> GeneralSettingsScreen(
                         settings = settings,
                         onLowSocPercent = vm::setLowSocPercent,
-                        onAutoPauseAmps = vm::setAutoPauseAmps,
                         onAnchorAlarmOn = vm::setAnchorAlarmOn,
                         onAnchorSound = vm::setAnchorSound,
                         onSocAlarmOn = vm::setSocAlarmOn,
                         onSocSound = vm::setSocSound,
+                        onChargeTargetSoc = vm::setChargeTargetSoc,
+                        onWeatherEnabled = vm::setWeatherEnabled,
+                        onWeatherAlarmOn = vm::setWeatherAlarmOn,
+                        onWeatherSound = vm::setWeatherSound,
                         onTestAnchor = vm::testAnchorSound,
                         onTestSoc = vm::testSocSound,
+                        onTestWeather = vm::testWeatherSound,
                         onBack = { screen = Screen.SETTINGS },
                     )
 
@@ -321,6 +327,7 @@ private fun BoatSpeedyApp(
                         onTrackColor = vm::setTrackColor,
                         onTrackWidth = vm::setTrackWidth,
                         onTrackArrows = vm::setTrackArrows,
+                        onAutoPauseAmps = vm::setAutoPauseAmps,
                         onBack = { screen = Screen.SETTINGS },
                     )
 
@@ -387,6 +394,7 @@ private fun BoatSpeedyApp(
                         currentLat = gps.latitude,
                         currentLon = gps.longitude,
                         points = livePoints,
+                        settings = settings,
                         onBack = { screen = Screen.SPEED },
                     )
 
@@ -433,6 +441,8 @@ private fun BoatSpeedyApp(
                             tripPaused = tripPaused,
                             batteryData = dashBattery,
                             range = dashRange,
+                            charge = charge,
+                            weatherWarnings = weatherWarnings,
                             batteryOptions = batteryOptions,
                             selectedBattery = settings.dashboardBattery,
                             livePoints = livePoints,

@@ -182,7 +182,22 @@ private fun bearingAt(points: List<TrackPoint>, i: Int): Float? {
     return if (res[0] < ARROW_MIN_DISPLACEMENT_M) null else res[1]
 }
 
-private fun nearestPoint(points: List<TrackPoint>, at: GeoPoint): TrackPoint? {
+/** Formatiert die Track-Punkt-Daten für die Sprechblase (Trips + Live-Karte gleich). */
+fun buildTrackBubble(context: android.content.Context, settings: de.kewl.boatspeedy.data.Settings, p: TrackPoint): String =
+    buildString {
+        append(context.getString(R.string.stat_total_time)).append(": ").append(formatDuration(p.tMs))
+        append("\n").append(context.getString(R.string.speed_label)).append(": ")
+            .append(formatSpeed(p.speedMs, settings.unit, settings.decimals)).append(" ").append(settings.unit.label)
+        if (p.chargeAh > 0f) {
+            append("\n").append(context.getString(R.string.stat_consumed)).append(": ")
+                .append(String.format(java.util.Locale.getDefault(), "%.1f Ah", p.chargeAh))
+        }
+        if (p.soc >= 0) {
+            append("\n").append(context.getString(R.string.soc_short)).append(": ").append("${p.soc} %")
+        }
+    }
+
+internal fun nearestPoint(points: List<TrackPoint>, at: GeoPoint): TrackPoint? {
     var best: TrackPoint? = null
     var bestD = Double.MAX_VALUE
     for (p in points) {
