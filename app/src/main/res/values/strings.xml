@@ -199,6 +199,11 @@
     <string name="weather_channel">Weather warning (DWD)</string>
     <string name="weather_notif_title">Weather warning</string>
     <string name="weather_valid_until">valid until %s</string>
+    <string name="weather_show">Show weather</string>
+    <string name="weather_play">Play/pause</string>
+    <string name="radar_now">now</string>
+    <string name="lightning_toggle">Lightning</string>
+    <string name="weather_radar_source">Data: Deutscher Wetterdienst</string>
 
     <!-- Charging mode -->
     <string name="charge_mode">Charging – GPS off</string>

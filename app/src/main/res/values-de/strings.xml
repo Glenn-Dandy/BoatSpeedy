@@ -196,6 +196,11 @@
     <string name="weather_channel">Wetterwarnung (DWD)</string>
     <string name="weather_notif_title">Wetterwarnung</string>
     <string name="weather_valid_until">gültig bis %s</string>
+    <string name="weather_show">Wetter anzeigen</string>
+    <string name="weather_play">Abspielen/Pause</string>
+    <string name="radar_now">jetzt</string>
+    <string name="lightning_toggle">Blitze</string>
+    <string name="weather_radar_source">Datenbasis: Deutscher Wetterdienst</string>
 
     <!-- Lademodus -->
     <string name="charge_mode">Lademodus – GPS aus</string>

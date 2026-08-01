@@ -16,7 +16,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.trip.TrackPoint
+import kotlinx.coroutines.delay
 import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.MapTileProviderBasic
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
@@ -25,6 +27,7 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
+import org.osmdroid.views.overlay.TilesOverlay
 import java.io.File
 
 /**
@@ -43,6 +46,10 @@ fun OsmMap(
     follow: Boolean = true,
     onUserPan: () -> Unit = {},
     bubbleText: ((TrackPoint) -> String)? = null,
+    showRadar: Boolean = false,
+    showLightning: Boolean = false,
+    radarPlaying: Boolean = true,
+    onRadarFrame: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val pointsState = rememberUpdatedState(points)
@@ -80,13 +87,67 @@ fun OsmMap(
             infoWindow = TrackInfoWindow(mapView)
         }
     }
+    // DWD-Radar (RV-Nowcast) und Blitze als eigene Kachel-Overlays.
+    val radarProvider = remember(mapView) { MapTileProviderBasic(context) }
+    val radarOverlay = remember(mapView) { TilesOverlay(radarProvider, context).apply { loadingBackgroundColor = android.graphics.Color.TRANSPARENT } }
+    val lightningProvider = remember(mapView) { MapTileProviderBasic(context) }
+    val lightningOverlay = remember(mapView) { TilesOverlay(lightningProvider, context).apply { loadingBackgroundColor = android.graphics.Color.TRANSPARENT } }
 
     DisposableEffect(Unit) {
         mapView.onResume()
         onDispose {
             mapView.onPause()
             mapView.onDetach()
+            radarProvider.detach()
+            lightningProvider.detach()
         }
+    }
+
+    // Radar-Overlay ein-/ausblenden (unter den Markern).
+    DisposableEffect(showRadar) {
+        if (showRadar) {
+            if (!mapView.overlays.contains(radarOverlay)) mapView.overlays.add(0, radarOverlay)
+        } else {
+            mapView.overlays.remove(radarOverlay)
+        }
+        mapView.invalidate()
+        onDispose { }
+    }
+
+    // Radar-Frames: statisch (jetzt) oder Vorhersage-Schleife jetzt→+2 h.
+    LaunchedEffect(showRadar, radarPlaying) {
+        if (!showRadar) return@LaunchedEffect
+        val frames = radarFrames()
+        if (!radarPlaying) {
+            radarProvider.setTileSource(DwdWmsTileSource(DWD_RADAR_LAYER, frames.first().timeIso))
+            onRadarFrame(frames.first().label)
+            mapView.invalidate()
+            return@LaunchedEffect
+        }
+        var i = 0
+        while (true) {
+            val f = frames[i]
+            radarProvider.setTileSource(DwdWmsTileSource(DWD_RADAR_LAYER, f.timeIso))
+            onRadarFrame(f.label)
+            mapView.invalidate()
+            delay(if (i == frames.lastIndex) 1200 else 650)
+            i = (i + 1) % frames.size
+        }
+    }
+
+    // Blitze (Ist-Zeit), über dem Regen, unter den Markern.
+    DisposableEffect(showLightning, showRadar) {
+        if (showLightning) {
+            lightningProvider.setTileSource(DwdWmsTileSource(DWD_LIGHTNING_LAYER, null))
+            if (!mapView.overlays.contains(lightningOverlay)) {
+                val idx = if (mapView.overlays.contains(radarOverlay)) mapView.overlays.indexOf(radarOverlay) + 1 else 0
+                mapView.overlays.add(idx, lightningOverlay)
+            }
+        } else {
+            mapView.overlays.remove(lightningOverlay)
+        }
+        mapView.invalidate()
+        onDispose { }
     }
 
     // Nutzer-Schwenk erkennen (→ Folgen aussetzen).
