@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.2.1] – 2026-08-01
+
+### Geändert
+- **Vollständig frei / Open Source**: Google Play Services entfernt — GPS läuft jetzt über
+  den AOSP-`LocationManager` (Voraussetzung für F-Droid).
+- **GPX-Export** enthält jetzt **Geschwindigkeit, Verbrauch (Ah) und SoC** (als
+  Erweiterungen); der **Import** liest diese Werte wieder ein (voller Round-Trip).
+- F-Droid-Metadaten (Store-Texte, Changelog, Screenshots) und README aktualisiert.
+
 ## [1.2.0] – 2026-08-01
 
 ### Neu

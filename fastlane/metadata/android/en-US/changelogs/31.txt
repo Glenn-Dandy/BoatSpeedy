@@ -1,0 +1,5 @@
+1.2.1
+* Fully free / open source: removed Google Play Services (GPS now via AOSP LocationManager)
+* GPX export now includes speed, consumption (Ah) and state of charge
+* GPX import reads those back (full round-trip)
+* First F-Droid release
