@@ -7,9 +7,10 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-/** DWD-Radar-Layer (offener GeoServer, CC BY 4.0). */
-const val DWD_RADAR_LAYER = "radar_rv_product_1x1km_ger" // RADOLAN-RV: Nowcast bis ~+2 h
-const val DWD_LIGHTNING_LAYER = "Blitzdichte"
+/** DWD-Radar-Layer (offener GeoServer, CC BY 4.0). Achtung: exakter (groß geschriebener)
+ *  Layer-Name — der kleingeschriebene existiert nicht („LayerNotDefined"). */
+const val DWD_RADAR_LAYER = "Radar_rv_product_1x1km_ger" // RADOLAN-RV: −1 h … +2 h, PT5M
+const val DWD_LIGHTNING_LAYER = "Blitzdichte" // nur Ist-Zeit (keine Zukunft)
 
 /** Ein Radar-Frame (Zeitpunkt für WMS + Anzeige-Label). */
 data class RadarFrame(val timeIso: String, val label: String)
