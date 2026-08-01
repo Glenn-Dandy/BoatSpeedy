@@ -28,7 +28,14 @@ object GpxImport {
             trip
         }
 
-    private data class Raw(val lat: Double, val lon: Double, val epochMs: Long?)
+    private data class Raw(
+        val lat: Double,
+        val lon: Double,
+        val epochMs: Long?,
+        val speedMs: Float? = null,
+        val soc: Int? = null,
+        val chargeAh: Float? = null,
+    )
 
     private fun parse(input: java.io.InputStream): List<Raw> {
         val out = ArrayList<Raw>()
@@ -38,26 +45,39 @@ object GpxImport {
         var lat: Double? = null
         var lon: Double? = null
         var time: Long? = null
-        var inTime = false
+        var speed: Float? = null
+        var soc: Int? = null
+        var chargeAh: Float? = null
+        var cur: String? = null // aktuell offenes Text-Element
         var event = parser.eventType
         while (event != XmlPullParser.END_DOCUMENT) {
             when (event) {
-                XmlPullParser.START_TAG -> when (parser.name.lowercase()) {
-                    "trkpt", "rtept", "wpt" -> {
+                XmlPullParser.START_TAG -> {
+                    val n = parser.name.lowercase()
+                    if (n == "trkpt" || n == "rtept" || n == "wpt") {
                         lat = parser.getAttributeValue(null, "lat")?.toDoubleOrNull()
                         lon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull()
-                        time = null
+                        time = null; speed = null; soc = null; chargeAh = null
                     }
-                    "time" -> inTime = true
+                    cur = n
                 }
-                XmlPullParser.TEXT -> if (inTime) time = parseTime(parser.text)
-                XmlPullParser.END_TAG -> when (parser.name.lowercase()) {
-                    "time" -> inTime = false
-                    "trkpt", "rtept", "wpt" -> {
+                XmlPullParser.TEXT -> {
+                    val t = parser.text
+                    when (cur) {
+                        "time" -> time = parseTime(t)
+                        "speed", "boatspeedy:speed" -> if (speed == null) speed = t.trim().toFloatOrNull()
+                        "boatspeedy:soc" -> soc = t.trim().toIntOrNull()
+                        "boatspeedy:chargeah" -> chargeAh = t.trim().toFloatOrNull()
+                    }
+                }
+                XmlPullParser.END_TAG -> {
+                    val n = parser.name.lowercase()
+                    if (n == "trkpt" || n == "rtept" || n == "wpt") {
                         val la = lat; val lo = lon
-                        if (la != null && lo != null) out.add(Raw(la, lo, time))
+                        if (la != null && lo != null) out.add(Raw(la, lo, time, speed, soc, chargeAh))
                         lat = null; lon = null
                     }
+                    cur = null
                 }
             }
             event = parser.next()
@@ -92,23 +112,31 @@ object GpxImport {
         var prev: Raw? = null
         for (r in raw) {
             val tMs = r.epochMs?.let { it - startEpoch }?.coerceAtLeast(0L) ?: 0L
-            var speed = 0f
+            var speed = r.speedMs ?: 0f // aus GPX übernehmen, falls vorhanden
             val p = prev
             if (p != null) {
                 val res = FloatArray(1)
                 Location.distanceBetween(p.lat, p.lon, r.lat, r.lon, res)
                 distanceM += res[0]
-                val dtMs = (r.epochMs ?: 0L) - (p.epochMs ?: 0L)
-                if (dtMs in 1..60_000) {
-                    speed = (res[0] / (dtMs / 1000.0)).toFloat()
-                    if (speed > maxSpeed) maxSpeed = speed
+                if (r.speedMs == null) { // nur ableiten, wenn nicht im GPX
+                    val dtMs = (r.epochMs ?: 0L) - (p.epochMs ?: 0L)
+                    if (dtMs in 1..60_000) speed = (res[0] / (dtMs / 1000.0)).toFloat()
                 }
             }
-            points.add(TrackPoint(lat = r.lat, lon = r.lon, tMs = tMs, speedMs = speed))
+            if (speed > maxSpeed) maxSpeed = speed
+            points.add(
+                TrackPoint(
+                    lat = r.lat, lon = r.lon, tMs = tMs,
+                    speedMs = speed,
+                    soc = r.soc ?: -1,
+                    chargeAh = r.chargeAh ?: 0f,
+                ),
+            )
             prev = r
         }
         val duration = points.lastOrNull()?.tMs ?: 0L
         val avg = if (duration > 0) (distanceM / (duration / 1000.0)).toFloat() else 0f
+        val tripCharge = points.maxOfOrNull { it.chargeAh } ?: 0f // kumuliert → Endwert = Gesamt
         return SavedTrip(
             id = startEpoch,
             startedAt = startEpoch,
@@ -118,7 +146,7 @@ object GpxImport {
             avgSpeedMs = avg,
             maxSpeedMs = maxSpeed,
             energyWh = 0f,
-            chargeAh = 0f,
+            chargeAh = tripCharge,
             points = points,
         )
     }
