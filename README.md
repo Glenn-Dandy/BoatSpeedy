@@ -6,7 +6,7 @@ battery**. Large, easy-to-read speed readout for low-speed control (~5–10 km/h
 battery data, and an estimate of how far and how long you can still go.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
-![Version](https://img.shields.io/badge/version-0.4.1-blue)
+![Version](https://img.shields.io/badge/version-1.2.0-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
 ![targetSdk](https://img.shields.io/badge/targetSdk-35-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -45,10 +45,29 @@ and how far you can still get** — all on one screen.
   plus a subtle **A · B · Σ** selector to view a single pack or the combined bank
 - **BMS support**: **JBD / Jiabaida** (tested), **Daly** and **JK / Jikong** (experimental)
 
+### Trips, maps & weather
+- **Trip history**: saved trips with distance, moving/total/pause time, consumption (Ah),
+  energy (Wh) and Wh/km; a **track map** with direction arrows and start/finish markers —
+  tap the track for a speed / consumption / SoC bubble
+- **GPX**: export trips and **import** GPX (import button, or “Open with” from other apps)
+- **Live map** (OpenStreetMap) that follows your position, with a **DWD rain radar** overlay
+  (RADOLAN-RV nowcast, animated now → +100 min, with a slider) and optional **lightning**
+- **DWD weather warnings** (thunderstorm / storm) checked on GPS fix and during a trip —
+  notification, optional alarm sound and a dashboard banner
+- **Anchor watch**: drop an anchor at your position, get alerted if the boat drags
+
+### Charging & alarms
+- **Charging mode**: detects charging (positive current) → GPS off, the range tile becomes
+  a **charge tile** (time-to-full / done-at), an ongoing charge notification with SoC, a
+  **battery-full** alert and a configurable **charge-level** alert
+- **Low-charge warning** (red + optional sound) and **auto-pause** below a current threshold
+- Bundled **alarm tones** (beep / bell / siren), selectable per alarm (anchor / SoC / weather)
+
 ### App
 - **Light / dark theme** (Light / Dark / System), optional **keep screen on**
 - **Bilingual**: English (default) and German, switchable in Settings
-- **About screen** with in-app update check (queries GitHub releases)
+- **About screen** with in-app update check and a **Data & maps** section crediting
+  OpenStreetMap and the Deutscher Wetterdienst (DWD, CC BY 4.0)
 
 ## Status & untested features
 
@@ -69,8 +88,8 @@ with a critical eye and please report back:
 
 - [ ] Verify **series / parallel** combination on a real multi-battery setup
 - [ ] Calibrate **Daly** and **JK** against real hardware (UUIDs/offsets)
-- [ ] **Auto-reconnect** and auto-connect active packs on launch (remember last MAC)
-- [ ] **App Bundle (`.aab`)** for the Play Store
+- [ ] **F-Droid**: drop Google Play Services (use `LocationManager`) to become fully FOSS
+- [ ] **Play Store**: App Bundle (`.aab`), privacy policy, data-safety declaration
 
 See [`TODO.md`](TODO.md) for the full list, and [`CHANGELOG.md`](CHANGELOG.md) for changes.
 
@@ -120,11 +139,14 @@ The APK is written to `app/build/outputs/apk/`.
 
 - `ACCESS_FINE_LOCATION` – precise GPS for speed & satellites
 - `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION` – keep measuring during a trip
-- `POST_NOTIFICATIONS` – trip notification (Android 13+)
-- `INTERNET` – only for the in-app update check (GitHub releases)
+- `POST_NOTIFICATIONS` – trip / anchor / weather / charging notifications (Android 13+)
+- `INTERNET`, `ACCESS_NETWORK_STATE` – map tiles, DWD weather warnings & rain radar, update check
 - `BLUETOOTH_SCAN` (neverForLocation), `BLUETOOTH_CONNECT` – battery link (BLE)
 
 No `ACCESS_BACKGROUND_LOCATION` (the service starts from the foreground).
+
+Data sources: maps © OpenStreetMap contributors; weather warnings, rain radar and lightning
+by the Deutscher Wetterdienst (DWD), licensed CC BY 4.0 (warnings via Bright Sky).
 
 ## License
 
@@ -172,10 +194,29 @@ siehst.
 - **BMS-Unterstützung**: **JBD / Jiabaida** (getestet), **Daly** und **JK / Jikong**
   (experimentell)
 
+**Fahrten, Karten & Wetter**
+- **Fahrten-Historie**: gespeicherte Fahrten mit Distanz, Fahr-/Gesamt-/Pausenzeit,
+  Verbrauch (Ah), Energie (Wh) und Wh/km; **Track-Karte** mit Richtungspfeilen und
+  Start-/Ziel-Marker — Track antippen zeigt Tempo / Verbrauch / SoC an der Stelle
+- **GPX**: Fahrten exportieren und **importieren** (Import-Knopf oder „Öffnen mit")
+- **Live-Karte** (OpenStreetMap), folgt der Position, mit **DWD-Regenradar**-Overlay
+  (RADOLAN-RV Nowcast, animiert jetzt → +100 Min, mit Schieberegler) und optional **Blitzen**
+- **DWD-Wetterwarnungen** (Gewitter / Sturm) — Prüfung bei GPS-Fix und während der Fahrt,
+  Benachrichtigung, optionaler Alarmton und Dashboard-Banner
+- **Anker-Wache**: Anker an der Position setzen, Alarm bei Abdrift
+
+**Laden & Alarme**
+- **Lademodus**: erkennt Laden (positiver Strom) → GPS aus, die Reichweiten-Kachel wird zur
+  **Lade-Kachel** („Voll in" / „Fertig um"), laufende Lade-Meldung mit SoC, **„Batterie
+  voll"** sowie individuelle Meldung bei einstellbarem **Ladestand**
+- **Warnung bei niedrigem Ladestand** (rot + optional Ton), **Auto-Pause** unter einem Strom-Schwellwert
+- Mitgelieferte **Alarmtöne** (Piep / Glocke / Sirene), je Alarm wählbar (Anker / SoC / Wetter)
+
 **App**
 - **Hell / Dunkel** (Hell / Dunkel / System), optional **Display anlassen**
 - **Zweisprachig**: Englisch (Standard) und Deutsch, umschaltbar in den Einstellungen
-- **„Über"-Screen** mit In-App-Update-Prüfung (fragt GitHub-Releases ab)
+- **„Über"-Screen** mit In-App-Update-Prüfung und Abschnitt **„Daten & Karten"**
+  (OpenStreetMap, Deutscher Wetterdienst — DWD, CC BY 4.0)
 
 ### Status & ungetestete Funktionen
 
@@ -196,8 +237,8 @@ und Rückmeldung geben:
 
 - [ ] **Reihen-/Parallel**-Kombination an echtem Mehr-Akku-Aufbau prüfen
 - [ ] **Daly** und **JK** an echter Hardware kalibrieren (UUIDs/Offsets)
-- [ ] **Auto-Reconnect** und aktive Akkus beim Start automatisch verbinden (MAC merken)
-- [ ] **App-Bundle (`.aab`)** für den Play Store
+- [ ] **F-Droid**: Google Play Services entfernen (`LocationManager`) → vollständig FOSS
+- [ ] **Play Store**: App-Bundle (`.aab`), Datenschutzerklärung, Data-Safety-Angaben
 
 Vollständige Liste in [`TODO.md`](TODO.md), Änderungen in [`CHANGELOG.md`](CHANGELOG.md).
 
