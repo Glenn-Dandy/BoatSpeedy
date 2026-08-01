@@ -40,7 +40,9 @@ class DwdWmsTileSource(
             .append("?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap")
             .append("&LAYERS=").append(layer)
             .append("&STYLES=&FORMAT=image/png&TRANSPARENT=TRUE")
-            .append("&CRS=EPSG:3857&WIDTH=256&HEIGHT=256")
+            // 512 px je 256-Kachel = 2× Supersampling; SmoothTilesOverlay skaliert gefiltert
+            // auf 256 herunter → Kanten geglättet (AA), Flächen scharf, kein Detailverlust.
+            .append("&CRS=EPSG:3857&WIDTH=512&HEIGHT=512")
             .append("&BBOX=").append("$minX,$minY,$maxX,$maxY")
         if (time != null) sb.append("&TIME=").append(time)
         return sb.toString()
