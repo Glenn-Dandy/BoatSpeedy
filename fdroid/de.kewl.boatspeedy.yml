@@ -1,17 +1,16 @@
 Categories:
-  - Sports & Health
   - Navigation
+  - Sports & Health
 License: MIT
 AuthorName: Glenn-Dandy
 SourceCode: https://github.com/Glenn-Dandy/BoatSpeedy
 IssueTracker: https://github.com/Glenn-Dandy/BoatSpeedy/issues
-Changelog: https://github.com/Glenn-Dandy/BoatSpeedy/blob/main/CHANGELOG.md
+Changelog: https://github.com/Glenn-Dandy/BoatSpeedy/blob/HEAD/CHANGELOG.md
 Donate: https://paypal.me/GlennDandy
 
 RepoType: git
 Repo: https://github.com/Glenn-Dandy/BoatSpeedy.git
 Binaries: https://github.com/Glenn-Dandy/BoatSpeedy/releases/download/v%v/BoatSpeedy-v%v-release.apk
-AllowedAPKSigningKeys: 29a1755e6bef88fea9194263a39faeba71496a16248bb52b49d3c4107742576d
 
 Builds:
   - versionName: 1.2.1
@@ -20,6 +19,8 @@ Builds:
     subdir: app
     gradle:
       - yes
+
+AllowedAPKSigningKeys: 29a1755e6bef88fea9194263a39faeba71496a16248bb52b49d3c4107742576d
 
 AutoUpdateMode: Version v%v
 UpdateCheckMode: Tags
