@@ -38,7 +38,7 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 31                       // manuell, altes kleines Schema (steigt je Release)
+        versionCode = 32                       // manuell, altes kleines Schema (steigt je Release)
         versionName = versionNameFromGit        // aus Git-Tag (Option A)
         resValue("string", "app_name", "BoatSpeedy")
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
@@ -68,6 +68,11 @@ android {
             }
         }
         release {
+            // Keine Git-/VCS-Infos in die APK schreiben – das ist die einzige nicht
+            // reproduzierbare Datei (version-control-info.textproto). Aus = reproducible builds.
+            vcsInfo {
+                include = false
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

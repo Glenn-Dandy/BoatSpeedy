@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.2.2] – 2026-08-02
+
+### Geändert
+- **Reproduzierbare Builds**: die automatisch eingebettete VCS-Info
+  (`version-control-info.textproto`) wird nicht mehr in die Release-APK geschrieben —
+  dadurch ist der Build byte-genau reproduzierbar (Voraussetzung, dass F-Droid die
+  App mit deiner Original-Signatur ausliefern kann).
+
 ## [1.2.1] – 2026-08-01
 
 ### Geändert
