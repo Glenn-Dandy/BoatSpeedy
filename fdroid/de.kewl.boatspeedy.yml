@@ -22,7 +22,7 @@ Builds:
 
 AllowedAPKSigningKeys: 29a1755e6bef88fea9194263a39faeba71496a16248bb52b49d3c4107742576d
 
-AutoUpdateMode: Version v%v
+AutoUpdateMode: Version
 UpdateCheckMode: Tags
 CurrentVersion: 1.2.1
 CurrentVersionCode: 31
