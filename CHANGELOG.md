@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.2.3] – 2026-08-02
+
+### Geändert
+- **Versionsname fest verdrahtet** (statt aus `git describe`): nötig, damit F-Droid die
+  Version automatisch erkennt (Auto-Update) — und zusätzlich besser reproduzierbar.
+  Dev-Builds heißen jetzt „1.2.3-dev" (Git-SHA weiterhin über BuildConfig).
+
 ## [1.2.2] – 2026-08-02
 
 ### Geändert

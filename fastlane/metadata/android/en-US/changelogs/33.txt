@@ -1,0 +1,2 @@
+1.2.3
+* Version name is now fixed in the build file (was git-derived), so F-Droid can auto-detect versions and the build stays reproducible
