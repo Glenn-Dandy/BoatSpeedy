@@ -1,0 +1,2 @@
+1.2.2
+* Reproducible builds: no longer embeds VCS info in the release APK, so the build is byte-for-byte reproducible (lets F-Droid ship the app with the original signature)
