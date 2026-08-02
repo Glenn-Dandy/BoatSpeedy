@@ -21,7 +21,8 @@ Builds:
     gradle:
       - yes
 
-AllowedAPKSigningKeys: 29a1755e6bef88fea9194263a39faeba71496a16248bb52b49d3c4107742576d
+AllowedAPKSigningKeys: 
+  29a1755e6bef88fea9194263a39faeba71496a16248bb52b49d3c4107742576d
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
