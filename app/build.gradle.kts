@@ -15,9 +15,10 @@ val keystoreProperties = Properties().apply {
     if (hasKeystore) FileInputStream(keystorePropertiesFile).use { load(it) }
 }
 
-// --- Version aus Git ableiten (Single Source of Truth) ---
-// versionName kommt aus dem letzten Tag: "1.0.1" bei exaktem Tag, sonst
-// "1.0.1-3-gabc123(-dirty)" für Dev-Builds. versionCode bleibt manuell (unten).
+// --- Version: fest verdrahtet (Single Source of Truth) ---
+// versionName/versionCode werden manuell gepflegt (F-Droid liest versionName statisch aus
+// dieser Datei, und ein fester Wert ist zudem reproduzierbar). Dev-Builds bekommen den
+// Suffix "-dev" (siehe buildTypes) und die Git-SHA über BuildConfig.GIT_SHA.
 // `providers.exec` ist die Configuration-Cache-taugliche Art, git aufzurufen.
 fun gitValue(vararg args: String): String = runCatching {
     providers.exec {
@@ -26,8 +27,6 @@ fun gitValue(vararg args: String): String = runCatching {
     }.standardOutput.asText.get().trim()
 }.getOrDefault("")
 
-val versionNameFromGit: String =
-    gitValue("describe", "--tags", "--always", "--dirty").ifBlank { "v0.0.0" }.removePrefix("v")
 val gitSha: String = gitValue("rev-parse", "--short", "HEAD").ifBlank { "unknown" }
 
 android {
@@ -38,8 +37,8 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 32                       // manuell, altes kleines Schema (steigt je Release)
-        versionName = versionNameFromGit        // aus Git-Tag (Option A)
+        versionCode = 33                       // manuell, altes kleines Schema (steigt je Release)
+        versionName = "1.2.3"                   // manuell (F-Droid-lesbar + reproduzierbar)
         resValue("string", "app_name", "BoatSpeedy")
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }

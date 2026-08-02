@@ -1,0 +1,2 @@
+1.2.3
+* Versionsname jetzt fest im Build-File (vorher aus Git), damit F-Droid Versionen automatisch erkennt und der Build reproduzierbar bleibt

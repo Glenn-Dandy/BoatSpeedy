@@ -10,16 +10,21 @@ Donate: https://paypal.me/GlennDandy
 
 RepoType: git
 Repo: https://github.com/Glenn-Dandy/BoatSpeedy.git
+Binaries: 
+  https://github.com/Glenn-Dandy/BoatSpeedy/releases/download/v%v/BoatSpeedy-v%v-release.apk
 
 Builds:
-  - versionName: 1.2.1
-    versionCode: 31
-    commit: 4a8f7525f139bb11740211dae09d081a35e54f30
+  - versionName: 1.2.2
+    versionCode: 32
+    commit: 08ec0f531710b96efdaed766db6b413b87999647
     subdir: app
     gradle:
       - yes
 
+AllowedAPKSigningKeys: 
+  29a1755e6bef88fea9194263a39faeba71496a16248bb52b49d3c4107742576d
+
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.2.1
-CurrentVersionCode: 31
+CurrentVersion: 1.2.2
+CurrentVersionCode: 32
