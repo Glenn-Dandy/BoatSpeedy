@@ -1,0 +1,2 @@
+1.2.4
+* No more "Dependency metadata" signing block in the APK (dependenciesInfo off) — required by F-Droid, and unnecessary anyway
