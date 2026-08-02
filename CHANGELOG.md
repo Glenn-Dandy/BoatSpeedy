@@ -2,6 +2,12 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.2.4] – 2026-08-02
+
+### Geändert
+- **Kein „Dependency metadata"-Block** mehr in der APK (`dependenciesInfo` aus) — F-Droid
+  lehnt diesen zusätzlichen Signaturblock ab; er ist ohnehin überflüssig.
+
 ## [1.2.3] – 2026-08-02
 
 ### Geändert

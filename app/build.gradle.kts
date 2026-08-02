@@ -33,12 +33,19 @@ android {
     namespace = "de.kewl.boatspeedy"
     compileSdk = 35
 
+    // Kein „Dependency metadata"-Signaturblock in der APK – F-Droid lehnt den ab
+    // (und er ist ohnehin überflüssig).
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
     defaultConfig {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 33                       // manuell, altes kleines Schema (steigt je Release)
-        versionName = "1.2.3"                   // manuell (F-Droid-lesbar + reproduzierbar)
+        versionCode = 34                       // manuell, altes kleines Schema (steigt je Release)
+        versionName = "1.2.4"                   // manuell (F-Droid-lesbar + reproduzierbar)
         resValue("string", "app_name", "BoatSpeedy")
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }

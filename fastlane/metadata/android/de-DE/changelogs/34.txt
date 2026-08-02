@@ -1,0 +1,2 @@
+1.2.4
+* Kein "Dependency metadata"-Block mehr in der APK (dependenciesInfo aus) — von F-Droid gefordert und ohnehin überflüssig
