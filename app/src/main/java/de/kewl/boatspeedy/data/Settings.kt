@@ -111,6 +111,10 @@ data class Settings(
      * (Treiben wird aufgezeichnet). 0 = Geschwindigkeit ignorieren, nur Strom zählt.
      */
     val autoPauseSpeedMs: Float = 0.14f,
+    /** Fahrt-/Status-Benachrichtigung überhaupt anzeigen. */
+    val notifEnabled: Boolean = true,
+    /** Auch ohne laufende Fahrt anzeigen (solange die App im Hintergrund lebt). */
+    val notifAlways: Boolean = false,
     /** Werte in der Fahrt-Benachrichtigung. */
     val notifFields: Set<NotifField> = setOf(
         NotifField.SPEED, NotifField.DISTANCE, NotifField.CHARGE_AH, NotifField.SOC,

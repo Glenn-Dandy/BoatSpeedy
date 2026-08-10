@@ -13,6 +13,10 @@ import java.util.TimeZone
 /** Exportiert aufgezeichnete Fahrten als GPX-Datei und liefert eine teilbare content://-URI. */
 object GpxExport {
 
+    /** Je Fahrt eine eigene GPX-Datei (zum Teilen mehrerer Tracks als Einzeldateien). */
+    fun writeEach(context: Context, trips: List<SavedTrip>): List<Uri> =
+        trips.filter { it.hasTrack }.mapNotNull { write(context, listOf(it)) }
+
     /** Baut aus den Fahrten eine GPX-Datei im Cache und gibt ihre FileProvider-URI zurück. */
     fun write(context: Context, trips: List<SavedTrip>): Uri? {
         val withTrack = trips.filter { it.hasTrack }

@@ -185,6 +185,29 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                 delay(WEATHER_INTERVAL_MS)
             }
         }
+        // Dauer-Statusmeldung ohne laufende Fahrt („immer anzeigen").
+        // Während einer Fahrt zeigt der Vordergrunddienst seine eigene Meldung.
+        viewModelScope.launch {
+            combine(settings, battery, _gps, tracking) { s, hub, gps, isTracking ->
+                if (s.notifEnabled && s.notifAlways && !isTracking) {
+                    de.kewl.boatspeedy.util.notificationLines(
+                        getApplication(), gps, s, hub, TripRepository.stats.value,
+                    )
+                } else {
+                    null
+                }
+            }.collect { lines ->
+                if (lines == null) {
+                    Notifier.cancel(getApplication(), STATUS_NOTIF_ID)
+                } else {
+                    val text = listOf(lines.first, lines.second).filter { it.isNotBlank() }.joinToString("\n")
+                    Notifier.ongoing(
+                        getApplication(), "status", getString(R.string.notif_section), STATUS_NOTIF_ID,
+                        getString(R.string.app_name), text.ifBlank { "–" },
+                    )
+                }
+            }
+        }
         // Sobald eine Position da ist (GPS-Fix), sofort prüfen – beim Rausfahren
         // soll eine Warnung gleich kommen, nicht erst beim nächsten 10-Min-Tick.
         viewModelScope.launch {
@@ -293,6 +316,17 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     /** Fahrten-Liste aus dem Speicher laden (z. B. beim Öffnen des Historie-Screens). */
     fun refreshTrips() = viewModelScope.launch { _trips.value = tripStore.list() }
 
+    /** Markierte Fahrten zu einer zusammenführen (Originale werden ersetzt). */
+    fun mergeTrips(ids: Set<Long>, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val chosen = _trips.value.filter { it.id in ids }
+        val merged = de.kewl.boatspeedy.trip.mergeTrips(chosen)
+        if (merged == null) { onDone(false); return@launch }
+        tripStore.delete(ids)
+        tripStore.save(merged)
+        _trips.value = tripStore.list()
+        onDone(true)
+    }
+
     fun deleteTrips(ids: Set<Long>) = viewModelScope.launch {
         tripStore.delete(ids)
         _trips.value = tripStore.list()
@@ -395,6 +429,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setAutoPauseOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAutoPauseOn(v) }
     fun setAutoPauseSpeedMs(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseSpeedMs(v) }
     fun setNotifFields(v: Set<de.kewl.boatspeedy.data.NotifField>) = viewModelScope.launch { settingsRepo.setNotifFields(v) }
+    fun setNotifEnabled(v: Boolean) = viewModelScope.launch { settingsRepo.setNotifEnabled(v) }
+    fun setNotifAlways(v: Boolean) = viewModelScope.launch { settingsRepo.setNotifAlways(v) }
 
     /** „Weiter aufzeichnen" bzw. Auto-Pause wieder aktivieren. */
     fun setAutoPauseOverride(v: Boolean) = TripRepository.overrideAutoPause(v)
@@ -541,7 +577,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         private const val CHARGE_ON_A = 0.5f    // ab diesem positiven Strom gilt „lädt"
         private const val CHARGE_FULL_A = 0.1f  // darunter: Strom abgeklungen → voll
         private const val FULL_SOC_MIN = 90     // „voll" nur ab diesem Ladestand melden
-        private const val CHARGE_NOTIF_ID = 6   // laufende Lade-Meldung
+        private const val CHARGE_NOTIF_ID = 6
+        private const val STATUS_NOTIF_ID = 9   // laufende Lade-Meldung
         private const val WEATHER_INTERVAL_MS = 10 * 60_000L // DWD-Prüfintervall
     }
 }

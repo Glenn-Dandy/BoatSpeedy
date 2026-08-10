@@ -80,6 +80,8 @@ object TripRepository {
 
     /** Zuletzt gemessene Geschwindigkeit – für die „schlaue" Auto-Pause. */
     @Volatile private var lastSpeedMs: Float = 0f
+    /** zuletzt gemessener Strom – für sofortige Neubewertung beim Umschalten. */
+    @Volatile private var lastAmps: Float = 0f
     private const val MAX_POINTS = 10_000      // Obergrenze der Track-Punkte
     private const val MIN_SAVE_DISTANCE_M = 10.0
     private const val MIN_SAVE_DURATION_MS = 10_000L
@@ -96,6 +98,7 @@ object TripRepository {
         _livePoints.value = emptyList()
         _autoPauseOverride.value = false
         lastSpeedMs = 0f
+        lastAmps = 0f
         lastSoc = -1
         tripStartEpoch = System.currentTimeMillis()
         tripStartRealtime = SystemClock.elapsedRealtime()
@@ -183,6 +186,7 @@ object TripRepository {
                 }
             }
         }
+        evaluateAutoPause(SystemClock.elapsedRealtime())
         emit()
     }
 
@@ -194,16 +198,8 @@ object TripRepository {
         lastSoc = soc
         if (!_tracking.value) return
         val now = SystemClock.elapsedRealtime()
-        val threshold = autoPauseAmps
-        // Schlaue Auto-Pause: nur pausieren, wenn wenig Strom fließt UND das Boot steht.
-        // Treiben (Motor aus, aber in Bewegung) wird so weiter aufgezeichnet.
-        val speedLimit = autoPauseSpeedMs
-        val moving = speedLimit > 0f && lastSpeedMs >= speedLimit
-        val shouldRun = _autoPauseOverride.value || threshold <= 0f ||
-            kotlin.math.abs(amps) >= threshold || moving
-
-        if (shouldRun && !running) resumeAt(now)
-        else if (!shouldRun && running) pauseAt(now)
+        lastAmps = amps
+        evaluateAutoPause(now)
 
         if (running) {
             if (lastSampleTs != 0L) {
@@ -218,10 +214,26 @@ object TripRepository {
         emit()
     }
 
-    /** „Weiter aufzeichnen": Auto-Pause für diese Fahrt überstimmen. */
+    /**
+     * Schlaue Auto-Pause: pausiert nur, wenn wenig Strom fließt UND das Boot steht.
+     * Treiben (Motor aus, aber in Bewegung) wird weiter aufgezeichnet.
+     */
+    private fun evaluateAutoPause(now: Long) {
+        if (!_tracking.value) return
+        val threshold = autoPauseAmps
+        val speedLimit = autoPauseSpeedMs
+        val moving = speedLimit > 0f && lastSpeedMs >= speedLimit
+        val shouldRun = _autoPauseOverride.value || threshold <= 0f ||
+            kotlin.math.abs(lastAmps) >= threshold || moving
+
+        if (shouldRun && !running) resumeAt(now)
+        else if (!shouldRun && running) pauseAt(now)
+    }
+
+    /** „Weiter aufzeichnen" bzw. Auto-Pause wieder aktivieren – sofort neu bewerten. */
     fun overrideAutoPause(enabled: Boolean) {
         _autoPauseOverride.value = enabled
-        if (enabled && _tracking.value && !running) resumeAt(SystemClock.elapsedRealtime())
+        evaluateAutoPause(SystemClock.elapsedRealtime())
     }
 
     private fun resumeAt(now: Long) {

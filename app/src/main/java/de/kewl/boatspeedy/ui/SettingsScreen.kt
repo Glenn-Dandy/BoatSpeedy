@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,6 +68,7 @@ import kotlin.math.roundToInt
 @Composable
 fun SettingsHomeScreen(
     onDashboard: () -> Unit,
+    onNotifications: () -> Unit,
     onGeneral: () -> Unit,
     onAppearance: () -> Unit,
     onTracks: () -> Unit,
@@ -83,6 +85,13 @@ fun SettingsHomeScreen(
             stringResource(R.string.group_dashboard),
             stringResource(R.string.cat_dashboard_desc),
             onDashboard,
+        )
+        HorizontalDivider()
+        CategoryRow(
+            Icons.Filled.Notifications,
+            stringResource(R.string.notif_section),
+            stringResource(R.string.cat_notif_desc),
+            onNotifications,
         )
         HorizontalDivider()
         CategoryRow(
@@ -143,7 +152,6 @@ fun DashboardSettingsScreen(
     onShowRangeTile: (Boolean) -> Unit,
     onShowMapTile: (Boolean) -> Unit,
     onShowSatDetails: (Boolean) -> Unit,
-    onNotifFields: (Set<NotifField>) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_dashboard), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -196,18 +204,47 @@ fun DashboardSettingsScreen(
         SwitchRow(stringResource(R.string.tile_map), settings.showMapTile, onShowMapTile)
         SwitchRow(stringResource(R.string.show_sat_details), settings.showSatDetails, onShowSatDetails)
 
+    }
+}
+
+/* -------------------------- Benachrichtigung -------------------------- */
+
+@Composable
+fun NotificationSettingsScreen(
+    settings: Settings,
+    onNotifEnabled: (Boolean) -> Unit,
+    onNotifAlways: (Boolean) -> Unit,
+    onNotifFields: (Set<NotifField>) -> Unit,
+    onBack: () -> Unit,
+) {
+    SettingsScaffold(stringResource(R.string.notif_section), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
+        SwitchRow(stringResource(R.string.notif_enabled), settings.notifEnabled, onNotifEnabled)
+        if (settings.notifEnabled) {
+            SwitchRow(stringResource(R.string.notif_always), settings.notifAlways, onNotifAlways)
+            Text(
+                stringResource(R.string.notif_always_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            SectionLabel(stringResource(R.string.notif_fields_title))
+            Text(
+                stringResource(R.string.notif_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+            NotifField.entries.forEach { f ->
+                SwitchRow(notifFieldLabel(f), f in settings.notifFields) { on ->
+                    onNotifFields(if (on) settings.notifFields + f else settings.notifFields - f)
+                }
+            }
+        }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        SectionLabel(stringResource(R.string.notif_section))
         Text(
-            stringResource(R.string.notif_hint),
+            stringResource(R.string.notif_others),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
-        NotifField.entries.forEach { f ->
-            SwitchRow(notifFieldLabel(f), f in settings.notifFields) { on ->
-                onNotifFields(if (on) settings.notifFields + f else settings.notifFields - f)
-            }
-        }
     }
 }
 

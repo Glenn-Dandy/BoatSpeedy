@@ -43,6 +43,8 @@ class SettingsRepository(private val context: Context) {
         val AUTO_PAUSE_AMPS = floatPreferencesKey("auto_pause_amps")
         val AUTO_PAUSE_SPEED = floatPreferencesKey("auto_pause_speed_ms")
         val NOTIF_FIELDS = stringPreferencesKey("notif_fields")
+        val NOTIF_ENABLED = booleanPreferencesKey("notif_enabled")
+        val NOTIF_ALWAYS = booleanPreferencesKey("notif_always")
         val ANCHOR_ALARM_ON = booleanPreferencesKey("anchor_alarm_on")
         val ANCHOR_SOUND = stringPreferencesKey("anchor_sound")
         val SOC_ALARM_ON = booleanPreferencesKey("soc_alarm_on")
@@ -77,6 +79,8 @@ class SettingsRepository(private val context: Context) {
             autoPauseOn = p[Keys.AUTO_PAUSE_ON] ?: true,
             autoPauseAmps = (p[Keys.AUTO_PAUSE_AMPS] ?: 0.05f).coerceIn(0f, 50f),
             autoPauseSpeedMs = (p[Keys.AUTO_PAUSE_SPEED] ?: 0.14f).coerceIn(0f, 10f),
+            notifEnabled = p[Keys.NOTIF_ENABLED] ?: true,
+            notifAlways = p[Keys.NOTIF_ALWAYS] ?: false,
             notifFields = p[Keys.NOTIF_FIELDS]?.let { decodeNotifFields(it) }
                 ?: setOf(NotifField.SPEED, NotifField.DISTANCE, NotifField.CHARGE_AH, NotifField.SOC),
             anchorAlarmOn = p[Keys.ANCHOR_ALARM_ON] ?: true,
@@ -112,6 +116,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutoPauseOn(value: Boolean) = edit { it[Keys.AUTO_PAUSE_ON] = value }
     suspend fun setAutoPauseAmps(value: Float) = edit { it[Keys.AUTO_PAUSE_AMPS] = value.coerceIn(0f, 50f) }
     suspend fun setAutoPauseSpeedMs(value: Float) = edit { it[Keys.AUTO_PAUSE_SPEED] = value.coerceIn(0f, 10f) }
+    suspend fun setNotifEnabled(value: Boolean) = edit { it[Keys.NOTIF_ENABLED] = value }
+    suspend fun setNotifAlways(value: Boolean) = edit { it[Keys.NOTIF_ALWAYS] = value }
     suspend fun setNotifFields(value: Set<NotifField>) = edit {
         it[Keys.NOTIF_FIELDS] = value.joinToString(",") { f -> f.name }
     }

@@ -74,6 +74,9 @@
     <string name="color_red">Rot</string>
     <string name="color_black">Schwarz</string>
     <string name="export">Exportieren</string>
+    <string name="merge_trips">Fahrten zusammenführen</string>
+    <string name="merge_ok">Fahrten zusammengeführt.</string>
+    <string name="merge_failed">Mindestens zwei Fahrten auswählen.</string>
     <string name="no_track">Für die Auswahl ist kein Track vorhanden.</string>
     <string name="import_gpx">GPX importieren</string>
     <string name="import_ok">Fahrt importiert.</string>
@@ -194,7 +197,13 @@
     <string name="auto_pause_speed_hint">0 = Geschwindigkeit ignorieren (nur Strom zählt). Sonst wird oberhalb dieser Geschwindigkeit weiter aufgezeichnet (Treiben).</string>
     <string name="trip_keep_recording">Weiter aufzeichnen</string>
         <string name="auto_pause_reenable">Auto-Pause an</string>
-    <string name="notif_section">Benachrichtigung</string>
+    <string name="notif_section">Benachrichtigungen</string>
+    <string name="cat_notif_desc">Fahrt-Benachrichtigung, Werte, immer anzeigen</string>
+    <string name="notif_enabled">Fahrt-Benachrichtigung anzeigen</string>
+    <string name="notif_always">Auch ohne Fahrt anzeigen</string>
+    <string name="notif_always_hint">Zeigt die Werte, solange die App läuft (auch im Hintergrund). Während einer Fahrt zeigt sie der Vordergrunddienst ohnehin.</string>
+    <string name="notif_fields_title">Werte</string>
+    <string name="notif_others">Unabhängig davon: Wetterwarnungen (DWD), Anker-Wache, Ladevorgang und quittierpflichtige Alarme haben eigene Benachrichtigungen — einzeln abschaltbar in den Android-App-Einstellungen unter „Benachrichtigungen".</string>
     <string name="notif_hint">Werte in der Fahrt-Benachrichtigung (Zeile 2 erscheint beim Aufklappen).</string>
     <string name="auto_pause">Auto-Pause unter Strom (A)</string>
     <string name="auto_pause_hint">0 oder leer = aus. Beispiele: 0.05, 0.5, 1.0</string>

@@ -163,7 +163,7 @@ fun DashboardScreen(
                 }
                 // Auto-Pause-Status als kompakter Chip – antippen schaltet um
                 // (links: aktueller Zustand, rechts: was das Antippen bewirkt).
-                if (tracking && (tripPaused || autoPauseOverride)) {
+                if (tracking && (settings.autoPauseOn || autoPauseOverride)) {
                     AutoPauseChip(
                         paused = tripPaused,
                         onToggle = { onAutoPauseOverride(!autoPauseOverride) },

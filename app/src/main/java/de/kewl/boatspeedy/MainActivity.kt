@@ -69,6 +69,7 @@ import de.kewl.boatspeedy.ui.DashboardScreen
 import de.kewl.boatspeedy.ui.DashboardSettingsScreen
 import de.kewl.boatspeedy.ui.GeneralSettingsScreen
 import de.kewl.boatspeedy.ui.GpsSettingsScreen
+import de.kewl.boatspeedy.ui.NotificationSettingsScreen
 import de.kewl.boatspeedy.ui.LiveMapScreen
 import de.kewl.boatspeedy.ui.SettingsHomeScreen
 import de.kewl.boatspeedy.ui.TracksSettingsScreen
@@ -81,7 +82,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_APPEARANCE, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_APPEARANCE, ABOUT }
 
 class MainActivity : ComponentActivity() {
     // Von außen zum Import übergebene GPX-Datei (Öffnen-mit / Teilen an BoatSpeedy).
@@ -266,7 +267,7 @@ private fun BoatSpeedyApp(
             BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
             BackHandler(enabled = !drawerState.isOpen && screen != Screen.SPEED) {
                 screen = when (screen) {
-                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_GENERAL, Screen.SETTINGS_TRACKS, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE -> Screen.SETTINGS
+                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_NOTIF, Screen.SETTINGS_GENERAL, Screen.SETTINGS_TRACKS, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE -> Screen.SETTINGS
                     Screen.TRIP_DETAIL -> Screen.TRIPS
                     Screen.TRIP_MAP -> Screen.TRIP_DETAIL
                     else -> Screen.SPEED
@@ -300,6 +301,7 @@ private fun BoatSpeedyApp(
                 when (screen) {
                     Screen.SETTINGS -> SettingsHomeScreen(
                         onDashboard = { screen = Screen.SETTINGS_DASHBOARD },
+                        onNotifications = { screen = Screen.SETTINGS_NOTIF },
                         onGeneral = { screen = Screen.SETTINGS_GENERAL },
                         onAppearance = { screen = Screen.SETTINGS_APPEARANCE },
                         onTracks = { screen = Screen.SETTINGS_TRACKS },
@@ -317,6 +319,13 @@ private fun BoatSpeedyApp(
                         onShowRangeTile = vm::setShowRangeTile,
                         onShowMapTile = vm::setShowMapTile,
                         onShowSatDetails = vm::setShowSatDetails,
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_NOTIF -> NotificationSettingsScreen(
+                        settings = settings,
+                        onNotifEnabled = vm::setNotifEnabled,
+                        onNotifAlways = vm::setNotifAlways,
                         onNotifFields = vm::setNotifFields,
                         onBack = { screen = Screen.SETTINGS },
                     )
@@ -367,6 +376,15 @@ private fun BoatSpeedyApp(
                         trips = trips,
                         onOpenDetail = { trip -> selectedTrip = trip; screen = Screen.TRIP_DETAIL },
                         onDelete = vm::deleteTrips,
+                        onMerge = { ids ->
+                            vm.mergeTrips(ids) { ok ->
+                                android.widget.Toast.makeText(
+                                    context,
+                                    context.getString(if (ok) R.string.merge_ok else R.string.merge_failed),
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
                         onImport = { uri ->
                             vm.importGpx(uri) { ok ->
                                 android.widget.Toast.makeText(

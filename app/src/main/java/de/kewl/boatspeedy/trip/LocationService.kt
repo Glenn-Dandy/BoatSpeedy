@@ -79,7 +79,15 @@ class LocationService : Service() {
                 de.kewl.boatspeedy.battery.BatteryRepository.state,
             ) { gps, s, hub -> Triple(gps, s, hub) }.collect { (gps, s, hub) ->
                 TripRepository.onLocation(gps)
-                updateNotification(notificationLines(gps, s, hub))
+                updateNotification(
+                    if (s.notifEnabled) {
+                        de.kewl.boatspeedy.util.notificationLines(
+                            applicationContext, gps, s, hub, TripRepository.stats.value,
+                        )
+                    } else {
+                        "" to ""
+                    },
+                )
                 maybeCheckWeather(gps.latitude, gps.longitude, s)
             }
         }
@@ -98,50 +106,6 @@ class LocationService : Service() {
                 applicationContext, lat, lon, s.weatherAlarmOn, s.weatherSound,
             )
         }
-    }
-
-    /**
-     * Baut die (bis zu) zwei Zeilen der Fahrt-Benachrichtigung aus den in den Einstellungen
-     * gewählten Werten. Zeile 1 ist eingeklappt sichtbar, Zeile 2 nur aufgeklappt.
-     */
-    private fun notificationLines(
-        gps: de.kewl.boatspeedy.location.GpsState,
-        s: de.kewl.boatspeedy.data.Settings,
-        hub: de.kewl.boatspeedy.battery.BatteryHub,
-    ): Pair<String, String> {
-        val stats = TripRepository.stats.value
-        val bank = de.kewl.boatspeedy.battery.activeBatteryData(s, hub).takeIf { it.isNotEmpty() }
-            ?.let { de.kewl.boatspeedy.battery.combineBatteries(it, s.bankMode) }
-        val range = de.kewl.boatspeedy.battery.estimateRange(bank, gps.speedMs)
-
-        fun value(f: NotifField): String? = when (f) {
-            NotifField.SPEED -> gps.speedMs?.let {
-                String.format(Locale.getDefault(), "%.1f %s", it * s.unit.factorFromMs, s.unit.label)
-            } ?: "--"
-            NotifField.DISTANCE -> formatDistance(stats.distanceM)
-            NotifField.TIME -> formatDuration(stats.elapsedMs)
-            NotifField.CHARGE_AH -> String.format(Locale.getDefault(), "%.1f Ah", stats.chargeAh)
-            NotifField.ENERGY_WH -> String.format(Locale.getDefault(), "%.0f Wh", stats.energyWh)
-            NotifField.SOC -> bank?.takeIf { it.voltage > 0f }?.let { "${getString(R.string.soc_short)} ${it.soc} %" }
-            NotifField.RANGE -> range?.let { formatDistance(it.km * 1000.0) }
-            NotifField.TIME_LEFT -> range?.let { formatDuration((it.hours * 3600_000).toLong()) }
-        }
-
-        fun line(n: Int) = NotifField.entries
-            .filter { it.line == n && it in s.notifFields }
-            .mapNotNull { value(it) }
-            .joinToString(" · ")
-
-        return line(1) to line(2)
-    }
-
-    private fun formatDuration(ms: Long): String {
-        val total = ms / 1000
-        val h = total / 3600
-        val m = (total % 3600) / 60
-        val sec = total % 60
-        return if (h > 0) String.format(Locale.getDefault(), "%d:%02d:%02d", h, m, sec)
-        else String.format(Locale.getDefault(), "%d:%02d", m, sec)
     }
 
     private fun formatDistance(m: Double): String =
