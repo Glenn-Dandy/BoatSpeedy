@@ -79,6 +79,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     val tracking: StateFlow<Boolean> = TripRepository.tracking
     val tripStats: StateFlow<TripStats> = TripRepository.stats
     val tripPaused: StateFlow<Boolean> = TripRepository.paused
+    val autoPauseOverride: StateFlow<Boolean> = TripRepository.autoPauseOverride
     val livePoints: StateFlow<List<de.kewl.boatspeedy.trip.TrackPoint>> = TripRepository.livePoints
 
     // Ankeralarm.
@@ -144,9 +145,9 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
-        // Auto-Pause-Schwelle aus den Settings in das TripRepository spiegeln.
+        // Auto-Pause-Schalter/-Schwelle aus den Settings in das TripRepository spiegeln.
         viewModelScope.launch {
-            settings.collect { TripRepository.autoPauseAmps = it.autoPauseAmps }
+            settings.collect { TripRepository.autoPauseAmps = if (it.autoPauseOn) it.autoPauseAmps else 0f }
         }
         // SoC-Alarm-Ton bei fallender Flanke unter die Schwelle.
         // voltage>0 & soc>=1 schließt die kurzen 0-Werte direkt nach dem Verbinden aus.
@@ -388,6 +389,11 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setTrackWidth(v: de.kewl.boatspeedy.data.TrackWidth) = viewModelScope.launch { settingsRepo.setTrackWidth(v) }
     fun setTrackArrows(v: Boolean) = viewModelScope.launch { settingsRepo.setTrackArrows(v) }
     fun setAutoPauseAmps(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseAmps(v) }
+    fun setAutoPauseOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAutoPauseOn(v) }
+    fun setNotifFields(v: Set<de.kewl.boatspeedy.data.NotifField>) = viewModelScope.launch { settingsRepo.setNotifFields(v) }
+
+    /** „Weiter aufzeichnen" bzw. Auto-Pause wieder aktivieren. */
+    fun setAutoPauseOverride(v: Boolean) = TripRepository.overrideAutoPause(v)
     fun setAnchorAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAnchorAlarmOn(v) }
     fun setAnchorSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setAnchorSound(v) }
     fun setSocAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setSocAlarmOn(v) }

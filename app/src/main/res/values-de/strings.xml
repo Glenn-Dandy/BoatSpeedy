@@ -181,13 +181,19 @@
     <string name="sound_sirene">Sirene</string>
     <string name="section_charge">Ladestand</string>
     <string name="group_weather">Wetter</string>
-    <string name="charge_target_label">Lademodus: Meldung bei (%)</string>
+    <string name="charge_target_label">Warnung bei Ladestand (Lademodus)</string>
     <string name="charge_reached_title">Ladestand erreicht</string>
     <string name="alarm_channel">Alarme (quittieren)</string>
     <string name="alarm_ack_hint">Zum Quittieren antippen (oder Lautstärketaste drücken)</string>
     <string name="soc_alarm_text">Ladestand bei oder unter %1$d %%.</string>
     <string name="charge_reached_text">%1$d %% erreicht.</string>
     <string name="soc_alarm_sound">SoC-Alarm mit Ton</string>
+    <string name="auto_pause_on">Auto-Pause</string>
+    <string name="trip_keep_recording">Weiter aufzeichnen</string>
+    <string name="trip_forced_record">▶ Zeichnet auf (Auto-Pause aus)</string>
+    <string name="auto_pause_reenable">Auto-Pause an</string>
+    <string name="notif_section">Benachrichtigung</string>
+    <string name="notif_hint">Werte in der Fahrt-Benachrichtigung (Zeile 2 erscheint beim Aufklappen).</string>
     <string name="auto_pause">Auto-Pause unter Strom (A)</string>
     <string name="auto_pause_hint">0 oder leer = aus. Beispiele: 0.05, 0.5, 1.0</string>
 

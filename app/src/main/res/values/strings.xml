@@ -184,13 +184,19 @@
     <string name="sound_sirene">Siren</string>
     <string name="section_charge">Charge level</string>
     <string name="group_weather">Weather</string>
-    <string name="charge_target_label">Charging mode: notify at (%)</string>
+    <string name="charge_target_label">Charge-level warning (charging mode)</string>
     <string name="charge_reached_title">Charge level reached</string>
     <string name="alarm_channel">Alarms (acknowledge)</string>
     <string name="alarm_ack_hint">Tap to acknowledge (or press a volume key)</string>
     <string name="soc_alarm_text">Charge level at or below %1$d %%.</string>
     <string name="charge_reached_text">%1$d %% reached.</string>
     <string name="soc_alarm_sound">Low-charge alarm sound</string>
+    <string name="auto_pause_on">Auto-pause</string>
+    <string name="trip_keep_recording">Keep recording</string>
+    <string name="trip_forced_record">▶ Recording (auto-pause off)</string>
+    <string name="auto_pause_reenable">Auto-pause on</string>
+    <string name="notif_section">Notification</string>
+    <string name="notif_hint">Values shown in the trip notification (line 2 appears when expanded).</string>
     <string name="auto_pause">Auto-pause below current (A)</string>
     <string name="auto_pause_hint">0 or empty = off. Examples: 0.05, 0.5, 1.0</string>
 

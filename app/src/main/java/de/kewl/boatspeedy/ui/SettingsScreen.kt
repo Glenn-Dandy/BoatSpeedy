@@ -49,6 +49,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.data.AlarmSound
+import de.kewl.boatspeedy.data.NotifField
 import de.kewl.boatspeedy.data.RangeSmoothing
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
@@ -142,6 +143,7 @@ fun DashboardSettingsScreen(
     onShowRangeTile: (Boolean) -> Unit,
     onShowMapTile: (Boolean) -> Unit,
     onShowSatDetails: (Boolean) -> Unit,
+    onNotifFields: (Set<NotifField>) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_dashboard), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -193,7 +195,32 @@ fun DashboardSettingsScreen(
         SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
         SwitchRow(stringResource(R.string.tile_map), settings.showMapTile, onShowMapTile)
         SwitchRow(stringResource(R.string.show_sat_details), settings.showSatDetails, onShowSatDetails)
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        SectionLabel(stringResource(R.string.notif_section))
+        Text(
+            stringResource(R.string.notif_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+        NotifField.entries.forEach { f ->
+            SwitchRow(notifFieldLabel(f), f in settings.notifFields) { on ->
+                onNotifFields(if (on) settings.notifFields + f else settings.notifFields - f)
+            }
+        }
     }
+}
+
+@Composable
+private fun notifFieldLabel(f: NotifField): String = when (f) {
+    NotifField.SPEED -> stringResource(R.string.speed_label)
+    NotifField.DISTANCE -> stringResource(R.string.stat_distance)
+    NotifField.TIME -> stringResource(R.string.stat_time)
+    NotifField.CHARGE_AH -> stringResource(R.string.stat_consumed)
+    NotifField.ENERGY_WH -> stringResource(R.string.stat_energy)
+    NotifField.SOC -> stringResource(R.string.soc_short)
+    NotifField.RANGE -> stringResource(R.string.bat_est_range)
+    NotifField.TIME_LEFT -> stringResource(R.string.bat_est_time)
 }
 
 /* -------------------------------- GPS -------------------------------- */
@@ -268,6 +295,7 @@ fun TracksSettingsScreen(
     onTrackColor: (TrackColor) -> Unit,
     onTrackWidth: (TrackWidth) -> Unit,
     onTrackArrows: (Boolean) -> Unit,
+    onAutoPauseOn: (Boolean) -> Unit,
     onAutoPauseAmps: (Float) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -301,7 +329,8 @@ fun TracksSettingsScreen(
         SwitchRow(stringResource(R.string.track_arrows), settings.trackArrows, onTrackArrows)
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
+        SwitchRow(stringResource(R.string.auto_pause_on), settings.autoPauseOn, onAutoPauseOn)
+        if (settings.autoPauseOn) AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
     }
 }
 

@@ -65,11 +65,20 @@ object TripRepository {
     private var lastSampleTs = 0L
 
     private const val MIN_SPEED_MS = 0.5f      // unter ~1,8 km/h nicht als Fahrt zählen
+    /** ab dieser Geschwindigkeit gilt das Boot als „in Bewegung" (≈0,5 km/h). */
+    private const val AUTO_PAUSE_MIN_SPEED_MS = 0.14f
     private const val MAX_ACCURACY_M = 25f     // schlechte Fixes für Distanz ignorieren
     private const val MAX_STEP_M = 200.0       // Ausreißer (Sprünge) verwerfen
 
     /** Auto-Pause-Schwelle in A (0 = aus); vom ViewModel aus den Settings gesetzt. */
     @Volatile var autoPauseAmps: Float = 0.05f
+
+    /** Nutzer hat die Auto-Pause für diese Fahrt überstimmt („Weiter aufzeichnen"). */
+    private val _autoPauseOverride = MutableStateFlow(false)
+    val autoPauseOverride: StateFlow<Boolean> = _autoPauseOverride.asStateFlow()
+
+    /** Zuletzt gemessene Geschwindigkeit – für die „schlaue" Auto-Pause. */
+    @Volatile private var lastSpeedMs: Float = 0f
     private const val MAX_POINTS = 10_000      // Obergrenze der Track-Punkte
     private const val MIN_SAVE_DISTANCE_M = 10.0
     private const val MIN_SAVE_DURATION_MS = 10_000L
@@ -84,6 +93,8 @@ object TripRepository {
         lastLon = null
         points.clear()
         _livePoints.value = emptyList()
+        _autoPauseOverride.value = false
+        lastSpeedMs = 0f
         lastSoc = -1
         tripStartEpoch = System.currentTimeMillis()
         tripStartRealtime = SystemClock.elapsedRealtime()
@@ -137,6 +148,7 @@ object TripRepository {
 
         val speed = gps.speedMs
         val accOk = (gps.accuracyM ?: Float.MAX_VALUE) <= MAX_ACCURACY_M
+        if (accOk) lastSpeedMs = speed ?: 0f
         if (speed != null && accOk && speed > maxSpeedMs) maxSpeedMs = speed
 
         // Distanz nur zählen, wenn nicht pausiert.
@@ -182,7 +194,11 @@ object TripRepository {
         if (!_tracking.value) return
         val now = SystemClock.elapsedRealtime()
         val threshold = autoPauseAmps
-        val shouldRun = threshold <= 0f || kotlin.math.abs(amps) >= threshold
+        // Schlaue Auto-Pause: nur pausieren, wenn wenig Strom fließt UND das Boot steht.
+        // Treiben (Motor aus, aber in Bewegung) wird so weiter aufgezeichnet.
+        val moving = lastSpeedMs >= AUTO_PAUSE_MIN_SPEED_MS
+        val shouldRun = _autoPauseOverride.value || threshold <= 0f ||
+            kotlin.math.abs(amps) >= threshold || moving
 
         if (shouldRun && !running) resumeAt(now)
         else if (!shouldRun && running) pauseAt(now)
@@ -198,6 +214,12 @@ object TripRepository {
             lastSampleTs = 0L
         }
         emit()
+    }
+
+    /** „Weiter aufzeichnen": Auto-Pause für diese Fahrt überstimmen. */
+    fun overrideAutoPause(enabled: Boolean) {
+        _autoPauseOverride.value = enabled
+        if (enabled && _tracking.value && !running) resumeAt(SystemClock.elapsedRealtime())
     }
 
     private fun resumeAt(now: Long) {

@@ -196,6 +196,7 @@ private fun BoatSpeedyApp(
             val tracking by vm.tracking.collectAsStateWithLifecycle()
             val tripStats by vm.tripStats.collectAsStateWithLifecycle()
             val tripPaused by vm.tripPaused.collectAsStateWithLifecycle()
+            val autoPauseOverride by vm.autoPauseOverride.collectAsStateWithLifecycle()
             val battery by vm.battery.collectAsStateWithLifecycle()
             val dashBattery by vm.dashboardBattery.collectAsStateWithLifecycle()
             val dashRange by vm.dashboardRange.collectAsStateWithLifecycle()
@@ -316,6 +317,7 @@ private fun BoatSpeedyApp(
                         onShowRangeTile = vm::setShowRangeTile,
                         onShowMapTile = vm::setShowMapTile,
                         onShowSatDetails = vm::setShowSatDetails,
+                        onNotifFields = vm::setNotifFields,
                         onBack = { screen = Screen.SETTINGS },
                     )
 
@@ -341,6 +343,7 @@ private fun BoatSpeedyApp(
                         onTrackColor = vm::setTrackColor,
                         onTrackWidth = vm::setTrackWidth,
                         onTrackArrows = vm::setTrackArrows,
+                        onAutoPauseOn = vm::setAutoPauseOn,
                         onAutoPauseAmps = vm::setAutoPauseAmps,
                         onBack = { screen = Screen.SETTINGS },
                     )
@@ -453,6 +456,7 @@ private fun BoatSpeedyApp(
                             tracking = tracking,
                             tripStats = tripStats,
                             tripPaused = tripPaused,
+                            autoPauseOverride = autoPauseOverride,
                             batteryData = dashBattery,
                             range = dashRange,
                             charge = charge,
@@ -461,6 +465,7 @@ private fun BoatSpeedyApp(
                             selectedBattery = settings.dashboardBattery,
                             livePoints = livePoints,
                             onSelectBattery = vm::setDashboardBattery,
+                            onAutoPauseOverride = vm::setAutoPauseOverride,
                             onStartTrip = vm::startTrip,
                             onStopTrip = vm::stopTrip,
                             onOpenMenu = { openDrawer() },

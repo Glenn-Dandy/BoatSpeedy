@@ -14,6 +14,7 @@ import androidx.core.app.ServiceCompat
 import de.kewl.boatspeedy.MainActivity
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.data.SettingsRepository
+import de.kewl.boatspeedy.data.NotifField
 import de.kewl.boatspeedy.data.SpeedUnit
 import de.kewl.boatspeedy.location.LocationProvider
 import kotlinx.coroutines.CoroutineScope
@@ -62,7 +63,7 @@ class LocationService : Service() {
         ServiceCompat.startForeground(
             this,
             NOTIF_ID,
-            buildNotification(getString(R.string.trip_starting)),
+            buildNotification(getString(R.string.trip_starting) to ""),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
         )
 
@@ -72,9 +73,13 @@ class LocationService : Service() {
             .stateIn(scope, SharingStarted.Eagerly, de.kewl.boatspeedy.data.Settings())
 
         job = scope.launch {
-            combine(provider.state, settings) { gps, s -> gps to s }.collect { (gps, s) ->
+            combine(
+                provider.state,
+                settings,
+                de.kewl.boatspeedy.battery.BatteryRepository.state,
+            ) { gps, s, hub -> Triple(gps, s, hub) }.collect { (gps, s, hub) ->
                 TripRepository.onLocation(gps)
-                updateNotification(notificationText(gps.speedMs, s.unit))
+                updateNotification(notificationLines(gps, s, hub))
                 maybeCheckWeather(gps.latitude, gps.longitude, s)
             }
         }
@@ -95,27 +100,66 @@ class LocationService : Service() {
         }
     }
 
-    private fun notificationText(speedMs: Float?, unit: SpeedUnit): String {
+    /**
+     * Baut die (bis zu) zwei Zeilen der Fahrt-Benachrichtigung aus den in den Einstellungen
+     * gewählten Werten. Zeile 1 ist eingeklappt sichtbar, Zeile 2 nur aufgeklappt.
+     */
+    private fun notificationLines(
+        gps: de.kewl.boatspeedy.location.GpsState,
+        s: de.kewl.boatspeedy.data.Settings,
+        hub: de.kewl.boatspeedy.battery.BatteryHub,
+    ): Pair<String, String> {
         val stats = TripRepository.stats.value
-        val speedStr = if (speedMs == null) "--" else
-            String.format(Locale.getDefault(), "%.1f %s", speedMs * unit.factorFromMs, unit.label)
-        val distStr = formatDistance(stats.distanceM)
-        return "$speedStr · $distStr"
+        val bank = de.kewl.boatspeedy.battery.activeBatteryData(s, hub).takeIf { it.isNotEmpty() }
+            ?.let { de.kewl.boatspeedy.battery.combineBatteries(it, s.bankMode) }
+        val range = de.kewl.boatspeedy.battery.estimateRange(bank, gps.speedMs)
+
+        fun value(f: NotifField): String? = when (f) {
+            NotifField.SPEED -> gps.speedMs?.let {
+                String.format(Locale.getDefault(), "%.1f %s", it * s.unit.factorFromMs, s.unit.label)
+            } ?: "--"
+            NotifField.DISTANCE -> formatDistance(stats.distanceM)
+            NotifField.TIME -> formatDuration(stats.elapsedMs)
+            NotifField.CHARGE_AH -> String.format(Locale.getDefault(), "%.1f Ah", stats.chargeAh)
+            NotifField.ENERGY_WH -> String.format(Locale.getDefault(), "%.0f Wh", stats.energyWh)
+            NotifField.SOC -> bank?.takeIf { it.voltage > 0f }?.let { "${getString(R.string.soc_short)} ${it.soc} %" }
+            NotifField.RANGE -> range?.let { formatDistance(it.km * 1000.0) }
+            NotifField.TIME_LEFT -> range?.let { formatDuration((it.hours * 3600_000).toLong()) }
+        }
+
+        fun line(n: Int) = NotifField.entries
+            .filter { it.line == n && it in s.notifFields }
+            .mapNotNull { value(it) }
+            .joinToString(" · ")
+
+        return line(1) to line(2)
+    }
+
+    private fun formatDuration(ms: Long): String {
+        val total = ms / 1000
+        val h = total / 3600
+        val m = (total % 3600) / 60
+        val sec = total % 60
+        return if (h > 0) String.format(Locale.getDefault(), "%d:%02d:%02d", h, m, sec)
+        else String.format(Locale.getDefault(), "%d:%02d", m, sec)
     }
 
     private fun formatDistance(m: Double): String =
         if (m < 1000) "${m.roundToInt()} m"
         else String.format(Locale.getDefault(), "%.2f km", m / 1000.0)
 
-    private fun buildNotification(text: String): Notification {
+    private fun buildNotification(lines: Pair<String, String>): Notification {
+        val (line1, line2) = lines
         val tapIntent = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE,
         )
+        val big = if (line2.isBlank()) line1 else "$line1\n$line2"
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.trip_running))
-            .setContentText(text)
+            .setContentText(line1)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(big))
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)
             .setContentIntent(tapIntent)
@@ -123,9 +167,9 @@ class LocationService : Service() {
             .build()
     }
 
-    private fun updateNotification(text: String) {
+    private fun updateNotification(lines: Pair<String, String>) {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIF_ID, buildNotification(text))
+        nm.notify(NOTIF_ID, buildNotification(lines))
     }
 
     private fun createChannel() {

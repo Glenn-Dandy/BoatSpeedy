@@ -39,7 +39,9 @@ class SettingsRepository(private val context: Context) {
         val BANK_MODE = stringPreferencesKey("bank_mode")
         val BATTERIES = stringPreferencesKey("batteries") // JSON-Array
         val DASH_BATTERY = stringPreferencesKey("dashboard_battery")
+        val AUTO_PAUSE_ON = booleanPreferencesKey("auto_pause_on")
         val AUTO_PAUSE_AMPS = floatPreferencesKey("auto_pause_amps")
+        val NOTIF_FIELDS = stringPreferencesKey("notif_fields")
         val ANCHOR_ALARM_ON = booleanPreferencesKey("anchor_alarm_on")
         val ANCHOR_SOUND = stringPreferencesKey("anchor_sound")
         val SOC_ALARM_ON = booleanPreferencesKey("soc_alarm_on")
@@ -71,7 +73,10 @@ class SettingsRepository(private val context: Context) {
             bankMode = p[Keys.BANK_MODE]?.let { enumOrNull<BankMode>(it) } ?: BankMode.SINGLE,
             batteries = p[Keys.BATTERIES]?.let { decodeBatteries(it) } ?: emptyList(),
             dashboardBattery = p[Keys.DASH_BATTERY] ?: COMBINED_SELECTION,
+            autoPauseOn = p[Keys.AUTO_PAUSE_ON] ?: true,
             autoPauseAmps = (p[Keys.AUTO_PAUSE_AMPS] ?: 0.05f).coerceIn(0f, 50f),
+            notifFields = p[Keys.NOTIF_FIELDS]?.let { decodeNotifFields(it) }
+                ?: setOf(NotifField.SPEED, NotifField.DISTANCE, NotifField.CHARGE_AH, NotifField.SOC),
             anchorAlarmOn = p[Keys.ANCHOR_ALARM_ON] ?: true,
             anchorSound = p[Keys.ANCHOR_SOUND]?.let { enumOrNull<AlarmSound>(it) } ?: AlarmSound.SIRENE,
             socAlarmOn = p[Keys.SOC_ALARM_ON] ?: false,
@@ -102,7 +107,11 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBankMode(value: BankMode) = edit { it[Keys.BANK_MODE] = value.name }
     suspend fun setDashboardBattery(value: String) = edit { it[Keys.DASH_BATTERY] = value }
     suspend fun setBatteries(value: List<SavedBattery>) = edit { it[Keys.BATTERIES] = encodeBatteries(value) }
+    suspend fun setAutoPauseOn(value: Boolean) = edit { it[Keys.AUTO_PAUSE_ON] = value }
     suspend fun setAutoPauseAmps(value: Float) = edit { it[Keys.AUTO_PAUSE_AMPS] = value.coerceIn(0f, 50f) }
+    suspend fun setNotifFields(value: Set<NotifField>) = edit {
+        it[Keys.NOTIF_FIELDS] = value.joinToString(",") { f -> f.name }
+    }
     suspend fun setAnchorAlarmOn(value: Boolean) = edit { it[Keys.ANCHOR_ALARM_ON] = value }
     suspend fun setAnchorSound(value: AlarmSound) = edit { it[Keys.ANCHOR_SOUND] = value.name }
     suspend fun setSocAlarmOn(value: Boolean) = edit { it[Keys.SOC_ALARM_ON] = value }
@@ -116,6 +125,9 @@ class SettingsRepository(private val context: Context) {
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.dataStore.edit(block)
     }
+
+    private fun decodeNotifFields(raw: String): Set<NotifField> =
+        raw.split(',').mapNotNull { enumOrNull<NotifField>(it.trim()) }.toSet()
 
     private fun encodeBatteries(list: List<SavedBattery>): String {
         val arr = JSONArray()

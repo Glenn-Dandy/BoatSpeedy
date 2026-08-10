@@ -35,6 +35,15 @@ enum class RangeSmoothing(val windowMs: Long) {
 /** Mitgelieferte Alarmtöne (res/raw). */
 enum class AlarmSound { PIEP, GLOCKE, SIRENE }
 
+/**
+ * Werte, die in der Fahrt-Benachrichtigung stehen können. [line] = 1 (immer sichtbar,
+ * eingeklappt) oder 2 (nur aufgeklappt).
+ */
+enum class NotifField(val line: Int) {
+    SPEED(1), DISTANCE(1), TIME(1),
+    CHARGE_AH(2), ENERGY_WH(2), SOC(2), RANGE(2), TIME_LEFT(2),
+}
+
 /** Farbe der Track-Linie auf der Karte (ARGB). */
 enum class TrackColor(val argb: Int) {
     BLUE(0xFF1E88E5.toInt()),
@@ -93,8 +102,14 @@ data class Settings(
     /** Ausgewählte Anzeige auf dem Dashboard: Adresse einer Batterie oder [COMBINED_SELECTION]. */
     val dashboardBattery: String = COMBINED_SELECTION,
     // Fahrt / Alarme
+    /** Auto-Pause aktiv? (Schwelle darunter). */
+    val autoPauseOn: Boolean = true,
     /** Auto-Pause-Schwelle in A; 0 = aus (Fahrt läuft ohne Auto-Pause). */
     val autoPauseAmps: Float = 0.05f,
+    /** Werte in der Fahrt-Benachrichtigung. */
+    val notifFields: Set<NotifField> = setOf(
+        NotifField.SPEED, NotifField.DISTANCE, NotifField.CHARGE_AH, NotifField.SOC,
+    ),
     /** Ankeralarm mit Ton (sonst nur Benachrichtigung). */
     val anchorAlarmOn: Boolean = true,
     val anchorSound: AlarmSound = AlarmSound.SIRENE,

@@ -71,6 +71,7 @@ fun DashboardScreen(
     tracking: Boolean,
     tripStats: TripStats,
     tripPaused: Boolean,
+    autoPauseOverride: Boolean,
     batteryData: BatteryData?,
     range: RangeEstimate?,
     charge: ChargeState,
@@ -79,6 +80,7 @@ fun DashboardScreen(
     selectedBattery: String,
     livePoints: List<TrackPoint>,
     onSelectBattery: (String) -> Unit,
+    onAutoPauseOverride: (Boolean) -> Unit,
     onStartTrip: () -> Unit,
     onStopTrip: () -> Unit,
     onOpenMenu: () -> Unit,
@@ -156,12 +158,31 @@ fun DashboardScreen(
                     StatsPanel(stats = tripStats, settings = settings, showConsumption = batteryData != null)
                     Spacer(Modifier.height(12.dp))
                 }
-                if (tracking && tripPaused) {
-                    Text(
-                        stringResource(R.string.trip_paused),
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                if (tracking && (tripPaused || autoPauseOverride)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            stringResource(
+                                if (tripPaused) R.string.trip_paused else R.string.trip_forced_record,
+                            ),
+                            color = if (tripPaused) MaterialTheme.colorScheme.secondary
+                            else MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        // Auto-Pause überstimmen (z. B. Treiben auf dem Fluss mitschreiben).
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { onAutoPauseOverride(!autoPauseOverride) },
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (autoPauseOverride) R.string.auto_pause_reenable
+                                    else R.string.trip_keep_recording,
+                                ),
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
                 }
                 TripButton(tracking = tracking, onStart = onStartTrip, onStop = onStopTrip)
