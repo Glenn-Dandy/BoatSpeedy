@@ -297,6 +297,7 @@ fun TracksSettingsScreen(
     onTrackArrows: (Boolean) -> Unit,
     onAutoPauseOn: (Boolean) -> Unit,
     onAutoPauseAmps: (Float) -> Unit,
+    onAutoPauseSpeedMs: (Float) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_tracks), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -330,7 +331,10 @@ fun TracksSettingsScreen(
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SwitchRow(stringResource(R.string.auto_pause_on), settings.autoPauseOn, onAutoPauseOn)
-        if (settings.autoPauseOn) AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
+        if (settings.autoPauseOn) {
+            AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
+            AutoPauseSpeedField(settings, onAutoPauseSpeedMs)
+        }
     }
 }
 
@@ -451,6 +455,39 @@ private fun AlarmSoundRow(label: String, selected: AlarmSound, onSelect: (AlarmS
 }
 
 /* ------------------------------ Helpers ------------------------------ */
+
+/** Bewegungs-Schwelle der Auto-Pause in der gewählten Einheit (km/h oder kn); 0 = ignorieren. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AutoPauseSpeedField(settings: Settings, onChange: (Float) -> Unit) {
+    val factor = settings.unit.factorFromMs
+    val shown = (settings.autoPauseSpeedMs * factor).toFloat()
+    var text by remember(settings.autoPauseSpeedMs, settings.unit) {
+        mutableStateOf(if (shown <= 0f) "" else String.format(java.util.Locale.getDefault(), "%.1f", shown))
+    }
+    Column(modifier = Modifier.padding(vertical = 10.dp)) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { new ->
+                val filtered = new.replace(',', '.').filter { it.isDigit() || it == '.' }.take(5)
+                text = filtered
+                val value = filtered.toFloatOrNull() ?: 0f
+                onChange((value / factor).toFloat().coerceIn(0f, 10f))
+            },
+            label = { Text(stringResource(R.string.auto_pause_speed)) },
+            suffix = { Text(settings.unit.label) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            stringResource(R.string.auto_pause_speed_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

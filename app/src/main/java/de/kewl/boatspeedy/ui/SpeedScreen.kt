@@ -20,8 +20,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -158,32 +161,14 @@ fun DashboardScreen(
                     StatsPanel(stats = tripStats, settings = settings, showConsumption = batteryData != null)
                     Spacer(Modifier.height(12.dp))
                 }
+                // Auto-Pause-Status als kompakter Chip – antippen schaltet um
+                // (links: aktueller Zustand, rechts: was das Antippen bewirkt).
                 if (tracking && (tripPaused || autoPauseOverride)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text(
-                            stringResource(
-                                if (tripPaused) R.string.trip_paused else R.string.trip_forced_record,
-                            ),
-                            color = if (tripPaused) MaterialTheme.colorScheme.secondary
-                            else MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        // Auto-Pause überstimmen (z. B. Treiben auf dem Fluss mitschreiben).
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = { onAutoPauseOverride(!autoPauseOverride) },
-                        ) {
-                            Text(
-                                stringResource(
-                                    if (autoPauseOverride) R.string.auto_pause_reenable
-                                    else R.string.trip_keep_recording,
-                                ),
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
+                    AutoPauseChip(
+                        paused = tripPaused,
+                        onToggle = { onAutoPauseOverride(!autoPauseOverride) },
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
                 TripButton(tracking = tracking, onStart = onStartTrip, onStop = onStopTrip)
                 Spacer(Modifier.height(16.dp))
@@ -397,6 +382,45 @@ private fun StatItem(label: String, value: String) {
         Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
         Text(value, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
     }
+}
+
+/**
+ * Zustand der Auto-Pause als antippbarer Chip. Bewusst dezenter als der Start/Stopp-Knopf,
+ * damit dieser der einzige „große" Bedienknopf auf dem Dashboard bleibt.
+ */
+@Composable
+private fun AutoPauseChip(paused: Boolean, onToggle: () -> Unit) {
+    val tint = if (paused) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+    AssistChip(
+        onClick = onToggle,
+        label = {
+            Text(
+                stringResource(if (paused) R.string.trip_paused else R.string.trip_recording),
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        leadingIcon = {
+            Icon(
+                if (paused) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+        },
+        trailingIcon = {
+            Icon(
+                if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                contentDescription = stringResource(
+                    if (paused) R.string.trip_keep_recording else R.string.auto_pause_reenable,
+                ),
+                modifier = Modifier.size(18.dp),
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            labelColor = tint,
+            leadingIconContentColor = tint,
+            trailingIconContentColor = tint,
+        ),
+    )
 }
 
 @Composable

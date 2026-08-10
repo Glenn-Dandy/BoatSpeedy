@@ -65,13 +65,14 @@ object TripRepository {
     private var lastSampleTs = 0L
 
     private const val MIN_SPEED_MS = 0.5f      // unter ~1,8 km/h nicht als Fahrt zählen
-    /** ab dieser Geschwindigkeit gilt das Boot als „in Bewegung" (≈0,5 km/h). */
-    private const val AUTO_PAUSE_MIN_SPEED_MS = 0.14f
     private const val MAX_ACCURACY_M = 25f     // schlechte Fixes für Distanz ignorieren
     private const val MAX_STEP_M = 200.0       // Ausreißer (Sprünge) verwerfen
 
     /** Auto-Pause-Schwelle in A (0 = aus); vom ViewModel aus den Settings gesetzt. */
     @Volatile var autoPauseAmps: Float = 0.05f
+
+    /** Bewegungs-Schwelle der Auto-Pause (m/s); 0 = Geschwindigkeit ignorieren. */
+    @Volatile var autoPauseSpeedMs: Float = 0.14f
 
     /** Nutzer hat die Auto-Pause für diese Fahrt überstimmt („Weiter aufzeichnen"). */
     private val _autoPauseOverride = MutableStateFlow(false)
@@ -196,7 +197,8 @@ object TripRepository {
         val threshold = autoPauseAmps
         // Schlaue Auto-Pause: nur pausieren, wenn wenig Strom fließt UND das Boot steht.
         // Treiben (Motor aus, aber in Bewegung) wird so weiter aufgezeichnet.
-        val moving = lastSpeedMs >= AUTO_PAUSE_MIN_SPEED_MS
+        val speedLimit = autoPauseSpeedMs
+        val moving = speedLimit > 0f && lastSpeedMs >= speedLimit
         val shouldRun = _autoPauseOverride.value || threshold <= 0f ||
             kotlin.math.abs(amps) >= threshold || moving
 

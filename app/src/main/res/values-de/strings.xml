@@ -50,7 +50,8 @@
     <string name="stat_energy">Energie</string>
     <string name="stat_efficiency">Effizienz</string>
     <string name="stat_consumed">Verbrauch</string>
-    <string name="trip_paused">⏸ Auto-Pause</string>
+    <string name="trip_paused">Auto-Pause</string>
+    <string name="trip_recording">Zeichnet auf</string>
 
     <!-- Navigations-Menü -->
     <string name="menu">Menü</string>
@@ -189,9 +190,10 @@
     <string name="charge_reached_text">%1$d %% erreicht.</string>
     <string name="soc_alarm_sound">SoC-Alarm mit Ton</string>
     <string name="auto_pause_on">Auto-Pause</string>
+    <string name="auto_pause_speed">Auto-Pause unter Geschwindigkeit</string>
+    <string name="auto_pause_speed_hint">0 = Geschwindigkeit ignorieren (nur Strom zählt). Sonst wird oberhalb dieser Geschwindigkeit weiter aufgezeichnet (Treiben).</string>
     <string name="trip_keep_recording">Weiter aufzeichnen</string>
-    <string name="trip_forced_record">▶ Zeichnet auf (Auto-Pause aus)</string>
-    <string name="auto_pause_reenable">Auto-Pause an</string>
+        <string name="auto_pause_reenable">Auto-Pause an</string>
     <string name="notif_section">Benachrichtigung</string>
     <string name="notif_hint">Werte in der Fahrt-Benachrichtigung (Zeile 2 erscheint beim Aufklappen).</string>
     <string name="auto_pause">Auto-Pause unter Strom (A)</string>

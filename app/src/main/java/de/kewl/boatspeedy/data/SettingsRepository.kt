@@ -41,6 +41,7 @@ class SettingsRepository(private val context: Context) {
         val DASH_BATTERY = stringPreferencesKey("dashboard_battery")
         val AUTO_PAUSE_ON = booleanPreferencesKey("auto_pause_on")
         val AUTO_PAUSE_AMPS = floatPreferencesKey("auto_pause_amps")
+        val AUTO_PAUSE_SPEED = floatPreferencesKey("auto_pause_speed_ms")
         val NOTIF_FIELDS = stringPreferencesKey("notif_fields")
         val ANCHOR_ALARM_ON = booleanPreferencesKey("anchor_alarm_on")
         val ANCHOR_SOUND = stringPreferencesKey("anchor_sound")
@@ -75,6 +76,7 @@ class SettingsRepository(private val context: Context) {
             dashboardBattery = p[Keys.DASH_BATTERY] ?: COMBINED_SELECTION,
             autoPauseOn = p[Keys.AUTO_PAUSE_ON] ?: true,
             autoPauseAmps = (p[Keys.AUTO_PAUSE_AMPS] ?: 0.05f).coerceIn(0f, 50f),
+            autoPauseSpeedMs = (p[Keys.AUTO_PAUSE_SPEED] ?: 0.14f).coerceIn(0f, 10f),
             notifFields = p[Keys.NOTIF_FIELDS]?.let { decodeNotifFields(it) }
                 ?: setOf(NotifField.SPEED, NotifField.DISTANCE, NotifField.CHARGE_AH, NotifField.SOC),
             anchorAlarmOn = p[Keys.ANCHOR_ALARM_ON] ?: true,
@@ -109,6 +111,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBatteries(value: List<SavedBattery>) = edit { it[Keys.BATTERIES] = encodeBatteries(value) }
     suspend fun setAutoPauseOn(value: Boolean) = edit { it[Keys.AUTO_PAUSE_ON] = value }
     suspend fun setAutoPauseAmps(value: Float) = edit { it[Keys.AUTO_PAUSE_AMPS] = value.coerceIn(0f, 50f) }
+    suspend fun setAutoPauseSpeedMs(value: Float) = edit { it[Keys.AUTO_PAUSE_SPEED] = value.coerceIn(0f, 10f) }
     suspend fun setNotifFields(value: Set<NotifField>) = edit {
         it[Keys.NOTIF_FIELDS] = value.joinToString(",") { f -> f.name }
     }

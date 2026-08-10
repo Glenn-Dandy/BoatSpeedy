@@ -53,7 +53,8 @@
     <string name="stat_energy">Energy</string>
     <string name="stat_efficiency">Efficiency</string>
     <string name="stat_consumed">Consumed</string>
-    <string name="trip_paused">⏸ Auto-pause</string>
+    <string name="trip_paused">Auto-pause</string>
+    <string name="trip_recording">Recording</string>
 
     <!-- Navigation drawer -->
     <string name="menu">Menu</string>
@@ -192,9 +193,10 @@
     <string name="charge_reached_text">%1$d %% reached.</string>
     <string name="soc_alarm_sound">Low-charge alarm sound</string>
     <string name="auto_pause_on">Auto-pause</string>
+    <string name="auto_pause_speed">Auto-pause below speed</string>
+    <string name="auto_pause_speed_hint">0 = ignore speed (pause on current only). Otherwise the trip keeps recording while drifting above this speed.</string>
     <string name="trip_keep_recording">Keep recording</string>
-    <string name="trip_forced_record">▶ Recording (auto-pause off)</string>
-    <string name="auto_pause_reenable">Auto-pause on</string>
+        <string name="auto_pause_reenable">Auto-pause on</string>
     <string name="notif_section">Notification</string>
     <string name="notif_hint">Values shown in the trip notification (line 2 appears when expanded).</string>
     <string name="auto_pause">Auto-pause below current (A)</string>

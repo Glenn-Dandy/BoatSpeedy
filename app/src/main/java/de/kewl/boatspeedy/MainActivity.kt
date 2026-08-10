@@ -345,6 +345,7 @@ private fun BoatSpeedyApp(
                         onTrackArrows = vm::setTrackArrows,
                         onAutoPauseOn = vm::setAutoPauseOn,
                         onAutoPauseAmps = vm::setAutoPauseAmps,
+                        onAutoPauseSpeedMs = vm::setAutoPauseSpeedMs,
                         onBack = { screen = Screen.SETTINGS },
                     )
 

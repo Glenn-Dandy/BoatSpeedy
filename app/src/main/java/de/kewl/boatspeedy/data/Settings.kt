@@ -106,6 +106,11 @@ data class Settings(
     val autoPauseOn: Boolean = true,
     /** Auto-Pause-Schwelle in A; 0 = aus (Fahrt läuft ohne Auto-Pause). */
     val autoPauseAmps: Float = 0.05f,
+    /**
+     * Bewegungs-Schwelle der Auto-Pause in m/s: darüber gilt das Boot als „in Fahrt"
+     * (Treiben wird aufgezeichnet). 0 = Geschwindigkeit ignorieren, nur Strom zählt.
+     */
+    val autoPauseSpeedMs: Float = 0.14f,
     /** Werte in der Fahrt-Benachrichtigung. */
     val notifFields: Set<NotifField> = setOf(
         NotifField.SPEED, NotifField.DISTANCE, NotifField.CHARGE_AH, NotifField.SOC,
