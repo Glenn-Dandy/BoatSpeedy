@@ -1,0 +1,8 @@
+1.3.0
+* Smart auto-pause: only pauses when the current is low AND the boat is still, so drifting keeps recording; both thresholds configurable (speed 0 = ignore), plus an on/off switch
+* Dashboard status chip: tap to override auto-pause or re-enable it
+* Notifications: own settings entry, optional always-on, freely selectable values, two lines
+* Low-charge and charge-level alerts now loop until acknowledged (banner, volume key or "Silence")
+* Merge selected trips into one; sharing several trips now creates one GPX file per trip
+* Battery: short auto-name, type and MAC in the details, rename
+* Fixed weather radar loading in stages and auto-pause not re-evaluating after toggling
