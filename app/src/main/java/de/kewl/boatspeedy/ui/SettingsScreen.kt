@@ -375,10 +375,10 @@ fun GeneralSettingsScreen(
         // --- Ladestand (Warnung, SoC-Alarmton, Lade-Meldung gehören zusammen) ---
         SectionLabel(stringResource(R.string.section_charge))
         LowSocSliderRow(settings.lowSocPercent, onLowSocPercent)
+        ChargeTargetSliderRow(settings.chargeTargetSoc, onChargeTargetSoc)
         SwitchRow(stringResource(R.string.soc_alarm_sound), settings.socAlarmOn, onSocAlarmOn)
         AlarmSoundRow(stringResource(R.string.soc_sound_label), settings.socSound, onSocSound)
         Button(onClick = onTestSoc) { Text(stringResource(R.string.alarm_test)) }
-        ChargeTargetSliderRow(settings.chargeTargetSoc, onChargeTargetSoc)
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         // --- Anker ---

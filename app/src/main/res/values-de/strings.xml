@@ -181,8 +181,11 @@
     <string name="sound_sirene">Sirene</string>
     <string name="section_charge">Ladestand</string>
     <string name="group_weather">Wetter</string>
-    <string name="charge_target_label">Meldung bei Ladestand (%)</string>
+    <string name="charge_target_label">Lademodus: Meldung bei (%)</string>
     <string name="charge_reached_title">Ladestand erreicht</string>
+    <string name="alarm_channel">Alarme (quittieren)</string>
+    <string name="alarm_ack_hint">Zum Quittieren antippen (oder Lautstärketaste drücken)</string>
+    <string name="soc_alarm_text">Ladestand bei oder unter %1$d %%.</string>
     <string name="charge_reached_text">%1$d %% erreicht.</string>
     <string name="soc_alarm_sound">SoC-Alarm mit Ton</string>
     <string name="auto_pause">Auto-Pause unter Strom (A)</string>

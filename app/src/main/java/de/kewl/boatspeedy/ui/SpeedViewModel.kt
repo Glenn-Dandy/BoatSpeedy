@@ -7,6 +7,7 @@ import android.location.LocationManager
 import android.os.SystemClock
 import de.kewl.boatspeedy.R
 import androidx.lifecycle.AndroidViewModel
+import de.kewl.boatspeedy.alarm.AlarmController
 import de.kewl.boatspeedy.alarm.AlarmPlayer
 import de.kewl.boatspeedy.anchor.AnchorRepository
 import de.kewl.boatspeedy.anchor.AnchorService
@@ -114,6 +115,12 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     // Aktive DWD-Wetterwarnungen (prozessweit gepflegt).
     val weatherWarnings: StateFlow<List<WeatherWarning>> = WeatherRepository.active
 
+    /** Text des quittierpflichtigen Alarms (null = keiner aktiv). */
+    val pendingAlarm: StateFlow<String?> = AlarmController.active
+
+    /** Alarm quittieren (Banner, Lautstärketaste …). */
+    fun acknowledgeAlarm() = AlarmController.stop(getApplication())
+
     init {
         viewModelScope.launch {
             combine(settings, battery, _gps) { s, hub, gps ->
@@ -149,8 +156,15 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                     data.voltage > 0f && data.soc in 1..s.lowSocPercent
                 Triple(low, s.socAlarmOn, s.socSound)
             }.collect { (low, on, sound) ->
+                // Dauer-Alarm: läuft, bis der Nutzer quittiert (Lautstärketaste / Banner / „Stumm").
                 if (low && !lastSocLow && on) {
-                    AlarmPlayer.play(getApplication(), sound, loop = false)
+                    AlarmController.trigger(
+                        getApplication(),
+                        getString(R.string.low_soc_warn),
+                        getString(R.string.soc_alarm_text, settings.value.lowSocPercent),
+                        sound,
+                        withSound = true,
+                    )
                 }
                 lastSocLow = low
             }
@@ -228,11 +242,13 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                     val target = settings.value.chargeTargetSoc
                     if (target in 1..100 && d.soc >= target && !chargeTargetNotified) {
                         chargeTargetNotified = true
-                        Notifier.notify(
-                            getApplication(), "charge", getString(R.string.charge_channel), 7,
+                        // Wie beim niedrigen Ladestand: dauerhaft, bis quittiert.
+                        AlarmController.trigger(
+                            getApplication(),
                             getString(R.string.charge_reached_title),
                             getString(R.string.charge_reached_text, d.soc),
-                            high = false,
+                            settings.value.socSound,
+                            withSound = settings.value.socAlarmOn,
                         )
                     }
                 }
