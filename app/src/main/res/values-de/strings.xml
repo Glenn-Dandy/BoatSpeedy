@@ -50,7 +50,8 @@
     <string name="stat_energy">Energie</string>
     <string name="stat_efficiency">Effizienz</string>
     <string name="stat_consumed">Verbrauch</string>
-    <string name="trip_paused">⏸ Auto-Pause</string>
+    <string name="trip_paused">Auto-Pause</string>
+    <string name="trip_recording">Zeichnet auf</string>
 
     <!-- Navigations-Menü -->
     <string name="menu">Menü</string>
@@ -73,6 +74,9 @@
     <string name="color_red">Rot</string>
     <string name="color_black">Schwarz</string>
     <string name="export">Exportieren</string>
+    <string name="merge_trips">Fahrten zusammenführen</string>
+    <string name="merge_ok">Fahrten zusammengeführt.</string>
+    <string name="merge_failed">Mindestens zwei Fahrten auswählen.</string>
     <string name="no_track">Für die Auswahl ist kein Track vorhanden.</string>
     <string name="import_gpx">GPX importieren</string>
     <string name="import_ok">Fahrt importiert.</string>
@@ -147,6 +151,11 @@
     <string name="bat_none">Noch keine Batterie hinzugefügt. Auf „Hinzufügen“ tippen zum Scannen.</string>
     <string name="add_battery">Hinzufügen</string>
     <string name="remove">Entfernen</string>
+    <string name="rename">Umbenennen</string>
+    <string name="bat_name">Name</string>
+    <string name="bat_mac">MAC-Adresse</string>
+    <string name="save">Speichern</string>
+    <string name="cancel">Abbrechen</string>
     <string name="bank_mode">Verschaltung</string>
     <string name="mode_single">Einzeln</string>
     <string name="mode_parallel">Parallel</string>
@@ -181,10 +190,26 @@
     <string name="sound_sirene">Sirene</string>
     <string name="section_charge">Ladestand</string>
     <string name="group_weather">Wetter</string>
-    <string name="charge_target_label">Meldung bei Ladestand (%)</string>
+    <string name="charge_target_label">Warnung bei Ladestand (Lademodus)</string>
     <string name="charge_reached_title">Ladestand erreicht</string>
+    <string name="alarm_channel">Alarme (quittieren)</string>
+    <string name="alarm_ack_hint">Zum Quittieren antippen (oder Lautstärketaste drücken)</string>
+    <string name="soc_alarm_text">Ladestand bei oder unter %1$d %%.</string>
     <string name="charge_reached_text">%1$d %% erreicht.</string>
     <string name="soc_alarm_sound">SoC-Alarm mit Ton</string>
+    <string name="auto_pause_on">Auto-Pause</string>
+    <string name="auto_pause_speed">Auto-Pause unter Geschwindigkeit</string>
+    <string name="auto_pause_speed_hint">0 = Geschwindigkeit ignorieren (nur Strom zählt). Sonst wird oberhalb dieser Geschwindigkeit weiter aufgezeichnet (Treiben).</string>
+    <string name="trip_keep_recording">Weiter aufzeichnen</string>
+        <string name="auto_pause_reenable">Auto-Pause an</string>
+    <string name="notif_section">Benachrichtigungen</string>
+    <string name="cat_notif_desc">Fahrt-Benachrichtigung, Werte, immer anzeigen</string>
+    <string name="notif_enabled">Fahrt-Benachrichtigung anzeigen</string>
+    <string name="notif_always">Auch ohne Fahrt anzeigen</string>
+    <string name="notif_always_hint">Zeigt die Werte, solange die App läuft (auch im Hintergrund). Während einer Fahrt zeigt sie der Vordergrunddienst ohnehin.</string>
+    <string name="notif_fields_title">Werte</string>
+    <string name="notif_others">Unabhängig davon: Wetterwarnungen (DWD), Anker-Wache, Ladevorgang und quittierpflichtige Alarme haben eigene Benachrichtigungen — einzeln abschaltbar in den Android-App-Einstellungen unter „Benachrichtigungen".</string>
+    <string name="notif_hint">Werte in der Fahrt-Benachrichtigung (Zeile 2 erscheint beim Aufklappen).</string>
     <string name="auto_pause">Auto-Pause unter Strom (A)</string>
     <string name="auto_pause_hint">0 oder leer = aus. Beispiele: 0.05, 0.5, 1.0</string>
 

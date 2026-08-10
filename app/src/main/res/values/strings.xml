@@ -53,7 +53,8 @@
     <string name="stat_energy">Energy</string>
     <string name="stat_efficiency">Efficiency</string>
     <string name="stat_consumed">Consumed</string>
-    <string name="trip_paused">⏸ Auto-pause</string>
+    <string name="trip_paused">Auto-pause</string>
+    <string name="trip_recording">Recording</string>
 
     <!-- Navigation drawer -->
     <string name="menu">Menu</string>
@@ -76,6 +77,9 @@
     <string name="color_red">Red</string>
     <string name="color_black">Black</string>
     <string name="export">Export</string>
+    <string name="merge_trips">Merge trips</string>
+    <string name="merge_ok">Trips merged.</string>
+    <string name="merge_failed">Select at least two trips to merge.</string>
     <string name="no_track">No track recorded for the selection.</string>
     <string name="import_gpx">Import GPX</string>
     <string name="import_ok">Trip imported.</string>
@@ -150,6 +154,11 @@
     <string name="bat_none">No batteries added yet. Tap “Add” to scan and add one.</string>
     <string name="add_battery">Add</string>
     <string name="remove">Remove</string>
+    <string name="rename">Rename</string>
+    <string name="bat_name">Name</string>
+    <string name="bat_mac">MAC address</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
     <string name="bank_mode">Wiring</string>
     <string name="mode_single">Single</string>
     <string name="mode_parallel">Parallel</string>
@@ -184,10 +193,26 @@
     <string name="sound_sirene">Siren</string>
     <string name="section_charge">Charge level</string>
     <string name="group_weather">Weather</string>
-    <string name="charge_target_label">Notify at charge level (%)</string>
+    <string name="charge_target_label">Charge-level warning (charging mode)</string>
     <string name="charge_reached_title">Charge level reached</string>
+    <string name="alarm_channel">Alarms (acknowledge)</string>
+    <string name="alarm_ack_hint">Tap to acknowledge (or press a volume key)</string>
+    <string name="soc_alarm_text">Charge level at or below %1$d %%.</string>
     <string name="charge_reached_text">%1$d %% reached.</string>
     <string name="soc_alarm_sound">Low-charge alarm sound</string>
+    <string name="auto_pause_on">Auto-pause</string>
+    <string name="auto_pause_speed">Auto-pause below speed</string>
+    <string name="auto_pause_speed_hint">0 = ignore speed (pause on current only). Otherwise the trip keeps recording while drifting above this speed.</string>
+    <string name="trip_keep_recording">Keep recording</string>
+        <string name="auto_pause_reenable">Auto-pause on</string>
+    <string name="notif_section">Notifications</string>
+    <string name="cat_notif_desc">Trip notification, values, always on</string>
+    <string name="notif_enabled">Show trip notification</string>
+    <string name="notif_always">Also show without a trip</string>
+    <string name="notif_always_hint">Shows the values while the app is running (also in the background). During a trip the foreground service shows them anyway.</string>
+    <string name="notif_fields_title">Values</string>
+    <string name="notif_others">Independent of this: weather warnings (DWD), anchor watch, charging status and acknowledge alarms have their own notifications — you can turn each off in the Android app settings under “Notifications”.</string>
+    <string name="notif_hint">Values shown in the trip notification (line 2 appears when expanded).</string>
     <string name="auto_pause">Auto-pause below current (A)</string>
     <string name="auto_pause_hint">0 or empty = off. Examples: 0.05, 0.5, 1.0</string>
 

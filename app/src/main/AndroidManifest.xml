@@ -90,6 +90,11 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!-- „Stumm"-Knopf der quittierpflichtigen Alarme. -->
+        <receiver
+            android:name=".alarm.AlarmStopReceiver"
+            android:exported="false" />
+
         <!-- Teilt exportierte GPX-Dateien (Cache) sicher per content://-URI. -->
         <provider
             android:name="androidx.core.content.FileProvider"

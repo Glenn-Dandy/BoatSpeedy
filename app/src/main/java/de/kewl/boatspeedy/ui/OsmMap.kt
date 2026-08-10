@@ -61,6 +61,10 @@ fun OsmMap(
             userAgentValue = context.packageName
             osmdroidBasePath = File(context.cacheDir, "osmdroid")
             osmdroidTileCache = File(osmdroidBasePath, "tiles")
+            // Die Radar-Frames brauchen viele Kacheln; mit der kleinen Standard-Warteschlange
+            // werden Anfragen verworfen (Frames bleiben leer / laden erst nach mehreren Runden).
+            tileDownloadThreads = 6
+            tileDownloadMaxQueueSize = 400
         }
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
@@ -138,9 +142,12 @@ fun OsmMap(
 
     // Alle Frames für den sichtbaren Bereich im Hintergrund vorladen (Kachel-Cache wärmen),
     // damit die Schleife beim Drücken von „Play" sofort flüssig läuft.
+    // Frames NACHEINANDER vorladen – der sichtbare zuerst. Alles auf einmal anzufordern
+    // sprengt die Download-Warteschlange, dann werden Kacheln verworfen und der Frame
+    // („jetzt") bleibt leer bzw. füllt sich erst nach mehreren Durchläufen.
     LaunchedEffect(showRadar, radarLayers) {
         if (!showRadar || radarLayers.isEmpty()) return@LaunchedEffect
-        delay(500) // Karte zentrieren/zoomen lassen
+        delay(400) // Karte zentrieren/zoomen lassen
         val z = mapView.zoomLevelDouble.toInt().coerceIn(3, 14)
         val n = 1 shl z
         val bb = mapView.boundingBox
@@ -153,10 +160,23 @@ fun OsmMap(
         val x1 = (lon2x(bb.lonEast) + 1).coerceIn(0, n - 1)
         val y0 = (lat2y(bb.latNorth) - 1).coerceIn(0, n - 1)
         val y1 = (lat2y(bb.latSouth) + 1).coerceIn(0, n - 1)
-        radarLayers.forEach { (_, p) ->
+
+        fun request(index: Int) {
+            val p = radarLayers.getOrNull(index)?.second ?: return
             for (x in x0..x1) for (y in y0..y1) {
                 runCatching { p.getMapTile(MapTileIndex.getTileIndex(z, x, y)) }
             }
+        }
+
+        // 1) sichtbarer Frame sofort, damit „jetzt" gleich erscheint
+        val first = radarFrameIndex.coerceIn(0, radarLayers.lastIndex)
+        request(first)
+        mapView.invalidate()
+        delay(900)
+        // 2) die übrigen Frames der Reihe nach
+        radarLayers.indices.filter { it != first }.forEach { i ->
+            request(i)
+            delay(450)
         }
     }
 

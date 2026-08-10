@@ -10,8 +10,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -66,6 +69,7 @@ import de.kewl.boatspeedy.ui.DashboardScreen
 import de.kewl.boatspeedy.ui.DashboardSettingsScreen
 import de.kewl.boatspeedy.ui.GeneralSettingsScreen
 import de.kewl.boatspeedy.ui.GpsSettingsScreen
+import de.kewl.boatspeedy.ui.NotificationSettingsScreen
 import de.kewl.boatspeedy.ui.LiveMapScreen
 import de.kewl.boatspeedy.ui.SettingsHomeScreen
 import de.kewl.boatspeedy.ui.TracksSettingsScreen
@@ -78,7 +82,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_APPEARANCE, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_APPEARANCE, ABOUT }
 
 class MainActivity : ComponentActivity() {
     // Von außen zum Import übergebene GPX-Datei (Öffnen-mit / Teilen an BoatSpeedy).
@@ -95,6 +99,17 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         extractGpx(intent)?.let { pendingGpx.value = it }
+    }
+
+    /** Lautstärketasten quittieren einen laufenden Alarm (wie bei Weckern). */
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        val isVolume = keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP ||
+            keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN
+        if (isVolume && de.kewl.boatspeedy.alarm.AlarmController.isActive) {
+            de.kewl.boatspeedy.alarm.AlarmController.stop(this)
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
     }
 
     private fun extractGpx(intent: android.content.Intent?): android.net.Uri? = when (intent?.action) {
@@ -182,6 +197,7 @@ private fun BoatSpeedyApp(
             val tracking by vm.tracking.collectAsStateWithLifecycle()
             val tripStats by vm.tripStats.collectAsStateWithLifecycle()
             val tripPaused by vm.tripPaused.collectAsStateWithLifecycle()
+            val autoPauseOverride by vm.autoPauseOverride.collectAsStateWithLifecycle()
             val battery by vm.battery.collectAsStateWithLifecycle()
             val dashBattery by vm.dashboardBattery.collectAsStateWithLifecycle()
             val dashRange by vm.dashboardRange.collectAsStateWithLifecycle()
@@ -251,7 +267,7 @@ private fun BoatSpeedyApp(
             BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
             BackHandler(enabled = !drawerState.isOpen && screen != Screen.SPEED) {
                 screen = when (screen) {
-                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_GENERAL, Screen.SETTINGS_TRACKS, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE -> Screen.SETTINGS
+                    Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_NOTIF, Screen.SETTINGS_GENERAL, Screen.SETTINGS_TRACKS, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE -> Screen.SETTINGS
                     Screen.TRIP_DETAIL -> Screen.TRIPS
                     Screen.TRIP_MAP -> Screen.TRIP_DETAIL
                     else -> Screen.SPEED
@@ -285,6 +301,7 @@ private fun BoatSpeedyApp(
                 when (screen) {
                     Screen.SETTINGS -> SettingsHomeScreen(
                         onDashboard = { screen = Screen.SETTINGS_DASHBOARD },
+                        onNotifications = { screen = Screen.SETTINGS_NOTIF },
                         onGeneral = { screen = Screen.SETTINGS_GENERAL },
                         onAppearance = { screen = Screen.SETTINGS_APPEARANCE },
                         onTracks = { screen = Screen.SETTINGS_TRACKS },
@@ -302,6 +319,14 @@ private fun BoatSpeedyApp(
                         onShowRangeTile = vm::setShowRangeTile,
                         onShowMapTile = vm::setShowMapTile,
                         onShowSatDetails = vm::setShowSatDetails,
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_NOTIF -> NotificationSettingsScreen(
+                        settings = settings,
+                        onNotifEnabled = vm::setNotifEnabled,
+                        onNotifAlways = vm::setNotifAlways,
+                        onNotifFields = vm::setNotifFields,
                         onBack = { screen = Screen.SETTINGS },
                     )
 
@@ -327,7 +352,9 @@ private fun BoatSpeedyApp(
                         onTrackColor = vm::setTrackColor,
                         onTrackWidth = vm::setTrackWidth,
                         onTrackArrows = vm::setTrackArrows,
+                        onAutoPauseOn = vm::setAutoPauseOn,
                         onAutoPauseAmps = vm::setAutoPauseAmps,
+                        onAutoPauseSpeedMs = vm::setAutoPauseSpeedMs,
                         onBack = { screen = Screen.SETTINGS },
                     )
 
@@ -349,6 +376,15 @@ private fun BoatSpeedyApp(
                         trips = trips,
                         onOpenDetail = { trip -> selectedTrip = trip; screen = Screen.TRIP_DETAIL },
                         onDelete = vm::deleteTrips,
+                        onMerge = { ids ->
+                            vm.mergeTrips(ids) { ok ->
+                                android.widget.Toast.makeText(
+                                    context,
+                                    context.getString(if (ok) R.string.merge_ok else R.string.merge_failed),
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
                         onImport = { uri ->
                             vm.importGpx(uri) { ok ->
                                 android.widget.Toast.makeText(
@@ -408,6 +444,7 @@ private fun BoatSpeedyApp(
                         onDisconnect = vm::disconnectBattery,
                         onToggleActive = vm::setBatteryActive,
                         onRemove = vm::removeBattery,
+                        onRename = vm::renameBattery,
                         onBms = vm::setBms,
                         onBankMode = vm::setBankMode,
                         onOpenMenu = { openDrawer() },
@@ -439,6 +476,7 @@ private fun BoatSpeedyApp(
                             tracking = tracking,
                             tripStats = tripStats,
                             tripPaused = tripPaused,
+                            autoPauseOverride = autoPauseOverride,
                             batteryData = dashBattery,
                             range = dashRange,
                             charge = charge,
@@ -447,6 +485,7 @@ private fun BoatSpeedyApp(
                             selectedBattery = settings.dashboardBattery,
                             livePoints = livePoints,
                             onSelectBattery = vm::setDashboardBattery,
+                            onAutoPauseOverride = vm::setAutoPauseOverride,
                             onStartTrip = vm::startTrip,
                             onStopTrip = vm::stopTrip,
                             onOpenMenu = { openDrawer() },
@@ -454,6 +493,44 @@ private fun BoatSpeedyApp(
                         )
                     }
                 }
+            }
+
+            // Quittierpflichtiger Alarm: Banner über allem, Antippen bestätigt.
+            val pendingAlarm by vm.pendingAlarm.collectAsStateWithLifecycle()
+            pendingAlarm?.let { text ->
+                AlarmBanner(text = text, onAcknowledge = vm::acknowledgeAlarm)
+            }
+        }
+    }
+}
+
+/** Alarm-Banner über der App: bleibt, bis der Nutzer es antippt (quittiert). */
+@Composable
+private fun AlarmBanner(text: String, onAcknowledge: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        androidx.compose.material3.Card(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth()
+                .clickable(onClick = onAcknowledge),
+            colors = androidx.compose.material3.CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+            ),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "⚠ $text",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    stringResource(R.string.alarm_ack_hint),
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
     }

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,6 +50,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.data.AlarmSound
+import de.kewl.boatspeedy.data.NotifField
 import de.kewl.boatspeedy.data.RangeSmoothing
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
@@ -66,6 +68,7 @@ import kotlin.math.roundToInt
 @Composable
 fun SettingsHomeScreen(
     onDashboard: () -> Unit,
+    onNotifications: () -> Unit,
     onGeneral: () -> Unit,
     onAppearance: () -> Unit,
     onTracks: () -> Unit,
@@ -82,6 +85,13 @@ fun SettingsHomeScreen(
             stringResource(R.string.group_dashboard),
             stringResource(R.string.cat_dashboard_desc),
             onDashboard,
+        )
+        HorizontalDivider()
+        CategoryRow(
+            Icons.Filled.Notifications,
+            stringResource(R.string.notif_section),
+            stringResource(R.string.cat_notif_desc),
+            onNotifications,
         )
         HorizontalDivider()
         CategoryRow(
@@ -193,7 +203,61 @@ fun DashboardSettingsScreen(
         SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
         SwitchRow(stringResource(R.string.tile_map), settings.showMapTile, onShowMapTile)
         SwitchRow(stringResource(R.string.show_sat_details), settings.showSatDetails, onShowSatDetails)
+
     }
+}
+
+/* -------------------------- Benachrichtigung -------------------------- */
+
+@Composable
+fun NotificationSettingsScreen(
+    settings: Settings,
+    onNotifEnabled: (Boolean) -> Unit,
+    onNotifAlways: (Boolean) -> Unit,
+    onNotifFields: (Set<NotifField>) -> Unit,
+    onBack: () -> Unit,
+) {
+    SettingsScaffold(stringResource(R.string.notif_section), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
+        SwitchRow(stringResource(R.string.notif_enabled), settings.notifEnabled, onNotifEnabled)
+        if (settings.notifEnabled) {
+            SwitchRow(stringResource(R.string.notif_always), settings.notifAlways, onNotifAlways)
+            Text(
+                stringResource(R.string.notif_always_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            SectionLabel(stringResource(R.string.notif_fields_title))
+            Text(
+                stringResource(R.string.notif_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+            NotifField.entries.forEach { f ->
+                SwitchRow(notifFieldLabel(f), f in settings.notifFields) { on ->
+                    onNotifFields(if (on) settings.notifFields + f else settings.notifFields - f)
+                }
+            }
+        }
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        Text(
+            stringResource(R.string.notif_others),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+    }
+}
+
+@Composable
+private fun notifFieldLabel(f: NotifField): String = when (f) {
+    NotifField.SPEED -> stringResource(R.string.speed_label)
+    NotifField.DISTANCE -> stringResource(R.string.stat_distance)
+    NotifField.TIME -> stringResource(R.string.stat_time)
+    NotifField.CHARGE_AH -> stringResource(R.string.stat_consumed)
+    NotifField.ENERGY_WH -> stringResource(R.string.stat_energy)
+    NotifField.SOC -> stringResource(R.string.soc_short)
+    NotifField.RANGE -> stringResource(R.string.bat_est_range)
+    NotifField.TIME_LEFT -> stringResource(R.string.bat_est_time)
 }
 
 /* -------------------------------- GPS -------------------------------- */
@@ -268,7 +332,9 @@ fun TracksSettingsScreen(
     onTrackColor: (TrackColor) -> Unit,
     onTrackWidth: (TrackWidth) -> Unit,
     onTrackArrows: (Boolean) -> Unit,
+    onAutoPauseOn: (Boolean) -> Unit,
     onAutoPauseAmps: (Float) -> Unit,
+    onAutoPauseSpeedMs: (Float) -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_tracks), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -301,7 +367,11 @@ fun TracksSettingsScreen(
         SwitchRow(stringResource(R.string.track_arrows), settings.trackArrows, onTrackArrows)
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
+        SwitchRow(stringResource(R.string.auto_pause_on), settings.autoPauseOn, onAutoPauseOn)
+        if (settings.autoPauseOn) {
+            AutoPauseField(settings.autoPauseAmps, onAutoPauseAmps)
+            AutoPauseSpeedField(settings, onAutoPauseSpeedMs)
+        }
     }
 }
 
@@ -375,10 +445,10 @@ fun GeneralSettingsScreen(
         // --- Ladestand (Warnung, SoC-Alarmton, Lade-Meldung gehören zusammen) ---
         SectionLabel(stringResource(R.string.section_charge))
         LowSocSliderRow(settings.lowSocPercent, onLowSocPercent)
+        ChargeTargetSliderRow(settings.chargeTargetSoc, onChargeTargetSoc)
         SwitchRow(stringResource(R.string.soc_alarm_sound), settings.socAlarmOn, onSocAlarmOn)
         AlarmSoundRow(stringResource(R.string.soc_sound_label), settings.socSound, onSocSound)
         Button(onClick = onTestSoc) { Text(stringResource(R.string.alarm_test)) }
-        ChargeTargetSliderRow(settings.chargeTargetSoc, onChargeTargetSoc)
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         // --- Anker ---
@@ -422,6 +492,39 @@ private fun AlarmSoundRow(label: String, selected: AlarmSound, onSelect: (AlarmS
 }
 
 /* ------------------------------ Helpers ------------------------------ */
+
+/** Bewegungs-Schwelle der Auto-Pause in der gewählten Einheit (km/h oder kn); 0 = ignorieren. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AutoPauseSpeedField(settings: Settings, onChange: (Float) -> Unit) {
+    val factor = settings.unit.factorFromMs
+    val shown = (settings.autoPauseSpeedMs * factor).toFloat()
+    var text by remember(settings.autoPauseSpeedMs, settings.unit) {
+        mutableStateOf(if (shown <= 0f) "" else String.format(java.util.Locale.getDefault(), "%.1f", shown))
+    }
+    Column(modifier = Modifier.padding(vertical = 10.dp)) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { new ->
+                val filtered = new.replace(',', '.').filter { it.isDigit() || it == '.' }.take(5)
+                text = filtered
+                val value = filtered.toFloatOrNull() ?: 0f
+                onChange((value / factor).toFloat().coerceIn(0f, 10f))
+            },
+            label = { Text(stringResource(R.string.auto_pause_speed)) },
+            suffix = { Text(settings.unit.label) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            stringResource(R.string.auto_pause_speed_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

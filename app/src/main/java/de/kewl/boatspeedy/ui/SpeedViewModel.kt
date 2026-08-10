@@ -7,6 +7,7 @@ import android.location.LocationManager
 import android.os.SystemClock
 import de.kewl.boatspeedy.R
 import androidx.lifecycle.AndroidViewModel
+import de.kewl.boatspeedy.alarm.AlarmController
 import de.kewl.boatspeedy.alarm.AlarmPlayer
 import de.kewl.boatspeedy.anchor.AnchorRepository
 import de.kewl.boatspeedy.anchor.AnchorService
@@ -78,6 +79,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     val tracking: StateFlow<Boolean> = TripRepository.tracking
     val tripStats: StateFlow<TripStats> = TripRepository.stats
     val tripPaused: StateFlow<Boolean> = TripRepository.paused
+    val autoPauseOverride: StateFlow<Boolean> = TripRepository.autoPauseOverride
     val livePoints: StateFlow<List<de.kewl.boatspeedy.trip.TrackPoint>> = TripRepository.livePoints
 
     // Ankeralarm.
@@ -114,6 +116,12 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     // Aktive DWD-Wetterwarnungen (prozessweit gepflegt).
     val weatherWarnings: StateFlow<List<WeatherWarning>> = WeatherRepository.active
 
+    /** Text des quittierpflichtigen Alarms (null = keiner aktiv). */
+    val pendingAlarm: StateFlow<String?> = AlarmController.active
+
+    /** Alarm quittieren (Banner, Lautstärketaste …). */
+    fun acknowledgeAlarm() = AlarmController.stop(getApplication())
+
     init {
         viewModelScope.launch {
             combine(settings, battery, _gps) { s, hub, gps ->
@@ -137,9 +145,12 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
-        // Auto-Pause-Schwelle aus den Settings in das TripRepository spiegeln.
+        // Auto-Pause-Schalter/-Schwelle aus den Settings in das TripRepository spiegeln.
         viewModelScope.launch {
-            settings.collect { TripRepository.autoPauseAmps = it.autoPauseAmps }
+            settings.collect {
+                TripRepository.autoPauseAmps = if (it.autoPauseOn) it.autoPauseAmps else 0f
+                TripRepository.autoPauseSpeedMs = it.autoPauseSpeedMs
+            }
         }
         // SoC-Alarm-Ton bei fallender Flanke unter die Schwelle.
         // voltage>0 & soc>=1 schließt die kurzen 0-Werte direkt nach dem Verbinden aus.
@@ -149,8 +160,15 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                     data.voltage > 0f && data.soc in 1..s.lowSocPercent
                 Triple(low, s.socAlarmOn, s.socSound)
             }.collect { (low, on, sound) ->
+                // Dauer-Alarm: läuft, bis der Nutzer quittiert (Lautstärketaste / Banner / „Stumm").
                 if (low && !lastSocLow && on) {
-                    AlarmPlayer.play(getApplication(), sound, loop = false)
+                    AlarmController.trigger(
+                        getApplication(),
+                        getString(R.string.low_soc_warn),
+                        getString(R.string.soc_alarm_text, settings.value.lowSocPercent),
+                        sound,
+                        withSound = true,
+                    )
                 }
                 lastSocLow = low
             }
@@ -165,6 +183,29 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             while (true) {
                 if (!settings.value.weatherWarnEnabled) WeatherRepository.clear() else maybeWeather(force = false)
                 delay(WEATHER_INTERVAL_MS)
+            }
+        }
+        // Dauer-Statusmeldung ohne laufende Fahrt („immer anzeigen").
+        // Während einer Fahrt zeigt der Vordergrunddienst seine eigene Meldung.
+        viewModelScope.launch {
+            combine(settings, battery, _gps, tracking) { s, hub, gps, isTracking ->
+                if (s.notifEnabled && s.notifAlways && !isTracking) {
+                    de.kewl.boatspeedy.util.notificationLines(
+                        getApplication(), gps, s, hub, TripRepository.stats.value,
+                    )
+                } else {
+                    null
+                }
+            }.collect { lines ->
+                if (lines == null) {
+                    Notifier.cancel(getApplication(), STATUS_NOTIF_ID)
+                } else {
+                    val text = listOf(lines.first, lines.second).filter { it.isNotBlank() }.joinToString("\n")
+                    Notifier.ongoing(
+                        getApplication(), "status", getString(R.string.notif_section), STATUS_NOTIF_ID,
+                        getString(R.string.app_name), text.ifBlank { "–" },
+                    )
+                }
             }
         }
         // Sobald eine Position da ist (GPS-Fix), sofort prüfen – beim Rausfahren
@@ -228,11 +269,13 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                     val target = settings.value.chargeTargetSoc
                     if (target in 1..100 && d.soc >= target && !chargeTargetNotified) {
                         chargeTargetNotified = true
-                        Notifier.notify(
-                            getApplication(), "charge", getString(R.string.charge_channel), 7,
+                        // Wie beim niedrigen Ladestand: dauerhaft, bis quittiert.
+                        AlarmController.trigger(
+                            getApplication(),
                             getString(R.string.charge_reached_title),
                             getString(R.string.charge_reached_text, d.soc),
-                            high = false,
+                            settings.value.socSound,
+                            withSound = settings.value.socAlarmOn,
                         )
                     }
                 }
@@ -272,6 +315,17 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Fahrten-Liste aus dem Speicher laden (z. B. beim Öffnen des Historie-Screens). */
     fun refreshTrips() = viewModelScope.launch { _trips.value = tripStore.list() }
+
+    /** Markierte Fahrten zu einer zusammenführen (Originale werden ersetzt). */
+    fun mergeTrips(ids: Set<Long>, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val chosen = _trips.value.filter { it.id in ids }
+        val merged = de.kewl.boatspeedy.trip.mergeTrips(chosen)
+        if (merged == null) { onDone(false); return@launch }
+        tripStore.delete(ids)
+        tripStore.save(merged)
+        _trips.value = tripStore.list()
+        onDone(true)
+    }
 
     fun deleteTrips(ids: Set<Long>) = viewModelScope.launch {
         tripStore.delete(ids)
@@ -372,6 +426,14 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setTrackWidth(v: de.kewl.boatspeedy.data.TrackWidth) = viewModelScope.launch { settingsRepo.setTrackWidth(v) }
     fun setTrackArrows(v: Boolean) = viewModelScope.launch { settingsRepo.setTrackArrows(v) }
     fun setAutoPauseAmps(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseAmps(v) }
+    fun setAutoPauseOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAutoPauseOn(v) }
+    fun setAutoPauseSpeedMs(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseSpeedMs(v) }
+    fun setNotifFields(v: Set<de.kewl.boatspeedy.data.NotifField>) = viewModelScope.launch { settingsRepo.setNotifFields(v) }
+    fun setNotifEnabled(v: Boolean) = viewModelScope.launch { settingsRepo.setNotifEnabled(v) }
+    fun setNotifAlways(v: Boolean) = viewModelScope.launch { settingsRepo.setNotifAlways(v) }
+
+    /** „Weiter aufzeichnen" bzw. Auto-Pause wieder aktivieren. */
+    fun setAutoPauseOverride(v: Boolean) = TripRepository.overrideAutoPause(v)
     fun setAnchorAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAnchorAlarmOn(v) }
     fun setAnchorSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setAnchorSound(v) }
     fun setSocAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setSocAlarmOn(v) }
@@ -426,14 +488,29 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Gefundenes Gerät dauerhaft übernehmen (aktiv) und gleich verbinden. */
     fun addBattery(device: ScanDevice) {
-        val name = device.name?.takeIf { it.isNotBlank() } ?: device.address
+        // Kurzer, sprechender Name: 3 Zeichen des Typs + letzte 4 der MAC (z. B. „DP0-5F3A").
+        val name = de.kewl.boatspeedy.data.shortBatteryName(device.name, device.address)
         val current = settings.value.batteries
         if (current.none { it.address == device.address }) {
             viewModelScope.launch {
-                settingsRepo.setBatteries(current + SavedBattery(device.address, name, active = true))
+                settingsRepo.setBatteries(
+                    current + SavedBattery(device.address, name, active = true, bleName = device.name),
+                )
             }
         }
         connectBattery(device.address)
+    }
+
+    /** Batterie umbenennen (Typ/MAC bleiben erhalten). */
+    fun renameBattery(address: String, name: String) {
+        val clean = name.trim().take(24)
+        if (clean.isEmpty()) return
+        val s = settings.value
+        viewModelScope.launch {
+            settingsRepo.setBatteries(
+                s.batteries.map { if (it.address == address) it.copy(name = clean) else it },
+            )
+        }
     }
 
     fun removeBattery(address: String) {
@@ -515,7 +592,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         private const val CHARGE_ON_A = 0.5f    // ab diesem positiven Strom gilt „lädt"
         private const val CHARGE_FULL_A = 0.1f  // darunter: Strom abgeklungen → voll
         private const val FULL_SOC_MIN = 90     // „voll" nur ab diesem Ladestand melden
-        private const val CHARGE_NOTIF_ID = 6   // laufende Lade-Meldung
+        private const val CHARGE_NOTIF_ID = 6
+        private const val STATUS_NOTIF_ID = 9   // laufende Lade-Meldung
         private const val WEATHER_INTERVAL_MS = 10 * 60_000L // DWD-Prüfintervall
     }
 }

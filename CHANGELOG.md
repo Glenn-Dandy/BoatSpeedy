@@ -2,6 +2,34 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.3.0] – 2026-08-02
+
+### Neu
+- **Schlaue Auto-Pause**: pausiert nur noch, wenn wenig Strom fließt **und** das Boot steht —
+  **Treiben wird weiter aufgezeichnet**. Beide Schwellen (Strom in A, Geschwindigkeit in
+  km/h bzw. kn) sind einstellbar; Geschwindigkeit **0 = ignorieren**. Auto-Pause hat jetzt
+  einen **An/Aus-Schalter** (Einstellungen → Fahrten).
+- **Status-Chip auf dem Dashboard**: zeigt während der Fahrt „Auto-Pause" bzw. „Zeichnet auf";
+  Antippen schaltet um (Auto-Pause überstimmen / wieder aktivieren).
+- **Benachrichtigungen** als eigener Einstellungs-Punkt: an/aus, **auch ohne Fahrt anzeigen**
+  und **frei wählbare Werte** (Tempo, Distanz, Zeit, Verbrauch, Energie, SoC, Reichweite,
+  Restzeit) — zweizeilig, Zeile 2 beim Aufklappen.
+- **Quittierpflichtige Alarme**: Warnung bei niedrigem Ladestand und „Ladestand erreicht"
+  laufen dauerhaft, bis man sie bestätigt — per Banner, **Lautstärketaste** oder „Stumm"
+  in der Benachrichtigung.
+- **Fahrten zusammenführen**: mehrere markierte Fahrten zu einer verbinden (z. B. nach
+  versehentlichem Stopp).
+- **GPX-Export je Fahrt**: mehrere markierte Fahrten ergeben jetzt **einzelne GPX-Dateien**.
+- **Batterie**: kurzer Name beim Hinzufügen (3 Zeichen Typ + letzte 4 der MAC),
+  **Typ und MAC-Adresse** in der aufgeklappten Ansicht, **Umbenennen** möglich.
+
+### Behoben
+- **Wetterradar** lud nur stückweise: zu viele gleichzeitige Kachel-Anfragen liefen über die
+  Download-Warteschlange. Jetzt größere Warteschlange und **sequenzielles Vorladen**
+  (sichtbarer Frame zuerst) — „jetzt" erscheint sofort, die Schleife läuft in einem Durchgang.
+- **Auto-Pause** wurde nach dem Umschalten erst beim nächsten Batterie-Sample neu bewertet
+  (ohne Batterie gar nicht) — jetzt sofort und bei jedem GPS-Update.
+
 ## [1.2.4] – 2026-08-02
 
 ### Geändert

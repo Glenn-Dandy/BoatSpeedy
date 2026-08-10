@@ -14,16 +14,17 @@ Binaries:
   https://github.com/Glenn-Dandy/BoatSpeedy/releases/download/v%v/BoatSpeedy-v%v-release.apk
 
 Builds:
-  - versionName: 1.2.3
-    versionCode: 33
-    commit: e7f0bb46c8e88b5dcac28e64b79ee558774bc813
+  - versionName: 1.2.4
+    versionCode: 34
+    commit: af4e7f153d6fba49fd6638b44e23e2323b43a2be
     subdir: app
     gradle:
       - yes
 
-AllowedAPKSigningKeys: 29a1755e6bef88fea9194263a39faeba71496a16248bb52b49d3c4107742576d
+AllowedAPKSigningKeys: 
+  29a1755e6bef88fea9194263a39faeba71496a16248bb52b49d3c4107742576d
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.2.3
-CurrentVersionCode: 33
+CurrentVersion: 1.2.4
+CurrentVersionCode: 34

@@ -1,0 +1,8 @@
+1.3.0
+* Schlaue Auto-Pause: pausiert nur bei wenig Strom UND Stillstand, Treiben wird weiter aufgezeichnet; beide Schwellen einstellbar (Geschwindigkeit 0 = ignorieren), dazu An/Aus-Schalter
+* Status-Chip auf dem Dashboard: Antippen überstimmt die Auto-Pause bzw. aktiviert sie wieder
+* Benachrichtigungen: eigener Einstellungspunkt, optional immer sichtbar, frei wählbare Werte, zweizeilig
+* Warnung bei niedrigem Ladestand und "Ladestand erreicht" laufen bis zum Quittieren (Banner, Lautstärketaste oder "Stumm")
+* Markierte Fahrten zusammenführen; mehrere Fahrten teilen ergibt einzelne GPX-Dateien
+* Batterie: kurzer Name, Typ und MAC in den Details, Umbenennen
+* Behoben: Wetterradar lud nur stückweise; Auto-Pause reagierte nach dem Umschalten nicht

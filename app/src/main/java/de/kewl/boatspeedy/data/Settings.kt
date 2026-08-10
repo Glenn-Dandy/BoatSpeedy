@@ -35,6 +35,15 @@ enum class RangeSmoothing(val windowMs: Long) {
 /** Mitgelieferte Alarmtöne (res/raw). */
 enum class AlarmSound { PIEP, GLOCKE, SIRENE }
 
+/**
+ * Werte, die in der Fahrt-Benachrichtigung stehen können. [line] = 1 (immer sichtbar,
+ * eingeklappt) oder 2 (nur aufgeklappt).
+ */
+enum class NotifField(val line: Int) {
+    SPEED(1), DISTANCE(1), TIME(1),
+    CHARGE_AH(2), ENERGY_WH(2), SOC(2), RANGE(2), TIME_LEFT(2),
+}
+
 /** Farbe der Track-Linie auf der Karte (ARGB). */
 enum class TrackColor(val argb: Int) {
     BLUE(0xFF1E88E5.toInt()),
@@ -60,9 +69,22 @@ enum class BankMode { SINGLE, PARALLEL, SERIES }
 /** Eine dauerhaft gespeicherte Batterie (Adresse ist der stabile Schlüssel). */
 data class SavedBattery(
     val address: String,
+    /** Anzeigename – frei umbenennbar. */
     val name: String,
     val active: Boolean = true,
+    /** Ursprünglicher BLE-Name (Typ, z. B. „DP04S007L4S100A"); bleibt beim Umbenennen erhalten. */
+    val bleName: String? = null,
 )
+
+/**
+ * Kurzer Vorschlagsname beim Hinzufügen: 3 Zeichen des Typs + letzte 4 Zeichen der MAC,
+ * z. B. „DP0-5F3A".
+ */
+fun shortBatteryName(bleName: String?, address: String): String {
+    val prefix = bleName?.filter { it.isLetterOrDigit() }?.take(3)?.uppercase()?.takeIf { it.isNotBlank() } ?: "BAT"
+    val suffix = address.filter { it.isLetterOrDigit() }.takeLast(4).uppercase()
+    return if (suffix.isBlank()) prefix else "$prefix-$suffix"
+}
 
 /** Kennung für „kombinierte" Auswahl auf dem Dashboard (statt einer einzelnen Adresse). */
 const val COMBINED_SELECTION = ""
@@ -93,8 +115,23 @@ data class Settings(
     /** Ausgewählte Anzeige auf dem Dashboard: Adresse einer Batterie oder [COMBINED_SELECTION]. */
     val dashboardBattery: String = COMBINED_SELECTION,
     // Fahrt / Alarme
+    /** Auto-Pause aktiv? (Schwelle darunter). */
+    val autoPauseOn: Boolean = true,
     /** Auto-Pause-Schwelle in A; 0 = aus (Fahrt läuft ohne Auto-Pause). */
     val autoPauseAmps: Float = 0.05f,
+    /**
+     * Bewegungs-Schwelle der Auto-Pause in m/s: darüber gilt das Boot als „in Fahrt"
+     * (Treiben wird aufgezeichnet). 0 = Geschwindigkeit ignorieren, nur Strom zählt.
+     */
+    val autoPauseSpeedMs: Float = 0.14f,
+    /** Fahrt-/Status-Benachrichtigung überhaupt anzeigen. */
+    val notifEnabled: Boolean = true,
+    /** Auch ohne laufende Fahrt anzeigen (solange die App im Hintergrund lebt). */
+    val notifAlways: Boolean = false,
+    /** Werte in der Fahrt-Benachrichtigung. */
+    val notifFields: Set<NotifField> = setOf(
+        NotifField.SPEED, NotifField.DISTANCE, NotifField.CHARGE_AH, NotifField.SOC,
+    ),
     /** Ankeralarm mit Ton (sonst nur Benachrichtigung). */
     val anchorAlarmOn: Boolean = true,
     val anchorSound: AlarmSound = AlarmSound.SIRENE,

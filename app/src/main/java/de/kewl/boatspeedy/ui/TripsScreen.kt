@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Merge
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Share
@@ -70,6 +71,7 @@ fun TripsScreen(
     trips: List<SavedTrip>,
     onOpenDetail: (SavedTrip) -> Unit,
     onDelete: (Set<Long>) -> Unit,
+    onMerge: (Set<Long>) -> Unit,
     onImport: (android.net.Uri) -> Unit,
     onOpenMenu: () -> Unit,
 ) {
@@ -92,18 +94,32 @@ fun TripsScreen(
                         }
                     },
                     actions = {
+                        // Mehrere Fahrten zu einer zusammenführen.
+                        if (selection.size >= 2) {
+                            IconButton(onClick = { onMerge(selection); selection = emptySet() }) {
+                                Icon(Icons.Filled.Merge, contentDescription = stringResource(R.string.merge_trips))
+                            }
+                        }
                         IconButton(onClick = {
                             val chosen = trips.filter { it.id in selection }
                             scope.launch {
-                                val uri = withContext(Dispatchers.IO) { GpxExport.write(context, chosen) }
-                                if (uri == null) {
+                                // Je Fahrt eine eigene GPX-Datei teilen.
+                                val uris = withContext(Dispatchers.IO) { GpxExport.writeEach(context, chosen) }
+                                if (uris.isEmpty()) {
                                     Toast.makeText(context, context.getString(R.string.no_track), Toast.LENGTH_SHORT).show()
                                 } else {
-                                    val send = Intent(Intent.ACTION_SEND).apply {
-                                        type = "application/gpx+xml"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    val send = if (uris.size == 1) {
+                                        Intent(Intent.ACTION_SEND).apply {
+                                            type = "application/gpx+xml"
+                                            putExtra(Intent.EXTRA_STREAM, uris.first())
+                                        }
+                                    } else {
+                                        Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                            type = "application/gpx+xml"
+                                            putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+                                        }
                                     }
+                                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     context.startActivity(
                                         Intent.createChooser(send, context.getString(R.string.export)),
                                     )
