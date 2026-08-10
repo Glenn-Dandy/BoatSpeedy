@@ -145,7 +145,8 @@ class SettingsRepository(private val context: Context) {
                 JSONObject()
                     .put("address", b.address)
                     .put("name", b.name)
-                    .put("active", b.active),
+                    .put("active", b.active)
+                    .put("bleName", b.bleName ?: ""),
             )
         }
         return arr.toString()
@@ -159,6 +160,7 @@ class SettingsRepository(private val context: Context) {
                 address = o.getString("address"),
                 name = o.optString("name", o.getString("address")),
                 active = o.optBoolean("active", true),
+                bleName = o.optString("bleName").takeIf { it.isNotBlank() },
             )
         }
     }.getOrDefault(emptyList())

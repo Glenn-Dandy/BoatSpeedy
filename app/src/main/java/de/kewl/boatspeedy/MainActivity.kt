@@ -444,6 +444,7 @@ private fun BoatSpeedyApp(
                         onDisconnect = vm::disconnectBattery,
                         onToggleActive = vm::setBatteryActive,
                         onRemove = vm::removeBattery,
+                        onRename = vm::renameBattery,
                         onBms = vm::setBms,
                         onBankMode = vm::setBankMode,
                         onOpenMenu = { openDrawer() },

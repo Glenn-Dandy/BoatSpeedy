@@ -154,6 +154,11 @@
     <string name="bat_none">No batteries added yet. Tap “Add” to scan and add one.</string>
     <string name="add_battery">Add</string>
     <string name="remove">Remove</string>
+    <string name="rename">Rename</string>
+    <string name="bat_name">Name</string>
+    <string name="bat_mac">MAC address</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
     <string name="bank_mode">Wiring</string>
     <string name="mode_single">Single</string>
     <string name="mode_parallel">Parallel</string>

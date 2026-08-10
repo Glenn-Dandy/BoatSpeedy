@@ -151,6 +151,11 @@
     <string name="bat_none">Noch keine Batterie hinzugefügt. Auf „Hinzufügen“ tippen zum Scannen.</string>
     <string name="add_battery">Hinzufügen</string>
     <string name="remove">Entfernen</string>
+    <string name="rename">Umbenennen</string>
+    <string name="bat_name">Name</string>
+    <string name="bat_mac">MAC-Adresse</string>
+    <string name="save">Speichern</string>
+    <string name="cancel">Abbrechen</string>
     <string name="bank_mode">Verschaltung</string>
     <string name="mode_single">Einzeln</string>
     <string name="mode_parallel">Parallel</string>

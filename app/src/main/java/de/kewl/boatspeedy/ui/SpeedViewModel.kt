@@ -488,14 +488,29 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Gefundenes Gerät dauerhaft übernehmen (aktiv) und gleich verbinden. */
     fun addBattery(device: ScanDevice) {
-        val name = device.name?.takeIf { it.isNotBlank() } ?: device.address
+        // Kurzer, sprechender Name: 3 Zeichen des Typs + letzte 4 der MAC (z. B. „DP0-5F3A").
+        val name = de.kewl.boatspeedy.data.shortBatteryName(device.name, device.address)
         val current = settings.value.batteries
         if (current.none { it.address == device.address }) {
             viewModelScope.launch {
-                settingsRepo.setBatteries(current + SavedBattery(device.address, name, active = true))
+                settingsRepo.setBatteries(
+                    current + SavedBattery(device.address, name, active = true, bleName = device.name),
+                )
             }
         }
         connectBattery(device.address)
+    }
+
+    /** Batterie umbenennen (Typ/MAC bleiben erhalten). */
+    fun renameBattery(address: String, name: String) {
+        val clean = name.trim().take(24)
+        if (clean.isEmpty()) return
+        val s = settings.value
+        viewModelScope.launch {
+            settingsRepo.setBatteries(
+                s.batteries.map { if (it.address == address) it.copy(name = clean) else it },
+            )
+        }
     }
 
     fun removeBattery(address: String) {

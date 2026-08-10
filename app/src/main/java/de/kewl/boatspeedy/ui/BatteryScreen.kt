@@ -14,11 +14,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -69,6 +73,7 @@ fun BatteryScreen(
     onDisconnect: (String) -> Unit,
     onToggleActive: (String, Boolean) -> Unit,
     onRemove: (String) -> Unit,
+    onRename: (String, String) -> Unit,
     onBms: (BmsType) -> Unit,
     onBankMode: (BankMode) -> Unit,
     onOpenMenu: () -> Unit,
@@ -87,6 +92,7 @@ fun BatteryScreen(
     ) { innerPadding ->
         // Welche Batterie ist gerade aufgeklappt (Detailkarte sichtbar)?
         var expanded by remember { mutableStateOf<String?>(null) }
+        var renaming by remember { mutableStateOf<SavedBattery?>(null) }
 
         Column(
             modifier = Modifier
@@ -119,13 +125,14 @@ fun BatteryScreen(
                             onToggleActive = { onToggleActive(saved.address, it) },
                             onConnect = { onConnect(saved.address) },
                             onDisconnect = { onDisconnect(saved.address) },
+                            onRename = { renaming = saved },
                             onRemove = {
                                 if (expanded == saved.address) expanded = null
                                 onRemove(saved.address)
                             },
                         )
                         if (expanded == saved.address) {
-                            BatteryDetailCard(hub.links[saved.address]?.data)
+                            BatteryDetailCard(saved, hub.links[saved.address]?.data)
                         }
                     }
                 }
@@ -133,6 +140,14 @@ fun BatteryScreen(
 
             // --- Hinzufügen / Scannen ---
             AddSection(hub, alreadySaved = settings.batteries.map { it.address }.toSet(), onScan, onStopScan, onAdd)
+        }
+
+        renaming?.let { target ->
+            RenameDialog(
+                current = target.name,
+                onDismiss = { renaming = null },
+                onConfirm = { newName -> onRename(target.address, newName); renaming = null },
+            )
         }
     }
 }
@@ -188,6 +203,7 @@ private fun BatteryRow(
     onToggleActive: (Boolean) -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
+    onRename: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val link = live?.link ?: LinkState.DISCONNECTED
@@ -221,6 +237,9 @@ private fun BatteryRow(
                 modifier = Modifier.padding(start = 4.dp),
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
+            IconButton(onClick = onRename) {
+                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.rename))
+            }
             IconButton(onClick = onRemove) {
                 Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.remove))
             }
@@ -230,9 +249,15 @@ private fun BatteryRow(
 
 /** Ausführlicher Batterie-Status (aufgeklappt): alle Werte plus Zellspannungen. */
 @Composable
-private fun BatteryDetailCard(d: BatteryData?) {
+private fun BatteryDetailCard(saved: SavedBattery, d: BatteryData?) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Gerätedaten: Typ (BLE-Name) und MAC-Adresse.
+            saved.bleName?.takeIf { it.isNotBlank() }?.let {
+                ValueRow(stringResource(R.string.bat_type), it)
+            }
+            ValueRow(stringResource(R.string.bat_mac), saved.address)
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
             if (d == null) {
                 Text(
                     stringResource(R.string.bat_detail_hint),
@@ -261,6 +286,27 @@ private fun BatteryDetailCard(d: BatteryData?) {
             }
         }
     }
+}
+
+/** Kleiner Dialog zum Umbenennen einer gespeicherten Batterie. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RenameDialog(current: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var text by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.rename)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it.take(24) },
+                singleLine = true,
+                label = { Text(stringResource(R.string.bat_name)) },
+            )
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(text) }) { Text(stringResource(R.string.save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable
@@ -310,7 +356,10 @@ private fun AddSection(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Column {
-                        Text(dev.name ?: dev.address, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            de.kewl.boatspeedy.data.shortBatteryName(dev.name, dev.address),
+                            fontWeight = FontWeight.SemiBold,
+                        )
                         Text(dev.address, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                     }
                     Text("${dev.rssi} dBm", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
