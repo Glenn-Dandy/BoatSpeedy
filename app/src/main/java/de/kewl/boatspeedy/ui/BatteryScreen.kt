@@ -125,14 +125,17 @@ fun BatteryScreen(
                             onToggleActive = { onToggleActive(saved.address, it) },
                             onConnect = { onConnect(saved.address) },
                             onDisconnect = { onDisconnect(saved.address) },
-                            onRename = { renaming = saved },
-                            onRemove = {
-                                if (expanded == saved.address) expanded = null
-                                onRemove(saved.address)
-                            },
                         )
                         if (expanded == saved.address) {
-                            BatteryDetailCard(saved, hub.links[saved.address]?.data)
+                            BatteryDetailCard(
+                                saved = saved,
+                                d = hub.links[saved.address]?.data,
+                                onRename = { renaming = saved },
+                                onRemove = {
+                                    expanded = null
+                                    onRemove(saved.address)
+                                },
+                            )
                         }
                     }
                 }
@@ -203,8 +206,6 @@ private fun BatteryRow(
     onToggleActive: (Boolean) -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
-    onRename: () -> Unit,
-    onRemove: () -> Unit,
 ) {
     val link = live?.link ?: LinkState.DISCONNECTED
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
@@ -237,19 +238,18 @@ private fun BatteryRow(
                 modifier = Modifier.padding(start = 4.dp),
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
-            IconButton(onClick = onRename) {
-                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.rename))
-            }
-            IconButton(onClick = onRemove) {
-                Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.remove))
-            }
         }
     }
 }
 
 /** Ausführlicher Batterie-Status (aufgeklappt): alle Werte plus Zellspannungen. */
 @Composable
-private fun BatteryDetailCard(saved: SavedBattery, d: BatteryData?) {
+private fun BatteryDetailCard(
+    saved: SavedBattery,
+    d: BatteryData?,
+    onRename: () -> Unit,
+    onRemove: () -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // Gerätedaten: Typ (BLE-Name) und MAC-Adresse.
@@ -257,6 +257,7 @@ private fun BatteryDetailCard(saved: SavedBattery, d: BatteryData?) {
                 ValueRow(stringResource(R.string.bat_type), it)
             }
             ValueRow(stringResource(R.string.bat_mac), saved.address)
+            BatteryActions(onRename, onRemove)
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             if (d == null) {
                 Text(
@@ -270,10 +271,19 @@ private fun BatteryDetailCard(saved: SavedBattery, d: BatteryData?) {
             ValueRow(stringResource(R.string.bat_voltage), fmt(d.voltage, "V"))
             ValueRow(stringResource(R.string.bat_current), fmt(d.currentA, "A"))
             ValueRow(stringResource(R.string.bat_soc), "${d.soc} %")
-            if (d.remainingAh > 0f || d.nominalAh > 0f) {
-                ValueRow(stringResource(R.string.bat_remaining), fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah"))
-            }
-            d.tempC?.let { ValueRow(stringResource(R.string.bat_temp), fmt(it, "°C")) }
+            // Rest und Temperatur immer zeigen – „--", solange das BMS nichts liefert.
+            ValueRow(
+                stringResource(R.string.bat_remaining),
+                if (d.remainingAh > 0f || d.nominalAh > 0f) {
+                    fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah")
+                } else {
+                    "--"
+                },
+            )
+            ValueRow(
+                stringResource(R.string.bat_temp),
+                d.tempC?.let { fmt(it, "°C") } ?: "--",
+            )
             if (d.cells.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text(stringResource(R.string.bat_cells), style = MaterialTheme.typography.titleSmall)
@@ -284,6 +294,21 @@ private fun BatteryDetailCard(saved: SavedBattery, d: BatteryData?) {
                     )
                 }
             }
+        }
+    }
+}
+
+/** Umbenennen/Entfernen – im aufgeklappten Detail, damit die Zeile schlank bleibt. */
+@Composable
+private fun BatteryActions(onRename: () -> Unit, onRemove: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = onRename) {
+            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(R.string.rename), modifier = Modifier.padding(start = 6.dp))
+        }
+        TextButton(onClick = onRemove) {
+            Icon(Icons.Filled.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(R.string.remove), modifier = Modifier.padding(start = 6.dp))
         }
     }
 }

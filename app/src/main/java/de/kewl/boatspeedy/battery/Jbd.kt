@@ -7,6 +7,8 @@ package de.kewl.boatspeedy.battery
  * Frame: DD <reg> <status> <len> <len Bytes Daten> <cksum_hi> <cksum_lo> 77
  * Lesebefehl: DD A5 <reg> 00 <cksum_hi> <cksum_lo> 77, cksum = 0x10000 - reg.
  */
+import kotlin.math.roundToInt
+
 object Jbd {
     const val REG_BASIC = 0x03
     const val REG_CELLS = 0x04
@@ -44,17 +46,26 @@ object Jbd {
     }
 
     /** Basisinfos (Reg 0x03) → BatteryData-Teile. Null bei zu kurzem Payload. */
+    /**
+     * Basis-Frame (Reg 0x03). Bewusst **tolerant**: manche BMS/Firmwares liefern einen
+     * kürzeren Payload – dann werden nur die vorhandenen Felder gelesen, statt alles zu
+     * verwerfen (sonst blieben Spannung/SoC/Rest/Temperatur leer, obwohl Zellen ankommen).
+     * Layout: 0-1 U, 2-3 I, 4-5 Rest, 6-7 Nenn, 19 SoC, 20 FET, 21 Zellzahl, 22 NTC-Anzahl, ab 23 NTC-Werte.
+     */
     fun parseBasic(payload: ByteArray): BasicInfo? {
-        if (payload.size < 23) return null
+        if (payload.size < 8) return null // Minimum: Spannung, Strom, Rest, Nennkapazität
         val voltage = u16(payload, 0) / 100.0f                 // 10 mV
         val current = s16(payload, 2) / 100.0f                 // 10 mA (signed)
         val remaining = u16(payload, 4) / 100.0f               // 10 mAh → Ah
         val nominal = u16(payload, 6) / 100.0f                 // 10 mAh → Ah
-        val soc = payload[19].toInt() and 0xFF                 // %
-        val fet = payload[20].toInt() and 0xFF
-        val cellCount = payload[21].toInt() and 0xFF
-        val ntc = payload[22].toInt() and 0xFF
-        val temp = if (ntc >= 1 && payload.size >= 23 + 2) u16(payload, 23) * 0.1f - 273.15f else null
+        // SoC: aus dem Byte, sonst aus Rest/Nenn hochgerechnet.
+        val soc = if (payload.size > 19) payload[19].toInt() and 0xFF
+        else if (nominal > 0f) ((remaining / nominal) * 100f).roundToInt().coerceIn(0, 100)
+        else 0
+        val fet = if (payload.size > 20) payload[20].toInt() and 0xFF else 0
+        val cellCount = if (payload.size > 21) payload[21].toInt() and 0xFF else 0
+        val ntc = if (payload.size > 22) payload[22].toInt() and 0xFF else 0
+        val temp = if (ntc >= 1 && payload.size >= 25) u16(payload, 23) * 0.1f - 273.15f else null
         return BasicInfo(
             voltage = voltage,
             currentA = current,

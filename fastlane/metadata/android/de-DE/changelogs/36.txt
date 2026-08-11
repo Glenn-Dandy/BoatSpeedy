@@ -1,0 +1,7 @@
+1.3.1
+* Behoben: fehlende Batterie-Werte (Spannung/SoC/Rest/Temperatur) — kurze BMS-Frames werden jetzt tolerant gelesen
+* Behoben: GPX-Import zeigte Pause immer 0:00; eigene Exporte bringen die Zeiten mit, fremde GPX leiten die Fahrzeit aus den Lücken ab
+* Behoben: Zusammenführen zählte die Lücke zwischen den Fahrten als Pause
+* Behoben: mehrere GPX teilen (Empfänger-Apps konnten die Dateien nicht öffnen)
+* Batterie-Zeile entschlackt, damit der Verbinden-Schalter passt; Umbenennen/Entfernen im Detail
+* GPX-Export enthält jetzt Fahrzeit, Pause, Gesamtzeit, Distanz und Verbrauch
