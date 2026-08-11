@@ -22,11 +22,16 @@ object GpxImport {
     suspend fun import(context: Context, uri: Uri, store: TripStore): SavedTrip? =
         withContext(Dispatchers.IO) {
             val parsed = context.contentResolver.openInputStream(uri)?.use { parse(it) } ?: return@withContext null
-            if (parsed.size < 2) return@withContext null
-            val trip = toTrip(parsed)
+            if (parsed.points.size < 2) return@withContext null
+            val trip = toTrip(parsed.points, parsed.meta)
             store.save(trip)
             trip
         }
+
+    /** Aus <trk><extensions> gelesene Fahrt-Zeiten (nur bei BoatSpeedy-GPX vorhanden). */
+    private data class TripMeta(val movingS: Long?, val pauseS: Long?, val totalS: Long?)
+
+    private data class Parsed(val points: List<Raw>, val meta: TripMeta)
 
     private data class Raw(
         val lat: Double,
@@ -37,7 +42,7 @@ object GpxImport {
         val chargeAh: Float? = null,
     )
 
-    private fun parse(input: java.io.InputStream): List<Raw> {
+    private fun parse(input: java.io.InputStream): Parsed {
         val out = ArrayList<Raw>()
         val parser = Xml.newPullParser()
         parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
@@ -49,6 +54,9 @@ object GpxImport {
         var soc: Int? = null
         var chargeAh: Float? = null
         var cur: String? = null // aktuell offenes Text-Element
+        var movingS: Long? = null
+        var pauseS: Long? = null
+        var totalS: Long? = null
         var event = parser.eventType
         while (event != XmlPullParser.END_DOCUMENT) {
             when (event) {
@@ -68,6 +76,10 @@ object GpxImport {
                         "speed", "boatspeedy:speed" -> if (speed == null) speed = t.trim().toFloatOrNull()
                         "boatspeedy:soc" -> soc = t.trim().toIntOrNull()
                         "boatspeedy:chargeah" -> chargeAh = t.trim().toFloatOrNull()
+                        // Fahrt-Zeiten aus <trk><extensions> (eigene BoatSpeedy-GPX).
+                        "boatspeedy:movingtimes" -> movingS = t.trim().toLongOrNull()
+                        "boatspeedy:pausetimes" -> pauseS = t.trim().toLongOrNull()
+                        "boatspeedy:totaltimes" -> totalS = t.trim().toLongOrNull()
                     }
                 }
                 XmlPullParser.END_TAG -> {
@@ -82,7 +94,21 @@ object GpxImport {
             }
             event = parser.next()
         }
-        return out
+        return Parsed(out, TripMeta(movingS, pauseS, totalS))
+    }
+
+    /**
+     * Fahrzeit aus den Zeitstempeln: Abstände zwischen Punkten zählen als Fahrt, größere
+     * Lücken als Pause. Die Schwelle richtet sich nach dem üblichen Aufzeichnungstakt,
+     * damit auch grob abgetastete Fremd-GPX (z. B. alle 30 s) korrekt bleiben.
+     */
+    private fun movingFromGaps(points: List<TrackPoint>, span: Long): Long {
+        if (points.size < 2) return span
+        val deltas = (1 until points.size).map { points[it].tMs - points[it - 1].tMs }.filter { it > 0 }
+        if (deltas.isEmpty()) return span
+        val median = deltas.sorted()[deltas.size / 2]
+        val limit = maxOf(10_000L, median * 4) // Lücke darüber = Pause
+        return deltas.filter { it <= limit }.sum()
     }
 
     private val isoFormats = listOf(
@@ -104,7 +130,7 @@ object GpxImport {
         return null
     }
 
-    private fun toTrip(raw: List<Raw>): SavedTrip {
+    private fun toTrip(raw: List<Raw>, meta: TripMeta): SavedTrip {
         val startEpoch = raw.firstOrNull { it.epochMs != null }?.epochMs ?: System.currentTimeMillis()
         val points = ArrayList<TrackPoint>(raw.size)
         var distanceM = 0.0
@@ -134,7 +160,12 @@ object GpxImport {
             )
             prev = r
         }
-        val duration = points.lastOrNull()?.tMs ?: 0L
+        val span = points.lastOrNull()?.tMs ?: 0L
+        // Gesamtzeit = Spanne der Zeitstempel. Fahrzeit: aus der GPX übernehmen, sonst aus
+        // den Aufzeichnungslücken ableiten (Pausen = Lücken, in denen nichts aufgezeichnet wurde).
+        val total = meta.totalS?.times(1000) ?: span
+        val moving = meta.movingS?.times(1000) ?: movingFromGaps(points, span)
+        val duration = moving.coerceIn(0L, total)
         val avg = if (duration > 0) (distanceM / (duration / 1000.0)).toFloat() else 0f
         val tripCharge = points.maxOfOrNull { it.chargeAh } ?: 0f // kumuliert → Endwert = Gesamt
         return SavedTrip(
@@ -142,7 +173,7 @@ object GpxImport {
             startedAt = startEpoch,
             distanceM = distanceM,
             durationMs = duration,
-            totalMs = duration,
+            totalMs = total,
             avgSpeedMs = avg,
             maxSpeedMs = maxSpeed,
             energyWh = 0f,
