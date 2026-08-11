@@ -2,6 +2,28 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.3.1] – 2026-08-11
+
+### Behoben
+- **Batterie-Werte fehlten** (nur Zellspannungen kamen an): der Basis-Frame des BMS wurde
+  verworfen, wenn er kürzer als erwartet war. Er wird jetzt **tolerant** gelesen (Spannung,
+  Strom, Rest und Nennkapazität schon ab 8 Byte; SoC notfalls aus Rest/Nenn berechnet).
+- **GPX-Import setzte Pause immer auf 0:00** (Fahrzeit = Gesamtzeit). Eigene Exporte bringen
+  die Zeiten jetzt in der Datei mit und werden exakt zurückgelesen; bei fremden GPX wird die
+  Fahrzeit aus den Aufzeichnungslücken abgeleitet (Schwelle passt sich dem Takt an).
+- **Fahrten zusammenführen** rechnete die Lücke zwischen den Fahrten als Pause. Jetzt werden
+  Fahrzeiten und die Pausen der Einzelfahrten getrennt addiert.
+- **Mehrere GPX teilen**: Empfänger-Apps konnten die Dateien teils nicht öffnen (fehlende
+  Leseerlaubnis für alle Dateien).
+- **Batterie-Zeile** war überladen — der Verbinden-Schalter wurde eingequetscht.
+  Umbenennen/Entfernen sind jetzt in der aufgeklappten Ansicht.
+
+### Neu / Geändert
+- **GPX-Export** enthält jetzt `metadata/time` sowie je Track **Fahrzeit, Pause, Gesamtzeit,
+  Distanz und Verbrauch** (lesbar als Beschreibung und als Erweiterungen).
+- In der aufgeklappten Batterie stehen **Rest (Ah)** und **Temperatur** immer — mit „--",
+  solange das BMS keinen Wert liefert.
+
 ## [1.3.0] – 2026-08-02
 
 ### Neu
