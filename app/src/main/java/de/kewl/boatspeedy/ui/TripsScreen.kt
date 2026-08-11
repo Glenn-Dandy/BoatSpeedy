@@ -119,6 +119,15 @@ fun TripsScreen(
                                             putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
                                         }
                                     }
+                                    // Ohne ClipData gilt die Leseerlaubnis nicht für alle URIs –
+                                    // die Ziel-App kann die Dateien sonst nicht öffnen.
+                                    send.clipData = android.content.ClipData(
+                                        "GPX",
+                                        arrayOf("application/gpx+xml"),
+                                        android.content.ClipData.Item(uris.first()),
+                                    ).also { clip ->
+                                        uris.drop(1).forEach { u -> clip.addItem(android.content.ClipData.Item(u)) }
+                                    }
                                     send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     context.startActivity(
                                         Intent.createChooser(send, context.getString(R.string.export)),

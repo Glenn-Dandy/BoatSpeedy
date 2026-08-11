@@ -2,8 +2,11 @@ package de.kewl.boatspeedy.trip
 
 /**
  * Führt mehrere Fahrten zu einer zusammen (z. B. wenn versehentlich gestoppt wurde).
- * Die Fahrten werden nach Startzeit sortiert; Zeitstempel der Track-Punkte werden auf
- * den gemeinsamen Start umgerechnet, Kennzahlen addiert.
+ * Die Fahrten werden nach Startzeit sortiert; die Track-Punkte behalten ihre echten
+ * Zeitpunkte (auf den gemeinsamen Start umgerechnet).
+ *
+ * Zeiten: **Fahrzeiten** und **Pausen der Einzelfahrten** werden getrennt addiert; die
+ * Lücke zwischen den Fahrten (App war gestoppt) zählt nicht mit.
  */
 fun mergeTrips(trips: List<SavedTrip>): SavedTrip? {
     val sorted = trips.sortedBy { it.startedAt }
@@ -21,10 +24,11 @@ fun mergeTrips(trips: List<SavedTrip>): SavedTrip? {
     }
 
     val distance = sorted.sumOf { it.distanceM }
+    // Fahrzeiten addieren, Pausen der Einzelfahrten addieren – die Lücke ZWISCHEN den
+    // Fahrten (App war gestoppt) zählt bewusst NICHT mit.
     val duration = sorted.sumOf { it.durationMs }
-    // Gesamtzeit: vom ersten Start bis zum Ende der letzten Fahrt (Lücken zählen als Pause).
-    val last = sorted.last()
-    val total = ((last.startedAt - start) + last.totalMs).coerceAtLeast(duration)
+    val pause = sorted.sumOf { (it.totalMs - it.durationMs).coerceAtLeast(0L) }
+    val total = duration + pause
     val avg = if (duration > 0) (distance / (duration / 1000.0)).toFloat() else 0f
 
     return SavedTrip(
