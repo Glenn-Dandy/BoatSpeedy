@@ -271,10 +271,19 @@ private fun BatteryDetailCard(
             ValueRow(stringResource(R.string.bat_voltage), fmt(d.voltage, "V"))
             ValueRow(stringResource(R.string.bat_current), fmt(d.currentA, "A"))
             ValueRow(stringResource(R.string.bat_soc), "${d.soc} %")
-            if (d.remainingAh > 0f || d.nominalAh > 0f) {
-                ValueRow(stringResource(R.string.bat_remaining), fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah"))
-            }
-            d.tempC?.let { ValueRow(stringResource(R.string.bat_temp), fmt(it, "°C")) }
+            // Rest und Temperatur immer zeigen – „--", solange das BMS nichts liefert.
+            ValueRow(
+                stringResource(R.string.bat_remaining),
+                if (d.remainingAh > 0f || d.nominalAh > 0f) {
+                    fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah")
+                } else {
+                    "--"
+                },
+            )
+            ValueRow(
+                stringResource(R.string.bat_temp),
+                d.tempC?.let { fmt(it, "°C") } ?: "--",
+            )
             if (d.cells.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text(stringResource(R.string.bat_cells), style = MaterialTheme.typography.titleSmall)
