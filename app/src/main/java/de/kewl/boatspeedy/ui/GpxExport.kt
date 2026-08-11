@@ -43,10 +43,34 @@ object GpxExport {
                 "xmlns=\"http://www.topografix.com/GPX/1/1\" " +
                 "xmlns:boatspeedy=\"https://github.com/Glenn-Dandy/BoatSpeedy\">\n",
         )
+        // Startzeit der (ersten) Fahrt als Metadatum – Standardfeld vieler GPX-Werkzeuge.
+        trips.minByOrNull { it.startedAt }?.let {
+            sb.append("  <metadata><time>").append(iso.format(Date(it.startedAt))).append("</time></metadata>\n")
+        }
         for (trip in trips) {
             sb.append("  <trk>\n    <name>")
             sb.append(escape(name.format(Date(trip.startedAt))))
-            sb.append("</name>\n    <trkseg>\n")
+            sb.append("</name>\n")
+            // Die Zeiten der App explizit mitgeben: Werkzeuge rechnen sonst nur die
+            // Gesamtspanne (inkl. Pausen) aus den Zeitstempeln.
+            val pause = (trip.totalMs - trip.durationMs).coerceAtLeast(0L)
+            sb.append("    <desc>")
+            sb.append(escape(
+                "Fahrzeit " + hms(trip.durationMs) +
+                    " · Pause " + hms(pause) +
+                    " · Gesamt " + hms(trip.totalMs) +
+                    String.format(Locale.US, " · %.2f km", trip.distanceM / 1000.0) +
+                    String.format(Locale.US, " · %.1f Ah", trip.chargeAh),
+            ))
+            sb.append("</desc>\n")
+            sb.append("    <extensions>")
+            sb.append("<boatspeedy:movingTimeS>").append(trip.durationMs / 1000).append("</boatspeedy:movingTimeS>")
+            sb.append("<boatspeedy:pauseTimeS>").append(pause / 1000).append("</boatspeedy:pauseTimeS>")
+            sb.append("<boatspeedy:totalTimeS>").append(trip.totalMs / 1000).append("</boatspeedy:totalTimeS>")
+            sb.append("<boatspeedy:distanceM>").append(String.format(Locale.US, "%.1f", trip.distanceM)).append("</boatspeedy:distanceM>")
+            sb.append("<boatspeedy:chargeAh>").append(fmt3(trip.chargeAh)).append("</boatspeedy:chargeAh>")
+            sb.append("</extensions>\n")
+            sb.append("    <trkseg>\n")
             for (p in trip.points) {
                 sb.append("      <trkpt lat=\"")
                     .append(fmt(p.lat)).append("\" lon=\"").append(fmt(p.lon)).append("\">")
@@ -71,6 +95,11 @@ object GpxExport {
     }
 
     private fun fmt(v: Double) = String.format(Locale.US, "%.6f", v)
+
+    private fun hms(ms: Long): String {
+        val t = ms / 1000
+        return String.format(Locale.US, "%d:%02d:%02d", t / 3600, (t % 3600) / 60, t % 60)
+    }
     private fun fmt3(v: Float) = String.format(Locale.US, "%.3f", v)
 
     private fun escape(s: String) = s
