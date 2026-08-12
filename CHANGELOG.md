@@ -2,6 +2,21 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.3.2] – 2026-08-12
+
+### Geändert
+- **Batteriemenü umgebaut.** Der BMS-Typ hängt jetzt an der einzelnen Batterie statt an der
+  ganzen Bank — **JBD, Daly und JK lassen sich mischen**. Vorher war nach dem Hinzufügen einer
+  JBD keine Batterie eines anderen BMS mehr auffindbar.
+- **Scan filtert auf alle unterstützten Service-UUIDs** und zeigt den erkannten Typ direkt im
+  Suchergebnis an; ist er nicht eindeutig, wird beim Hinzufügen danach gefragt.
+- **Hinzufügen über „+" in der Titelleiste** (wie der Download-Button bei den Fahrten), die
+  Verschaltung (Reihe/Parallel) bleibt oben stehen.
+- **Dreizeilige Batterie-Zeilen**: Name und BMS, darunter die Live-Werte, darunter der
+  Verbinden-Schalter mit Umbenennen und Entfernen — beides wieder ohne Aufklappen erreichbar.
+- **Tippen auf die Kachel klappt sie auf**; in der Detailansicht steht die BMS-Auswahl an
+  erster Stelle, danach Typ und MAC-Adresse.
+
 ## [1.3.1] – 2026-08-11
 
 ### Behoben
