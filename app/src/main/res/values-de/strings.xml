@@ -137,6 +137,8 @@
     <string name="bat_range_hint">Braucht Entladestrom und Bootsgeschwindigkeit &gt; 0.</string>
     <string name="bat_permission_needed">Für die Verbindung zur Batterie wird die Bluetooth-Berechtigung benötigt.</string>
     <string name="bms">BMS</string>
+    <string name="bms_unknown">Typ?</string>
+    <string name="bms_pick_hint">Der BMS-Typ konnte nicht erkannt werden. Bitte auswählen:</string>
     <string name="bms_experimental">%1$s ist experimentell und ungetestet.</string>
     <string name="experimental">experimentell</string>
     <string name="scan">Scannen</string>

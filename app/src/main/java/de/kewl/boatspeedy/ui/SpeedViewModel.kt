@@ -483,22 +483,39 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setDashboardBattery(v: String) = viewModelScope.launch { settingsRepo.setDashboardBattery(v) }
 
     // --- Batterie BLE / Verwaltung ---
-    fun scanBattery() = BatteryRepository.scan(getApplication<Application>(), settings.value.batteryBms)
+    fun scanBattery() = BatteryRepository.scan(getApplication<Application>())
     fun stopScan() = BatteryRepository.stopScan()
 
     /** Gefundenes Gerät dauerhaft übernehmen (aktiv) und gleich verbinden. */
-    fun addBattery(device: ScanDevice) {
+    /** Gefundenes Gerät übernehmen. [bms] überschreibt die automatische Erkennung. */
+    fun addBattery(device: ScanDevice, bms: BmsType? = null) {
         // Kurzer, sprechender Name: 3 Zeichen des Typs + letzte 4 der MAC (z. B. „DP0-5F3A").
         val name = de.kewl.boatspeedy.data.shortBatteryName(device.name, device.address)
+        val type = bms ?: device.bms ?: BmsType.JBD
         val current = settings.value.batteries
         if (current.none { it.address == device.address }) {
             viewModelScope.launch {
                 settingsRepo.setBatteries(
-                    current + SavedBattery(device.address, name, active = true, bleName = device.name),
+                    current + SavedBattery(device.address, name, active = true, bleName = device.name, bms = type),
                 )
+                connectBattery(device.address)
+            }
+        } else {
+            connectBattery(device.address)
+        }
+    }
+
+    /** BMS-Protokoll einer gespeicherten Batterie ändern (falls die Erkennung danebenlag). */
+    fun setBatteryBms(address: String, bms: BmsType) {
+        val s = settings.value
+        viewModelScope.launch {
+            settingsRepo.setBatteries(s.batteries.map { if (it.address == address) it.copy(bms = bms) else it })
+            // Mit neuem Protokoll frisch verbinden.
+            if (battery.value.links[address] != null) {
+                BatteryRepository.disconnect(address)
+                connectBattery(address)
             }
         }
-        connectBattery(device.address)
     }
 
     /** Batterie umbenennen (Typ/MAC bleiben erhalten). */
@@ -534,19 +551,23 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     /** Alle aktiven gespeicherten Akkus verbinden (App-Start), die noch keinen Link haben. */
     fun autoConnectActive() {
         val app = getApplication<Application>()
-        val bms = settings.value.batteryBms
         settings.value.batteries.filter { it.active }.forEach { b ->
             if (battery.value.links[b.address] == null) {
-                BatteryRepository.connect(app, b.address, b.name, bms)
+                BatteryRepository.connect(app, b.address, b.name, b.bms)
             }
         }
     }
 
     fun connectBattery(address: String) {
-        val name = settings.value.batteries.firstOrNull { it.address == address }?.name
+        val saved = settings.value.batteries.firstOrNull { it.address == address }
+        val name = saved?.name
             ?: battery.value.scanResults.firstOrNull { it.address == address }?.name
             ?: address
-        BatteryRepository.connect(getApplication<Application>(), address, name, settings.value.batteryBms)
+        // Jede Batterie bringt ihr eigenes BMS-Protokoll mit.
+        val bms = saved?.bms
+            ?: battery.value.scanResults.firstOrNull { it.address == address }?.bms
+            ?: BmsType.JBD
+        BatteryRepository.connect(getApplication<Application>(), address, name, bms)
     }
 
     fun disconnectBattery(address: String) = BatteryRepository.disconnect(address)

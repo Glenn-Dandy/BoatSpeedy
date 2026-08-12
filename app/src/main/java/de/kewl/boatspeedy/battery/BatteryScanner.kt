@@ -37,8 +37,11 @@ class BatteryScanner(
     private var scanning = false
     private val found = LinkedHashMap<String, ScanDevice>()
 
-    /** Startet einen Scan auf das Service-UUID des gewählten BMS. false = Bluetooth aus. */
-    fun start(bms: BmsType): Boolean {
+    /**
+     * Scannt auf **alle** unterstützten BMS gleichzeitig (ein Filter je Service-UUID) und
+     * erkennt den Typ aus der beworbenen UUID. false = Bluetooth aus.
+     */
+    fun start(): Boolean {
         val ad = adapter
         if (ad == null || !ad.isEnabled) return false
         // Sauberer Neustart – verhindert „Scan-Fehler 1" (ALREADY_STARTED).
@@ -47,13 +50,14 @@ class BatteryScanner(
         onResults(emptyList())
         scanning = true
 
-        val protocol = BmsProtocol.of(bms)
-        val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(protocol.serviceUuid)).build()
+        val filters = BmsType.entries.map { t ->
+            ScanFilter.Builder().setServiceUuid(ParcelUuid(BmsProtocol.of(t).serviceUuid)).build()
+        }
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
         val now = SystemClock.uptimeMillis()
         // Kurz verzögert starten, damit ein vorheriges stopScan im Stack durchgreift.
         main.postAtTime({
-            if (scanning) ad.bluetoothLeScanner?.startScan(listOf(filter), settings, cb)
+            if (scanning) ad.bluetoothLeScanner?.startScan(filters, settings, cb)
         }, token, now + START_DELAY_MS)
         main.postAtTime({ stop() }, token, now + SCAN_TIMEOUT_MS)
         return true
@@ -74,7 +78,10 @@ class BatteryScanner(
     private val cb = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val dev = result.device
-            found[dev.address] = ScanDevice(dev.name, dev.address, result.rssi)
+            // Typ aus den beworbenen Service-UUIDs ableiten (null, wenn nicht eindeutig).
+            val advertised = result.scanRecord?.serviceUuids?.map { it.uuid }.orEmpty()
+            val type = BmsType.entries.firstOrNull { t -> BmsProtocol.of(t).serviceUuid in advertised }
+            found[dev.address] = ScanDevice(dev.name, dev.address, result.rssi, type)
             onResults(found.values.sortedByDescending { it.rssi })
         }
 

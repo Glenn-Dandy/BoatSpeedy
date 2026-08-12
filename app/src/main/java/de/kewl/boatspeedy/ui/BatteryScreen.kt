@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
@@ -68,16 +69,21 @@ fun BatteryScreen(
     hub: BatteryHub,
     onScan: () -> Unit,
     onStopScan: () -> Unit,
-    onAdd: (ScanDevice) -> Unit,
+    onAdd: (ScanDevice, BmsType?) -> Unit,
     onConnect: (String) -> Unit,
     onDisconnect: (String) -> Unit,
     onToggleActive: (String, Boolean) -> Unit,
     onRemove: (String) -> Unit,
     onRename: (String, String) -> Unit,
-    onBms: (BmsType) -> Unit,
+    onBatteryBms: (String, BmsType) -> Unit,
     onBankMode: (BankMode) -> Unit,
     onOpenMenu: () -> Unit,
 ) {
+    // Welche Batterie ist gerade aufgeklappt (Detailkarte sichtbar)?
+    var expanded by remember { mutableStateOf<String?>(null) }
+    var renaming by remember { mutableStateOf<SavedBattery?>(null) }
+    var adding by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -87,12 +93,15 @@ fun BatteryScreen(
                         Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.menu))
                     }
                 },
+                actions = {
+                    // Hinzufügen oben rechts – wie der Import-Knopf bei den Fahrten.
+                    IconButton(onClick = { adding = true; onScan() }) {
+                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_battery))
+                    }
+                },
             )
         },
     ) { innerPadding ->
-        // Welche Batterie ist gerade aufgeklappt (Detailkarte sichtbar)?
-        var expanded by remember { mutableStateOf<String?>(null) }
-        var renaming by remember { mutableStateOf<SavedBattery?>(null) }
 
         Column(
             modifier = Modifier
@@ -101,9 +110,6 @@ fun BatteryScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            val anyLink = hub.links.isNotEmpty()
-
-            BmsSelector(settings.batteryBms, locked = anyLink, onBms)
             BankModeSelector(settings.bankMode, onBankMode)
 
             // --- Gespeicherte Batterien ---
@@ -125,16 +131,17 @@ fun BatteryScreen(
                             onToggleActive = { onToggleActive(saved.address, it) },
                             onConnect = { onConnect(saved.address) },
                             onDisconnect = { onDisconnect(saved.address) },
+                            onRename = { renaming = saved },
+                            onRemove = {
+                                if (expanded == saved.address) expanded = null
+                                onRemove(saved.address)
+                            },
                         )
                         if (expanded == saved.address) {
                             BatteryDetailCard(
                                 saved = saved,
                                 d = hub.links[saved.address]?.data,
-                                onRename = { renaming = saved },
-                                onRemove = {
-                                    expanded = null
-                                    onRemove(saved.address)
-                                },
+                                onBms = { onBatteryBms(saved.address, it) },
                             )
                         }
                     }
@@ -142,7 +149,16 @@ fun BatteryScreen(
             }
 
             // --- Hinzufügen / Scannen ---
-            AddSection(hub, alreadySaved = settings.batteries.map { it.address }.toSet(), onScan, onStopScan, onAdd)
+        }
+
+        if (adding) {
+            AddDialog(
+                hub = hub,
+                alreadySaved = settings.batteries.map { it.address }.toSet(),
+                onScan = onScan,
+                onAdd = onAdd,
+                onDismiss = { adding = false; onStopScan() },
+            )
         }
 
         renaming?.let { target ->
@@ -206,58 +222,79 @@ private fun BatteryRow(
     onToggleActive: (Boolean) -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
+    onRename: () -> Unit,
+    onRemove: () -> Unit,
 ) {
     val link = live?.link ?: LinkState.DISCONNECTED
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(checked = saved.active, onCheckedChange = onToggleActive)
-            Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
-                Text(saved.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+            // Zeile 1: aktiv + Name + BMS-Typ
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = saved.active, onCheckedChange = onToggleActive)
                 Text(
-                    liveSummary(link, live),
+                    saved.name,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f).padding(start = 4.dp),
+                )
+                Text(
+                    saved.bms.display,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    maxLines = 1,
                 )
             }
-            // Verbinden/Trennen als einfacher An/Aus-Schalter (Spinner während des Verbindens).
-            if (link == LinkState.CONNECTING) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-            } else {
-                Switch(
-                    checked = link == LinkState.CONNECTED,
-                    onCheckedChange = { on -> if (on) onConnect() else onDisconnect() },
-                )
-            }
-            Icon(
-                if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                contentDescription = null,
-                modifier = Modifier.padding(start = 4.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            // Zeile 2: Live-Werte
+            Text(
+                liveSummary(link, live),
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                modifier = Modifier.padding(start = 48.dp, top = 2.dp),
             )
+            // Zeile 3: Verbinden + Aktionen – große Ziele, nichts gequetscht.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(start = 44.dp, top = 4.dp),
+            ) {
+                if (link == LinkState.CONNECTING) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                } else {
+                    Switch(
+                        checked = link == LinkState.CONNECTED,
+                        onCheckedChange = { on -> if (on) onConnect() else onDisconnect() },
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onRename) {
+                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.rename))
+                }
+                IconButton(onClick = onRemove) {
+                    Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.remove))
+                }
+                IconButton(onClick = onClick) {
+                    Icon(
+                        if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = null,
+                    )
+                }
+            }
         }
     }
 }
-
-/** Ausführlicher Batterie-Status (aufgeklappt): alle Werte plus Zellspannungen. */
 @Composable
 private fun BatteryDetailCard(
     saved: SavedBattery,
     d: BatteryData?,
-    onRename: () -> Unit,
-    onRemove: () -> Unit,
+    onBms: (BmsType) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Gerätedaten: Typ (BLE-Name) und MAC-Adresse.
+            // BMS zuerst – falls die automatische Erkennung danebenlag, hier umstellen.
+            BmsSelector(saved.bms, locked = false, onBms)
+            // Danach die Gerätedaten: Typ (BLE-Name) und MAC-Adresse.
             saved.bleName?.takeIf { it.isNotBlank() }?.let {
                 ValueRow(stringResource(R.string.bat_type), it)
             }
             ValueRow(stringResource(R.string.bat_mac), saved.address)
-            BatteryActions(onRename, onRemove)
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             if (d == null) {
                 Text(
@@ -300,22 +337,6 @@ private fun BatteryDetailCard(
 
 /** Umbenennen/Entfernen – im aufgeklappten Detail, damit die Zeile schlank bleibt. */
 @Composable
-private fun BatteryActions(onRename: () -> Unit, onRemove: () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextButton(onClick = onRename) {
-            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(stringResource(R.string.rename), modifier = Modifier.padding(start = 6.dp))
-        }
-        TextButton(onClick = onRemove) {
-            Icon(Icons.Filled.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(stringResource(R.string.remove), modifier = Modifier.padding(start = 6.dp))
-        }
-    }
-}
-
-/** Kleiner Dialog zum Umbenennen einer gespeicherten Batterie. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 private fun RenameDialog(current: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var text by remember { mutableStateOf(current) }
     AlertDialog(
@@ -334,66 +355,94 @@ private fun RenameDialog(current: String, onDismiss: () -> Unit, onConfirm: (Str
     )
 }
 
+/**
+ * „+"-Dialog: sucht alle unterstützten BMS gleichzeitig. Der Typ wird aus der beworbenen
+ * Bluetooth-Kennung erkannt; ist er unbekannt, fragt der Dialog beim Antippen nach.
+ */
 @Composable
-private fun AddSection(
+private fun AddDialog(
     hub: BatteryHub,
     alreadySaved: Set<String>,
     onScan: () -> Unit,
-    onStopScan: () -> Unit,
-    onAdd: (ScanDevice) -> Unit,
+    onAdd: (ScanDevice, BmsType?) -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            if (hub.scanning) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.bat_scanning), fontSize = 13.sp)
-                }
-                OutlinedButton(onClick = onStopScan) { Text(stringResource(R.string.trip_stop)) }
-            } else {
-                Text(
-                    stringResource(R.string.scan_hint),
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.weight(1f),
-                )
-                Button(onClick = onScan) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.add_battery))
-                }
-            }
-        }
+    var askType by remember { mutableStateOf<ScanDevice?>(null) }
+    val results = hub.scanResults.filter { it.address !in alreadySaved }
 
-        hub.error?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.error) }
-
-        // Gefundene, noch nicht gespeicherte Geräte → antippen zum Übernehmen.
-        hub.scanResults.filter { it.address !in alreadySaved }.forEach { dev ->
-            Card(modifier = Modifier.fillMaxWidth().clickable { onAdd(dev) }) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column {
-                        Text(
-                            de.kewl.boatspeedy.data.shortBatteryName(dev.name, dev.address),
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(dev.address, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.add_battery)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (hub.scanning) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.bat_scanning), modifier = Modifier.padding(start = 8.dp))
                     }
-                    Text("${dev.rssi} dBm", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                }
+                hub.error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
+                if (results.isEmpty() && !hub.scanning) {
+                    Text(
+                        stringResource(R.string.no_devices),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                }
+                results.forEach { dev ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            if (dev.bms != null) { onAdd(dev, dev.bms); onDismiss() } else askType = dev
+                        },
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    de.kewl.boatspeedy.data.shortBatteryName(dev.name, dev.address),
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    dev.address,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                )
+                            }
+                            Text(
+                                dev.bms?.display ?: stringResource(R.string.bms_unknown),
+                                fontSize = 12.sp,
+                                color = if (dev.bms != null) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            )
+                        }
+                    }
                 }
             }
-        }
+        },
+        confirmButton = { TextButton(onClick = onScan) { Text(stringResource(R.string.rescan)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.back)) } },
+    )
+
+    // Typ nicht erkannt -> nachfragen.
+    askType?.let { dev ->
+        AlertDialog(
+            onDismissRequest = { askType = null },
+            title = { Text(stringResource(R.string.bms)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.bms_pick_hint), fontSize = 13.sp)
+                    BmsType.entries.forEach { t ->
+                        TextButton(onClick = { onAdd(dev, t); askType = null; onDismiss() }) { Text(t.display) }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { askType = null }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 }
-
 @Composable
 private fun ValueRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
