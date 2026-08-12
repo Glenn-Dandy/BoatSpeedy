@@ -226,7 +226,7 @@ private fun BatteryRow(
     onRemove: () -> Unit,
 ) {
     val link = live?.link ?: LinkState.DISCONNECTED
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
             // Zeile 1: aktiv + Name + BMS-Typ
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -288,13 +288,13 @@ private fun BatteryDetailCard(
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Gerätedaten: Typ (BLE-Name) und MAC-Adresse.
+            // BMS zuerst – falls die automatische Erkennung danebenlag, hier umstellen.
+            BmsSelector(saved.bms, locked = false, onBms)
+            // Danach die Gerätedaten: Typ (BLE-Name) und MAC-Adresse.
             saved.bleName?.takeIf { it.isNotBlank() }?.let {
                 ValueRow(stringResource(R.string.bat_type), it)
             }
             ValueRow(stringResource(R.string.bat_mac), saved.address)
-            // BMS-Protokoll umstellbar – falls die automatische Erkennung danebenlag.
-            BmsSelector(saved.bms, locked = false, onBms)
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             if (d == null) {
                 Text(
