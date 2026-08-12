@@ -140,6 +140,8 @@
     <string name="bat_range_hint">Needs a discharge current and boat speed &gt; 0.</string>
     <string name="bat_permission_needed">Bluetooth permission is required to connect to the battery.</string>
     <string name="bms">BMS</string>
+    <string name="bms_unknown">Type?</string>
+    <string name="bms_pick_hint">The BMS type could not be detected. Please pick it:</string>
     <string name="bms_experimental">%1$s is experimental and untested.</string>
     <string name="experimental">experimental</string>
     <string name="scan">Scan</string>

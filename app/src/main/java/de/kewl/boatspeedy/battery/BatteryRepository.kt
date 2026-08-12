@@ -36,7 +36,7 @@ object BatteryRepository {
     private data class Wanted(val name: String, val bms: BmsType)
 
     // --- Scan ---
-    fun scan(context: Context, bms: BmsType) {
+    fun scan(context: Context) {
         appContext = context.applicationContext
         val sc = scanner ?: BatteryScanner(
             context.applicationContext,
@@ -46,7 +46,7 @@ object BatteryRepository {
         ).also { scanner = it }
 
         _state.update { it.copy(scanning = true, error = null, scanResults = emptyList()) }
-        if (!sc.start(bms)) {
+        if (!sc.start()) {
             _state.update { it.copy(scanning = false, error = "Bluetooth off") }
         }
     }

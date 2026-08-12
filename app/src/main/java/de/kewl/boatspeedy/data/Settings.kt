@@ -74,6 +74,8 @@ data class SavedBattery(
     val active: Boolean = true,
     /** Ursprünglicher BLE-Name (Typ, z. B. „DP04S007L4S100A"); bleibt beim Umbenennen erhalten. */
     val bleName: String? = null,
+    /** BMS-Protokoll **dieser** Batterie – erlaubt gemischte Bänke (z. B. JBD + Daly). */
+    val bms: BmsType = BmsType.JBD,
 )
 
 /**

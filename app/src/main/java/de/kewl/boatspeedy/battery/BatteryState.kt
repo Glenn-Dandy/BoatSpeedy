@@ -25,7 +25,13 @@ data class BatteryData(
 }
 
 /** Ein beim Scan gefundenes BLE-Gerät. */
-data class ScanDevice(val name: String?, val address: String, val rssi: Int)
+data class ScanDevice(
+    val name: String?,
+    val address: String,
+    val rssi: Int,
+    /** Aus der beworbenen Service-UUID erkanntes BMS; null = unbekannt (Nutzer wählt). */
+    val bms: BmsType? = null,
+)
 
 /** Laufzeit-Zustand einer verbundenen/verbindenden Batterie (nach Adresse). */
 data class BatteryLive(

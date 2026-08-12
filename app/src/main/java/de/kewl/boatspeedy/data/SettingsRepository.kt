@@ -146,7 +146,8 @@ class SettingsRepository(private val context: Context) {
                     .put("address", b.address)
                     .put("name", b.name)
                     .put("active", b.active)
-                    .put("bleName", b.bleName ?: ""),
+                    .put("bleName", b.bleName ?: "")
+                    .put("bms", b.bms.name),
             )
         }
         return arr.toString()
@@ -161,6 +162,7 @@ class SettingsRepository(private val context: Context) {
                 name = o.optString("name", o.getString("address")),
                 active = o.optBoolean("active", true),
                 bleName = o.optString("bleName").takeIf { it.isNotBlank() },
+                bms = enumOrNull<BmsType>(o.optString("bms")) ?: BmsType.JBD,
             )
         }
     }.getOrDefault(emptyList())
