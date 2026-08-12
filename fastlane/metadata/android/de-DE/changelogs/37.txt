@@ -1,0 +1,6 @@
+1.3.2
+* Jede Batterie hat jetzt ihren eigenen BMS-Typ, dadurch lassen sich JBD, Daly und JK in einer Bank mischen
+* Der Scan findet alle unterstützten BMS statt nur den vorher gewählten Typ
+* Batterien werden über "+" in der Titelleiste hinzugefügt, der erkannte Typ steht gleich dabei
+* Dreizeilige Batterie-Zeilen: Name und BMS, Live-Werte, Verbinden-Schalter mit Umbenennen und Entfernen
+* Tippen auf die Kachel klappt sie auf; die BMS-Auswahl steht an erster Stelle, danach Typ und MAC-Adresse

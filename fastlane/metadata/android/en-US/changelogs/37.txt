@@ -1,0 +1,6 @@
+1.3.2
+* Each battery now keeps its own BMS type, so JBD, Daly and JK packs can be mixed in one bank
+* Scanning finds every supported BMS instead of only the type selected before
+* Batteries are added via "+" in the top bar; the detected type is shown right away
+* Three-line battery rows: name and BMS, live values, connect switch with rename and remove
+* Tap the card to expand it; the BMS selector sits first, followed by type and MAC address
