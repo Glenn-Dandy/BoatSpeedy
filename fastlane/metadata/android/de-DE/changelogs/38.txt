@@ -1,0 +1,2 @@
+1.3.3
+* Nur Härtung des Builds, an der App selbst ändert sich nichts: die Gradle-Distribution wird jetzt per Prüfsumme festgenagelt, ein manipulierter oder abgebrochener Download lässt den Build scheitern

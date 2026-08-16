@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.3.3] – 2026-08-12
+
+### Sicherheit
+- **Gradle-Distribution wird jetzt geprüft**: `distributionSha256Sum` im Wrapper festgenagelt,
+  damit ein manipuliertes oder unvollständiges Archiv den Build abbricht statt ihn zu bauen.
+  Hinweis aus dem F-Droid-Review. Am Programm selbst ändert sich nichts.
+
 ## [1.3.2] – 2026-08-12
 
 ### Geändert
