@@ -284,4 +284,6 @@
     <string name="diag_pick">Pick the battery</string>
     <string name="diag_no_name">(no name)</string>
     <string name="diag_share">Share report</string>
+    <string name="dev_hide">Hide developer tools</string>
+    <string name="dev_hidden">Developer tools hidden — tap the version number in About seven times to bring them back</string>
 </resources>

@@ -281,4 +281,6 @@
     <string name="diag_pick">Batterie auswählen</string>
     <string name="diag_no_name">(kein Name)</string>
     <string name="diag_share">Protokoll teilen</string>
+    <string name="dev_hide">Entwicklerwerkzeuge ausblenden</string>
+    <string name="dev_hidden">Entwicklerwerkzeuge ausgeblendet — siebenmal auf die Versionsnummer in „Über" tippen, um sie zurückzuholen</string>
 </resources>

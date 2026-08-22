@@ -1,6 +1,7 @@
 package de.kewl.boatspeedy.ui
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -63,6 +65,7 @@ import java.util.Locale
 @Composable
 fun DiagnosticScreen(
     onScanPermission: (() -> Unit) -> Unit,
+    onHide: () -> Unit,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -126,6 +129,21 @@ fun DiagnosticScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    }
+                },
+                actions = {
+                    // Blendet den Entwickler-Abschnitt wieder aus; zurueck holt ihn nur,
+                    // wer erneut siebenmal auf die Versionsnummer tippt.
+                    IconButton(onClick = {
+                        diag.stopScan()
+                        diag.cancel()
+                        Toast.makeText(context, context.getString(R.string.dev_hidden), Toast.LENGTH_LONG).show()
+                        onHide()
+                    }) {
+                        Icon(
+                            Icons.Filled.VisibilityOff,
+                            contentDescription = stringResource(R.string.dev_hide),
+                        )
                     }
                 },
             )

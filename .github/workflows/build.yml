@@ -74,7 +74,9 @@ jobs:
       # Aktualisiert das eine „dev-build"-Pre-Release → immer nur der aktuelle Dev-Build.
       - name: Build DEV APK (signed with release key)
         if: ${{ env.IS_DEV == 'true' }}
-        run: ./gradlew assembleDebug --no-daemon
+        # Laufnummer als Versionssuffix: die App zeigt dann z. B. "1.3.3-dev142",
+        # damit Rückmeldungen einem konkreten Build zuzuordnen sind.
+        run: ./gradlew assembleDebug --no-daemon -PdevBuild=${{ github.run_number }}
 
       - name: Rename DEV APK
         if: ${{ env.IS_DEV == 'true' }}
@@ -91,6 +93,7 @@ jobs:
             Rolling development build — package `de.kewl.boatspeedy.debug`, label “BoatSpeedy DEV”
             (installs alongside the release app). Signed with the release key.
 
+            Version `${{ github.run_number }}` — the app shows this as `…-dev${{ github.run_number }}`.
             Built from branch `${{ github.ref_name }}` · commit ${{ github.sha }}
           files: BoatSpeedy-dev.apk
 

@@ -314,6 +314,7 @@ private fun BoatSpeedyApp(
 
                     Screen.SETTINGS_DEV -> DiagnosticScreen(
                         onScanPermission = withBt,
+                        onHide = { vm.setDevMode(false); screen = Screen.SETTINGS },
                         onBack = { screen = Screen.SETTINGS },
                     )
 

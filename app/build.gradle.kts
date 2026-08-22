@@ -67,7 +67,10 @@ android {
         // ohne Deinstallieren funktionieren.
         debug {
             applicationIdSuffix = ".debug"
-            versionNameSuffix = "-dev"
+            // Fortlaufende Nummer je CI-Lauf: -PdevBuild=<n> → "1.3.3-dev142".
+            // Lokal ohne Eigenschaft bleibt es schlicht "-dev". Betrifft nur den
+            // Debug-Build; das versionName oben, das F-Droid ausliest, bleibt unberührt.
+            versionNameSuffix = "-dev" + (project.findProperty("devBuild") ?: "")
             resValue("string", "app_name", "BoatSpeedy DEV")
             if (hasKeystore) {
                 signingConfig = signingConfigs.getByName("release")
