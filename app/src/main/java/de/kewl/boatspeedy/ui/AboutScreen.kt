@@ -7,7 +7,7 @@ import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,6 +47,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -153,30 +154,36 @@ fun AboutScreen(
                 fontWeight = FontWeight.Bold,
             )
             // Sieben Tipper schalten die Entwicklerwerkzeuge frei (Android-Geste).
+            // Gezaehlt wird beim Aufsetzen des Fingers, nicht beim fertigen Klick: der Text
+            // sitzt in einem scrollbaren Bereich, der schnelle Tipper sonst als Wischen
+            // wertet und verschluckt.
             var taps by remember { mutableIntStateOf(0) }
+            val versionLabel = "${stringResource(R.string.version)} ${BuildConfig.VERSION_NAME}"
+            val unlockedText = stringResource(R.string.dev_unlocked)
             Text(
-                "${stringResource(R.string.version)} ${BuildConfig.VERSION_NAME}",
+                versionLabel,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                ) {
-                    if (devMode) return@clickable
-                    taps++
-                    val left = 7 - taps
-                    when {
-                        left <= 0 -> {
-                            taps = 0
-                            onDevMode(true)
-                            Toast.makeText(context, context.getString(R.string.dev_unlocked), Toast.LENGTH_LONG).show()
-                        }
-                        left <= 3 -> Toast.makeText(
-                            context,
-                            context.getString(R.string.dev_countdown, left),
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    }
+                modifier = Modifier.pointerInput(devMode) {
+                    detectTapGestures(
+                        onPress = {
+                            if (devMode) return@detectTapGestures
+                            taps++
+                            val left = 7 - taps
+                            when {
+                                left <= 0 -> {
+                                    taps = 0
+                                    onDevMode(true)
+                                    Toast.makeText(context, unlockedText, Toast.LENGTH_LONG).show()
+                                }
+                                left <= 3 -> Toast.makeText(
+                                    context,
+                                    countdown(context, left),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                    )
                 },
             )
             Spacer(Modifier.size(24.dp))
@@ -348,3 +355,6 @@ private fun UpdateBlock(state: UpdateUi, onCheck: () -> Unit, onOpen: (String) -
         }
     }
 }
+
+private fun countdown(context: android.content.Context, left: Int): String =
+    context.getString(R.string.dev_countdown, left)
