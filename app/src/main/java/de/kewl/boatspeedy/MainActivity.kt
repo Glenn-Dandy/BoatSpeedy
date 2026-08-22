@@ -308,7 +308,7 @@ private fun BoatSpeedyApp(
                         onTracks = { screen = Screen.SETTINGS_TRACKS },
                         onGps = { screen = Screen.SETTINGS_GPS },
                         onOpenMenu = { openDrawer() },
-                        showDeveloper = settings.devMode || BuildConfig.DEBUG,
+                        showDeveloper = settings.devMode,
                         onDeveloper = { screen = Screen.SETTINGS_DEV },
                     )
 

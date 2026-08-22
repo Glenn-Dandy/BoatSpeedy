@@ -124,7 +124,7 @@ fun SettingsHomeScreen(
             stringResource(R.string.cat_gps_desc),
             onGps,
         )
-        // Nur nach dem Freischalten in „Über" (im DEV-Build immer sichtbar).
+        // Nur nach dem Freischalten über die sieben Tipper in „Über" – auch im DEV-Build.
         if (showDeveloper) {
             HorizontalDivider()
             CategoryRow(
