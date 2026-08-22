@@ -54,6 +54,7 @@ class SettingsRepository(private val context: Context) {
         val WEATHER_ENABLED = booleanPreferencesKey("weather_enabled")
         val WEATHER_ALARM_ON = booleanPreferencesKey("weather_alarm_on")
         val WEATHER_SOUND = stringPreferencesKey("weather_sound")
+        val DEV_MODE = booleanPreferencesKey("dev_mode")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -92,6 +93,7 @@ class SettingsRepository(private val context: Context) {
             weatherWarnEnabled = p[Keys.WEATHER_ENABLED] ?: false,
             weatherAlarmOn = p[Keys.WEATHER_ALARM_ON] ?: true,
             weatherSound = p[Keys.WEATHER_SOUND]?.let { enumOrNull<AlarmSound>(it) } ?: AlarmSound.SIRENE,
+            devMode = p[Keys.DEV_MODE] ?: false,
         )
     }
 
@@ -129,6 +131,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAnchorRadius(value: Int) = edit { it[Keys.ANCHOR_RADIUS] = value.coerceIn(5, 1000) }
     suspend fun setWeatherEnabled(value: Boolean) = edit { it[Keys.WEATHER_ENABLED] = value }
     suspend fun setWeatherAlarmOn(value: Boolean) = edit { it[Keys.WEATHER_ALARM_ON] = value }
+    suspend fun setDevMode(value: Boolean) = edit { it[Keys.DEV_MODE] = value }
     suspend fun setWeatherSound(value: AlarmSound) = edit { it[Keys.WEATHER_SOUND] = value.name }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {

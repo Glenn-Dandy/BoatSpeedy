@@ -150,4 +150,6 @@ data class Settings(
     /** Wetterwarnung zusätzlich mit Ton. */
     val weatherAlarmOn: Boolean = true,
     val weatherSound: AlarmSound = AlarmSound.SIRENE,
+    /** Versteckte Entwicklerwerkzeuge (BLE-Diagnose); über 7 Tipper in „Über" freigeschaltet. */
+    val devMode: Boolean = false,
 )

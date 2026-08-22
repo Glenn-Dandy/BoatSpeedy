@@ -2,10 +2,12 @@ package de.kewl.boatspeedy.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -73,6 +76,8 @@ fun AboutScreen(
     language: AppLanguage,
     onLanguage: (AppLanguage) -> Unit,
     onOpenMenu: () -> Unit,
+    devMode: Boolean = false,
+    onDevMode: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -147,10 +152,32 @@ fun AboutScreen(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
+            // Sieben Tipper schalten die Entwicklerwerkzeuge frei (Android-Geste).
+            var taps by remember { mutableIntStateOf(0) }
             Text(
                 "${stringResource(R.string.version)} ${BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                ) {
+                    if (devMode) return@clickable
+                    taps++
+                    val left = 7 - taps
+                    when {
+                        left <= 0 -> {
+                            taps = 0
+                            onDevMode(true)
+                            Toast.makeText(context, context.getString(R.string.dev_unlocked), Toast.LENGTH_LONG).show()
+                        }
+                        left <= 3 -> Toast.makeText(
+                            context,
+                            context.getString(R.string.dev_countdown, left),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                },
             )
             Spacer(Modifier.size(24.dp))
 

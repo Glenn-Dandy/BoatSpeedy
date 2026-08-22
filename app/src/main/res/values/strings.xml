@@ -274,4 +274,14 @@
     <string name="download">Download</string>
     <string name="open_release">Open release page</string>
     <string name="update_check_failed">Update check failed. Please try again.</string>
+    <!-- Versteckte Entwicklerwerkzeuge -->
+    <string name="group_developer">Developer</string>
+    <string name="cat_developer_desc">BLE diagnostic for bug reports</string>
+    <string name="dev_unlocked">Developer tools unlocked — see Settings</string>
+    <string name="dev_countdown">%d more taps to unlock developer tools</string>
+    <string name="diag_title">BLE diagnostic</string>
+    <string name="diag_intro">Scans without any filter, then tries every protocol BoatSpeedy knows on the battery you pick and records what comes back. Close the manufacturer app first — most BMS allow only one Bluetooth connection at a time. Share the report and attach it to your issue.</string>
+    <string name="diag_pick">Pick the battery</string>
+    <string name="diag_no_name">(no name)</string>
+    <string name="diag_share">Share report</string>
 </resources>

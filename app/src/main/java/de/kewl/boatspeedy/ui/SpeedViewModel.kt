@@ -459,6 +459,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         return null
     }
     fun setWeatherAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setWeatherAlarmOn(v) }
+    fun setDevMode(v: Boolean) = viewModelScope.launch { settingsRepo.setDevMode(v) }
     fun setWeatherSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setWeatherSound(v) }
     fun testWeatherSound() = AlarmPlayer.play(getApplication(), settings.value.weatherSound, loop = false)
 

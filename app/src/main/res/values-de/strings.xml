@@ -271,4 +271,14 @@
     <string name="download">Herunterladen</string>
     <string name="open_release">Release-Seite öffnen</string>
     <string name="update_check_failed">Update-Prüfung fehlgeschlagen. Bitte erneut versuchen.</string>
+    <!-- Versteckte Entwicklerwerkzeuge -->
+    <string name="group_developer">Entwickler</string>
+    <string name="cat_developer_desc">BLE-Diagnose für Fehlerberichte</string>
+    <string name="dev_unlocked">Entwicklerwerkzeuge freigeschaltet — siehe Einstellungen</string>
+    <string name="dev_countdown">Noch %d Mal tippen für die Entwicklerwerkzeuge</string>
+    <string name="diag_title">BLE-Diagnose</string>
+    <string name="diag_intro">Scannt ohne Filter, probiert auf der gewählten Batterie alle BoatSpeedy bekannten Protokolle durch und zeichnet auf, was zurückkommt. Vorher die Hersteller-App schließen — die meisten BMS lassen nur eine Bluetooth-Verbindung gleichzeitig zu. Das Protokoll anschließend teilen und an die Issue hängen.</string>
+    <string name="diag_pick">Batterie auswählen</string>
+    <string name="diag_no_name">(kein Name)</string>
+    <string name="diag_share">Protokoll teilen</string>
 </resources>
