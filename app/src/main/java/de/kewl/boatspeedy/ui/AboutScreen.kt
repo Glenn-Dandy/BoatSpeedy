@@ -156,7 +156,8 @@ fun AboutScreen(
             // Sieben Tipper schalten die Entwicklerwerkzeuge frei (Android-Geste).
             // Gezaehlt wird beim Aufsetzen des Fingers, nicht beim fertigen Klick: der Text
             // sitzt in einem scrollbaren Bereich, der schnelle Tipper sonst als Wischen
-            // wertet und verschluckt.
+            // wertet und verschluckt. Der Countdown steht bewusst als Text darunter und
+            // nicht als Toast – die Systemmeldungen kamen den schnellen Tippern in die Quere.
             var taps by remember { mutableIntStateOf(0) }
             val versionLabel = "${stringResource(R.string.version)} ${BuildConfig.VERSION_NAME}"
             val unlockedText = stringResource(R.string.dev_unlocked)
@@ -169,23 +170,24 @@ fun AboutScreen(
                         onPress = {
                             if (devMode) return@detectTapGestures
                             taps++
-                            val left = 7 - taps
-                            when {
-                                left <= 0 -> {
-                                    taps = 0
-                                    onDevMode(true)
-                                    Toast.makeText(context, unlockedText, Toast.LENGTH_LONG).show()
-                                }
-                                left <= 3 -> Toast.makeText(
-                                    context,
-                                    countdown(context, left),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                            if (taps >= 7) {
+                                taps = 0
+                                onDevMode(true)
+                                Toast.makeText(context, unlockedText, Toast.LENGTH_LONG).show()
                             }
                         },
                     )
                 },
             )
+            val left = 7 - taps
+            if (!devMode && taps > 0 && left in 1..3) {
+                Text(
+                    stringResource(R.string.dev_countdown, left),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
             Spacer(Modifier.size(24.dp))
 
             // --- Feedback ---
@@ -355,6 +357,3 @@ private fun UpdateBlock(state: UpdateUi, onCheck: () -> Unit, onOpen: (String) -
         }
     }
 }
-
-private fun countdown(context: android.content.Context, left: Int): String =
-    context.getString(R.string.dev_countdown, left)

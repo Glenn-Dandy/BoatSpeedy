@@ -80,7 +80,23 @@ jobs:
 
       - name: Rename DEV APK
         if: ${{ env.IS_DEV == 'true' }}
-        run: cp app/build/outputs/apk/debug/app-debug.apk "BoatSpeedy-dev.apk"
+        # Dateiname trägt die Version, damit auf dem Handy erkennbar bleibt, welcher
+        # Build im Download-Ordner liegt (statt BoatSpeedy-dev(1).apk, (2), …).
+        run: |
+          V=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          cp app/build/outputs/apk/debug/app-debug.apk "BoatSpeedy-$V-dev${{ github.run_number }}.apk"
+
+      - name: Drop the previous dev APK
+        if: ${{ env.IS_DEV == 'true' }}
+        # Das Pre-Release soll genau eine Datei zeigen – sonst sammeln sich die alten
+        # Builds unter wechselnden Namen an und niemand weiß, welche die neuste ist.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view dev-build --json assets --jq '.assets[].name' 2>/dev/null |
+            while read -r asset; do
+              [ -n "$asset" ] && gh release delete-asset dev-build "$asset" -y || true
+            done
 
       - name: Publish rolling dev pre-release
         if: ${{ env.IS_DEV == 'true' }}
@@ -93,9 +109,10 @@ jobs:
             Rolling development build — package `de.kewl.boatspeedy.debug`, label “BoatSpeedy DEV”
             (installs alongside the release app). Signed with the release key.
 
-            Version `${{ github.run_number }}` — the app shows this as `…-dev${{ github.run_number }}`.
+            Version `${{ github.run_number }}` — the app and the file name both show this
+            as `-dev${{ github.run_number }}`, so a report can be matched to a build.
             Built from branch `${{ github.ref_name }}` · commit ${{ github.sha }}
-          files: BoatSpeedy-dev.apk
+          files: BoatSpeedy-*-dev*.apk
 
       # --- PR-Check: unsignierter Debug-Build (nur Kompilier-Check) ---
       - name: Build debug APK (PR check)
