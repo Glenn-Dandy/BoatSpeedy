@@ -39,15 +39,21 @@ class BleDiagnostics(private val context: Context) {
     private companion object {
         const val SCAN_MS = 12000L
         const val SETTLE_MS = 600L      // Wartezeit nach dem Aktivieren der Notifications
-        const val CMD_GAP_MS = 900L     // Abstand zwischen zwei Probe-Befehlen
-        const val TAIL_MS = 1500L       // Nachlauf, damit späte Antworten noch ankommen
+        const val CMD_GAP_MS = 800L     // Abstand zwischen zwei Probe-Befehlen
+        const val TAIL_MS = 2000L       // Nachlauf, damit späte Antworten noch ankommen
+        const val LISTEN_MS = 3000L     // Horchzeit bei Diensten ohne Schreibkanal
+        const val CCCD_TIMEOUT_MS = 2500L
         const val CONNECT_TIMEOUT_MS = 20000L
+        /** TI-OAD (Firmware-Update) – hier wird nichts gesucht und schon gar nicht geschrieben. */
+        const val OAD_SERVICE_PREFIX = "f000ffc0"
     }
 
     private val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val adapter get() = manager.adapter
     private val main = Handler(Looper.getMainLooper())
     private val token = Any()
+    private val connectToken = Any()   // eigener Token, damit das Verbindungs-Zeitlimit
+                                       // gezielt abgeraeumt werden kann
 
     private val log = StringBuilder()
     private var startedAt = 0L
@@ -120,9 +126,10 @@ class BleDiagnostics(private val context: Context) {
         this.onDone = onDone
         finished = false
         // Zustand zurücksetzen – dieselbe Instanz wird für mehrere Läufe benutzt.
-        candidates = emptyList()
-        current = -1
-        probedFor = -1
+        probes = emptyList()
+        svcIndex = -1
+        notifyIndex = 0
+        phase = 0
         log.setLength(0)
         startedAt = SystemClock.elapsedRealtime()
 
@@ -149,7 +156,7 @@ class BleDiagnostics(private val context: Context) {
         gatt = dev.connectGatt(context, false, callback, android.bluetooth.BluetoothDevice.TRANSPORT_LE)
         main.postAtTime({
             if (!finished) { line("FEHLER: Zeitüberschreitung beim Verbinden."); finish() }
-        }, token, SystemClock.uptimeMillis() + CONNECT_TIMEOUT_MS)
+        }, connectToken, SystemClock.uptimeMillis() + CONNECT_TIMEOUT_MS)
     }
 
     /** Bricht eine laufende Diagnose ab und gibt die Verbindung frei. */
@@ -163,6 +170,7 @@ class BleDiagnostics(private val context: Context) {
         if (finished) return
         finished = true
         main.removeCallbacksAndMessages(token)
+        main.removeCallbacksAndMessages(connectToken)
         gatt?.let { runCatching { it.disconnect(); it.close() } }
         gatt = null
         line("")
@@ -179,21 +187,30 @@ class BleDiagnostics(private val context: Context) {
 
     /* ------------------------- GATT-Callback ------------------------- */
 
-    /** Ein Kandidat: ein Notify-Kanal und der dazu passende Schreibkanal. */
-    private data class Candidate(
-        val service: String,
-        val notify: BluetoothGattCharacteristic,
-        val write: BluetoothGattCharacteristic?,
+    /**
+     * Ein Dienst mit allen Kanaelen, ueber die er sprechen koennte. Es werden alle
+     * Notify-Kanaele gleichzeitig abonniert und danach ueber *jeden* Schreibkanal die
+     * Befehle geschickt – bei Modulen mit getrennten Schreib-/Lesekanaelen (etwa
+     * FFE2 raus, FFE3 rein) faende man die Antwort sonst nie.
+     */
+    private data class ServiceProbe(
+        val uuid: String,
+        val notifies: List<BluetoothGattCharacteristic>,
+        val writes: List<BluetoothGattCharacteristic>,
     )
 
-    private var candidates: List<Candidate> = emptyList()
-    private var current = -1
-    private var probedFor = -1
+    private var probes: List<ServiceProbe> = emptyList()
+    private var svcIndex = -1
+    private var notifyIndex = 0
+    private var phase = 0            // erhoeht sich bei jedem Schritt; entwertet alte Rueckfalluhren
 
     private val callback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
             when (newState) {
                 BluetoothProfile.STATE_CONNECTED -> {
+                    // Verbindungs-Zeitlimit abraeumen, sonst bricht es den laufenden
+                    // Durchlauf spaeter mitten im Probieren ab.
+                    main.removeCallbacksAndMessages(connectToken)
                     line("Verbunden (status $status). Frage MTU an …")
                     if (!g.requestMtu(517)) g.discoverServices()
                 }
@@ -215,11 +232,12 @@ class BleDiagnostics(private val context: Context) {
             }
             line("")
             line("--- GATT-Baum ---")
-            val list = mutableListOf<Candidate>()
+            val list = mutableListOf<ServiceProbe>()
             for (s in g.services) {
-                line("Service ${s.uuid}")
-                var notify: BluetoothGattCharacteristic? = null
-                var write: BluetoothGattCharacteristic? = null
+                val isOad = s.uuid.toString().startsWith(OAD_SERVICE_PREFIX)
+                line("Service ${s.uuid}" + if (isOad) "   (Firmware-Update, wird uebersprungen)" else "")
+                val notifies = mutableListOf<BluetoothGattCharacteristic>()
+                val writes = mutableListOf<BluetoothGattCharacteristic>()
                 for (c in s.characteristics) {
                     val p = c.properties
                     val props = buildList {
@@ -231,29 +249,31 @@ class BleDiagnostics(private val context: Context) {
                     }
                     val cccd = c.getDescriptor(BmsProtocol.CCCD) != null
                     line("  Char ${c.uuid}  [${props.joinToString("|").ifEmpty { "-" }}]${if (cccd) " +CCCD" else ""}")
-                    if (notify == null && p and (BluetoothGattCharacteristic.PROPERTY_NOTIFY or
+                    if (isOad) continue
+                    if (p and (BluetoothGattCharacteristic.PROPERTY_NOTIFY or
                             BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0
-                    ) notify = c
-                    if (write == null && p and (BluetoothGattCharacteristic.PROPERTY_WRITE or
+                    ) notifies.add(c)
+                    if (p and (BluetoothGattCharacteristic.PROPERTY_WRITE or
                             BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0
-                    ) write = c
+                    ) writes.add(c)
                 }
-                notify?.let { list.add(Candidate(s.uuid.toString(), it, write)) }
+                if (notifies.isNotEmpty()) list.add(ServiceProbe(s.uuid.toString(), notifies, writes))
             }
-            candidates = list
+            probes = list
             line("")
-            if (candidates.isEmpty()) {
-                line("Kein Notify-Kanal gefunden – von diesem Gerät ist ohne weitere Angaben nichts zu holen.")
+            if (probes.isEmpty()) {
+                line("Kein Notify-Kanal gefunden – von diesem Geraet ist ohne weitere Angaben nichts zu holen.")
                 finish(); return
             }
-            line("--- Probe-Durchlauf (${candidates.size} Kanal/Kanäle) ---")
-            nextCandidate()
+            line("--- Probe-Durchlauf (${probes.size} Dienst(e)) ---")
+            nextService()
         }
 
         override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, status: Int) {
             if (finished) return
-            line("CCCD geschrieben (status $status) – sende Befehle …")
-            main.postAtTime({ sendProbes() }, token, SystemClock.uptimeMillis() + SETTLE_MS)
+            line("  CCCD ${short(d.characteristic.uuid.toString())} aktiviert (status $status)")
+            notifyIndex++
+            enableNextNotify()
         }
 
         override fun onCharacteristicChanged(
@@ -273,62 +293,82 @@ class BleDiagnostics(private val context: Context) {
         }
     }
 
-    private fun nextCandidate() {
-        current++
+    private fun nextService() {
+        svcIndex++
         val g = gatt
         if (finished || g == null) return
-        if (current >= candidates.size) {
+        if (svcIndex >= probes.size) {
             main.postAtTime({ finish() }, token, SystemClock.uptimeMillis() + TAIL_MS)
             return
         }
-        val c = candidates[current]
+        val p = probes[svcIndex]
         line("")
-        line("Kanal ${current + 1}/${candidates.size}: Service ${short(c.service)}, " +
-            "Notify ${short(c.notify.uuid.toString())}, " +
-            "Write ${c.write?.uuid?.toString()?.let { short(it) } ?: "(keiner)"}")
-        g.setCharacteristicNotification(c.notify, true)
-        val cccd = c.notify.getDescriptor(BmsProtocol.CCCD)
-        if (cccd == null) {
-            line("  (kein CCCD – Notifications lassen sich nicht anfordern)")
-            main.postAtTime({ sendProbes() }, token, SystemClock.uptimeMillis() + SETTLE_MS)
-        } else {
-            val value = if (c.notify.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0)
-                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-            else BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
-            runCatching { g.writeDescriptor(cccd, value) }
-            // Manche Module quittieren das CCCD nie – nach kurzer Wartezeit trotzdem senden.
-            main.postAtTime({ sendProbes() }, token, SystemClock.uptimeMillis() + 2500L)
-        }
+        line("Dienst ${svcIndex + 1}/${probes.size}: ${short(p.uuid)} · " +
+            "Notify ${p.notifies.joinToString(", ") { short(it.uuid.toString()) }} · " +
+            "Write ${p.writes.joinToString(", ") { short(it.uuid.toString()) }.ifEmpty { "(keiner)" }}")
+        notifyIndex = 0
+        enableNextNotify()
     }
 
-    /** Schickt der Reihe nach die Poll-Befehle aller bekannten Protokolle. */
-    private fun sendProbes() {
+    /** Abonniert die Notify-Kanaele nacheinander – Android erlaubt nur eine GATT-Operation zugleich. */
+    private fun enableNextNotify() {
         val g = gatt ?: return
         if (finished) return
-        val c = candidates.getOrNull(current) ?: return
-        if (probedFor == current) return
-        probedFor = current
-        val write = c.write
-        if (write == null) {
-            line("  (kein Schreibkanal – warte nur auf unaufgeforderte Meldungen)")
-            main.postAtTime({ nextCandidate() }, token, SystemClock.uptimeMillis() + 3000L)
+        val p = probes.getOrNull(svcIndex) ?: return
+        val seq = ++phase
+        if (notifyIndex >= p.notifies.size) {
+            main.postAtTime({ sendProbes(seq) }, token, SystemClock.uptimeMillis() + SETTLE_MS)
             return
         }
-        val probes = BmsType.entries.flatMap { t -> BmsProtocol.of(t).pollCommands(0).map { t to it } }
-        var at = SystemClock.uptimeMillis()
-        probes.forEach { (type, cmd) ->
-            at += CMD_GAP_MS
-            main.postAtTime({
-                if (finished) return@postAtTime
-                line("  --> ${type.name}: ${hex(cmd)}")
-                val proto = BmsProtocol.of(type)
-                val wt = if (proto.writeNoResponse) BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-                else BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                runCatching { g.writeCharacteristic(write, cmd, wt) }
-                    .onFailure { line("  (Schreiben nicht möglich: ${it.message})") }
-            }, token, at)
+        val ch = p.notifies[notifyIndex]
+        g.setCharacteristicNotification(ch, true)
+        val cccd = ch.getDescriptor(BmsProtocol.CCCD)
+        if (cccd == null) {
+            line("  (${short(ch.uuid.toString())} ohne CCCD – Notifications nicht anforderbar)")
+            notifyIndex++
+            enableNextNotify()
+            return
         }
-        main.postAtTime({ nextCandidate() }, token, at + CMD_GAP_MS)
+        val value = if (ch.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0)
+            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+        else BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+        runCatching { g.writeDescriptor(cccd, value) }
+        // Rueckfalluhr, falls die Quittung ausbleibt.
+        main.postAtTime({
+            if (!finished && phase == seq) { notifyIndex++; enableNextNotify() }
+        }, token, SystemClock.uptimeMillis() + CCCD_TIMEOUT_MS)
+    }
+
+    /** Schickt ueber jeden Schreibkanal des Dienstes die Poll-Befehle aller bekannten Protokolle. */
+    private fun sendProbes(seq: Int) {
+        val g = gatt ?: return
+        if (finished || phase != seq) return
+        val p = probes.getOrNull(svcIndex) ?: return
+        if (p.writes.isEmpty()) {
+            line("  (kein Schreibkanal – warte nur auf unaufgeforderte Meldungen)")
+            main.postAtTime({ nextService() }, token, SystemClock.uptimeMillis() + LISTEN_MS)
+            return
+        }
+        val commands = BmsType.entries.flatMap { t -> BmsProtocol.of(t).pollCommands(0).map { t to it } }
+        var at = SystemClock.uptimeMillis()
+        for (write in p.writes) {
+            at += CMD_GAP_MS
+            val w = write
+            main.postAtTime({ if (!finished) line("  ueber ${short(w.uuid.toString())}:") }, token, at)
+            for ((type, cmd) in commands) {
+                at += CMD_GAP_MS
+                main.postAtTime({
+                    if (finished) return@postAtTime
+                    line("  --> ${type.name}: ${hex(cmd)}")
+                    val proto = BmsProtocol.of(type)
+                    val wt = if (proto.writeNoResponse) BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                    else BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                    runCatching { g.writeCharacteristic(w, cmd, wt) }
+                        .onFailure { line("  (Schreiben nicht moeglich: ${it.message})") }
+                }, token, at)
+            }
+        }
+        main.postAtTime({ nextService() }, token, at + CMD_GAP_MS)
     }
 
     private fun short(uuid: String): String =
