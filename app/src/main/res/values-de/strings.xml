@@ -125,7 +125,7 @@
     <string name="bat_cell_n">Zelle %1$d</string>
     <string name="bat_detail_hint">Diese Batterie verbinden, um Live-Details zu sehen.</string>
     <string name="bat_soc">Ladung</string>
-    <string name="bat_remaining">Rest</string>
+    <string name="bat_remaining">Ladestand</string>
     <string name="bat_temp">Temperatur</string>
     <string name="bat_cells">Zellen</string>
     <string name="bat_manufacturer">Hersteller</string>
@@ -286,4 +286,5 @@
     <string name="bat_history">Verlauf</string>
     <string name="bat_cycles">Ladezyklen</string>
     <string name="bat_discharged_total">Entnommen gesamt</string>
+    <string name="bat_nominal">Nennkapazität</string>
 </resources>

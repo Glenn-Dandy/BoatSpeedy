@@ -294,6 +294,14 @@ private fun BatteryDetailCard(
             saved.bleName?.takeIf { it.isNotBlank() }?.let {
                 ValueRow(stringResource(R.string.bat_type), it)
             }
+            // Nennkapazität als Typenschild-Angabe: abgeschnitten, nicht gerundet. Das BMS
+            // hinterlegt sie krumm (Redodo: 100,99 Ah), gemeint sind die glatten 100 Ah.
+            d?.nominalAh?.takeIf { it > 0f }?.let {
+                ValueRow(
+                    stringResource(R.string.bat_nominal),
+                    String.format(Locale.getDefault(), "%d Ah", it.toInt()),
+                )
+            }
             ValueRow(stringResource(R.string.bat_mac), saved.address)
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             if (d == null) {
