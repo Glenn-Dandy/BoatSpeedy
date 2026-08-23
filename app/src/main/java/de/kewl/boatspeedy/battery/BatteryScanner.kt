@@ -75,29 +75,13 @@ class BatteryScanner(
         runCatching { adapter?.bluetoothLeScanner?.stopScan(cb) }
     }
 
-    /**
-     * FFE0 bewerben JK *und* Redodo/LiTime – dieselbe UUID eines gaengigen
-     * Seriell-ueber-BLE-Moduls. Der Geraetename entscheidet: Redodo meldet sich als
-     * "R-…", LiTime als "LT-…". Ohne Namen bleibt es bei der Reihenfolge der Typen.
-     */
-    private fun typeOf(advertised: List<java.util.UUID>, name: String?): BmsType? {
-        val byUuid = BmsType.entries.filter { t -> BmsProtocol.of(t).serviceUuid in advertised }
-        if (byUuid.size > 1 && name != null) {
-            val n = name.uppercase()
-            if (n.startsWith("R-") || n.startsWith("LT-")) {
-                byUuid.firstOrNull { it == BmsType.REDODO }?.let { return it }
-            }
-        }
-        return byUuid.firstOrNull()
-    }
-
     private val cb = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val dev = result.device
             // Typ aus den beworbenen Service-UUIDs ableiten (null, wenn nicht eindeutig).
             val advertised = result.scanRecord?.serviceUuids?.map { it.uuid }.orEmpty()
             val name = dev.name ?: result.scanRecord?.deviceName
-            val type = typeOf(advertised, name)
+            val type = BmsProtocol.detect(advertised, name)
             found[dev.address] = ScanDevice(dev.name, dev.address, result.rssi, type)
             onResults(found.values.sortedByDescending { it.rssi })
         }

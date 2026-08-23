@@ -140,9 +140,10 @@ class BleDiagnostics(private val context: Context) {
         line("Batterie: ${device.name ?: "(kein Name)"} · ${device.address} · RSSI ${device.rssi} dBm")
         line("Beworbene Services: ${device.services.ifEmpty { listOf("(keine)") }.joinToString(", ")}")
         line("Manufacturer Data: ${device.manufacturer ?: "(keine)"}")
-        val guessed = BmsType.entries.firstOrNull { t ->
-            BmsProtocol.of(t).serviceUuid.toString() in device.services
-        }
+        val guessed = BmsProtocol.detect(
+            device.services.mapNotNull { runCatching { java.util.UUID.fromString(it) }.getOrNull() },
+            device.name,
+        )
         line("Erkannter Typ: ${guessed?.display ?: "(keiner – unbekanntes Modul)"}")
         line("")
 
