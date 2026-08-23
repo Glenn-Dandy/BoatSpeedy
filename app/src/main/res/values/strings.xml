@@ -127,8 +127,8 @@
     <string name="bat_current">Current</string>
     <string name="bat_cell_n">Cell %1$d</string>
     <string name="bat_detail_hint">Connect this battery to see live details.</string>
-    <string name="bat_soc">Charge</string>
-    <string name="bat_remaining">Charge level</string>
+    <string name="bat_soc">SoC</string>
+    <string name="bat_remaining">Remaining</string>
     <string name="bat_temp">Temperature</string>
     <string name="bat_cells">Cells</string>
     <string name="bat_manufacturer">Manufacturer</string>
