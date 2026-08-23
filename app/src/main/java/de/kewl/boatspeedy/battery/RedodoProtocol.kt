@@ -53,7 +53,11 @@ class RedodoProtocol : BmsProtocol() {
         if (buf.size < MIN_RESPONSE) return null
 
         val f = ByteArray(MIN_RESPONSE) { buf[it] }
-        repeat(MIN_RESPONSE) { buf.removeAt(0) }
+        // Der echte Frame ist 105 Byte lang – 104 Nutzdaten plus eine Pruefsumme, die wir
+        // nicht brauchen. Nach dem Auswerten alles verwerfen: der naechste Poll bringt in
+        // zwei Sekunden ohnehin einen frischen Frame, und ein liegengebliebener Rest wuerde
+        // die Ausrichtung des naechsten nur gefaehrden.
+        buf.clear()
         return parse(f, current)
     }
 
