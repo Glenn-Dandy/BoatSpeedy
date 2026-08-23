@@ -283,4 +283,7 @@
     <string name="diag_share">Protokoll teilen</string>
     <string name="dev_hide">Entwicklerwerkzeuge ausblenden</string>
     <string name="dev_hidden">Entwicklerwerkzeuge ausgeblendet — siebenmal auf die Versionsnummer in „Über" tippen, um sie zurückzuholen</string>
+    <string name="bat_history">Verlauf</string>
+    <string name="bat_cycles">Ladezyklen</string>
+    <string name="bat_discharged_total">Entnommen gesamt</string>
 </resources>

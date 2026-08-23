@@ -309,18 +309,30 @@ private fun BatteryDetailCard(
             ValueRow(stringResource(R.string.bat_current), fmt(d.currentA, "A"))
             ValueRow(stringResource(R.string.bat_soc), "${d.soc} %")
             // Rest und Temperatur immer zeigen – „--", solange das BMS nichts liefert.
+            // Die Nennkapazität nur als Bezug zeigen, solange sie einer sein kann.
+            // Manche BMS (Redodo) haben eine zu klein hinterlegte Kapazität, dann steht
+            // dort mehr Rest als Maximum – das liest sich wie ein Fehler und hilft niemandem.
             ValueRow(
                 stringResource(R.string.bat_remaining),
-                if (d.remainingAh > 0f || d.nominalAh > 0f) {
-                    fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah")
-                } else {
-                    "--"
+                when {
+                    d.remainingAh <= 0f && d.nominalAh <= 0f -> "--"
+                    d.nominalAh >= d.remainingAh && d.nominalAh > 0f ->
+                        fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah")
+                    else -> fmt(d.remainingAh, "Ah")
                 },
             )
             ValueRow(
                 stringResource(R.string.bat_temp),
                 d.tempC?.let { fmt(it, "°C") } ?: "--",
             )
+            if (d.cycles != null || d.dischargedAhTotal != null) {
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                Text(stringResource(R.string.bat_history), style = MaterialTheme.typography.titleSmall)
+                d.cycles?.let { ValueRow(stringResource(R.string.bat_cycles), "$it") }
+                d.dischargedAhTotal?.let {
+                    ValueRow(stringResource(R.string.bat_discharged_total), fmt0(it, "Ah"))
+                }
+            }
             if (d.cells.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text(stringResource(R.string.bat_cells), style = MaterialTheme.typography.titleSmall)

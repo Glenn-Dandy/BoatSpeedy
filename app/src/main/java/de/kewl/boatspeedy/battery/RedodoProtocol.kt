@@ -83,6 +83,10 @@ class RedodoProtocol : BmsProtocol() {
             chargingFet = state != 4,
             dischargingFet = true,
             cells = cells,
+            cycles = u32(f, 96).toInt(),
+            // Einheit 1 Ah: 222 Ah auf 2 Zyklen passen zu 111,26 Ah Rest, und
+            // 222 / 100,99 Ah Nennkapazitaet ergibt gerundet ebenjene 2 Zyklen.
+            dischargedAhTotal = u32(f, 100).toFloat(),
         )
     }
 

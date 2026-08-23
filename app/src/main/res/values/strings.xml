@@ -286,4 +286,7 @@
     <string name="diag_share">Share report</string>
     <string name="dev_hide">Hide developer tools</string>
     <string name="dev_hidden">Developer tools hidden — tap the version number in About seven times to bring them back</string>
+    <string name="bat_history">History</string>
+    <string name="bat_cycles">Charge cycles</string>
+    <string name="bat_discharged_total">Discharged in total</string>
 </resources>

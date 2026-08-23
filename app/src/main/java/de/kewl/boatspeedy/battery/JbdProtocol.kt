@@ -33,6 +33,7 @@ class JbdProtocol : BmsProtocol() {
                         tempC = b.tempC,
                         chargingFet = b.chargingFet,
                         dischargingFet = b.dischargingFet,
+                        cycles = b.cycles,
                     )
                 } ?: base
                 Jbd.REG_CELLS -> base.copy(cells = Jbd.parseCells(parsed.payload))
