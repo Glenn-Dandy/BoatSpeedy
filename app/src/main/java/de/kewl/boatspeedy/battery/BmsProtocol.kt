@@ -7,6 +7,7 @@ enum class BmsType(val display: String, val tested: Boolean) {
     JBD("JBD / Jiabaida", true),
     DALY("Daly", false),
     JK("JK (Jikong)", false),
+    REDODO("Redodo / LiTime", false),
 }
 
 /**
@@ -38,6 +39,7 @@ abstract class BmsProtocol {
             BmsType.JBD -> JbdProtocol()
             BmsType.DALY -> DalyProtocol()
             BmsType.JK -> JkProtocol()
+            BmsType.REDODO -> RedodoProtocol()
         }
 
         internal fun uuid16(short: String): UUID =
