@@ -86,17 +86,16 @@ jobs:
           V=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           cp app/build/outputs/apk/debug/app-debug.apk "BoatSpeedy-$V-dev${{ github.run_number }}.apk"
 
-      - name: Drop the previous dev APK
+      - name: Remove the old dev pre-release
         if: ${{ env.IS_DEV == 'true' }}
-        # Das Pre-Release soll genau eine Datei zeigen – sonst sammeln sich die alten
-        # Builds unter wechselnden Namen an und niemand weiß, welche die neuste ist.
+        # Nicht nur die Datei, sondern den ganzen Eintrag löschen und neu anlegen lassen.
+        # GitHub sortiert die Release-Liste nach Veröffentlichungsdatum; ein bestehender
+        # Eintrag behält seines beim Überschreiben und sackt unter jedes echte Release –
+        # dann sieht niemand mehr, dass es einen neuen Dev-Build gibt. Der Tag geht mit,
+        # damit er im nächsten Schritt auf dem aktuellen Commit neu entsteht.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release view dev-build --json assets --jq '.assets[].name' 2>/dev/null |
-            while read -r asset; do
-              [ -n "$asset" ] && gh release delete-asset dev-build "$asset" -y || true
-            done
+        run: gh release delete dev-build -y --cleanup-tag || true
 
       - name: Publish rolling dev pre-release
         if: ${{ env.IS_DEV == 'true' }}
