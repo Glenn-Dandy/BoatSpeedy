@@ -14,6 +14,22 @@ betrifft, und was dagegen spricht.
 keine „Verbesserung" nebenbei. Fällt beim Arbeiten etwas auf, wird es erwähnt — nicht
 geändert.
 
+## Änderungen dokumentieren
+
+Landet etwas auf `dev`, kommt der passende Punkt **sofort** mit in
+`.github/dev-notes.md` — auf Englisch, kurz, aus Sicht der Nutzer. Daraus baut der
+Workflow den Text des Dev-Pre-Releases.
+
+Aufgenommen wird nur, was unterm Strich anders ist als vorher. Nehmen wir etwas
+wieder zurück, fliegt der Punkt raus, statt einen zweiten dazuzuschreiben — zwei
+Einträge für null Änderung sind schlimmer als keiner. Nicht hinein gehören
+Zwischenschritte an einer Sache, die es vorher gar nicht gab, und alles rund um
+Workflow, Release-Seite und Werkzeuge, was Tester nicht betrifft.
+
+Beim Release wandern die Punkte nach `CHANGELOG.md` (deutsch, ausführlicher) und in
+`fastlane/metadata/android/{de-DE,en-US}/changelogs/<versionCode>.txt`. Danach fängt
+`dev-notes.md` mit der neuen Versionsnummer wieder bei null an.
+
 ## Bauen und Veröffentlichen
 
 - Entwicklung auf `dev`, `main` nur über PR und Tag.
