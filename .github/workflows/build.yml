@@ -97,6 +97,25 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release delete dev-build -y --cleanup-tag || true
 
+      - name: Compose the dev release notes
+        if: ${{ env.IS_DEV == 'true' }}
+        # Die inhaltlichen Punkte stehen gepflegt in .github/dev-notes.md – automatisch
+        # aus den Commits erzeugt waere es unbrauchbar, weil dort auch Aenderungen
+        # auftauchen, die waehrend der Dev-Phase wieder zurueckgenommen wurden.
+        run: |
+          {
+            cat <<'HEAD'
+          Rolling development build — package `de.kewl.boatspeedy.debug`, label “BoatSpeedy DEV”
+          (installs alongside the release app, so your normal BoatSpeedy stays untouched).
+          Signed with the release key.
+          HEAD
+            echo
+            echo "Build ${{ github.run_number }} · branch ${{ github.ref_name }} · commit ${{ github.sha }}"
+            echo "The app shows this build as -dev${{ github.run_number }}."
+            echo
+            cat .github/dev-notes.md
+          } > dev-release-notes.md
+
       - name: Publish rolling dev pre-release
         if: ${{ env.IS_DEV == 'true' }}
         uses: softprops/action-gh-release@v2
@@ -108,13 +127,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: Latest dev build
           prerelease: true
-          body: |
-            Rolling development build — package `de.kewl.boatspeedy.debug`, label “BoatSpeedy DEV”
-            (installs alongside the release app). Signed with the release key.
-
-            Version `${{ github.run_number }}` — the app and the file name both show this
-            as `-dev${{ github.run_number }}`, so a report can be matched to a build.
-            Built from branch `${{ github.ref_name }}` · commit ${{ github.sha }}
+          body_path: dev-release-notes.md
           files: BoatSpeedy-*-dev*.apk
 
       # --- PR-Check: unsignierter Debug-Build (nur Kompilier-Check) ---
