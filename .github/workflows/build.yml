@@ -102,6 +102,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: dev-build
+          # Ohne das legt GitHub den Tag auf dem Standard-Branch an, nicht auf dem
+          # gebauten Commit. Das Erstellungsdatum des Releases ist aber das Commit-Datum
+          # des Tags – der Eintrag landete dadurch wieder hinter dem letzten Release.
+          target_commitish: ${{ github.sha }}
           name: Latest dev build
           prerelease: true
           body: |
