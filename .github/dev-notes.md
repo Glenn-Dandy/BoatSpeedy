@@ -22,6 +22,16 @@ cycle is not a change and does not appear here.
 
 ### Fixed
 
+- **The rain radar appears in a second or two instead of minutes.** A request to the DWD
+  server costs two to four seconds no matter how much ground it covers — one 256-pixel
+  tile takes as long as one image spanning twenty tiles. Built from tiles, a single frame
+  needed about twenty requests and the whole loop over four hundred, which overflowed the
+  download queue: requests were dropped, and the current frame stayed empty until the
+  animation had run several times. Each frame is now fetched as one image for the visible
+  area, so the loop needs 21 requests instead of 400.
+- **Merging trips asks first.** Trips could be merged with a single tap on the toolbar,
+  and merging cannot be undone.
+
 - The remaining charge no longer prints a reference capacity that is smaller than the
   charge itself. Redodo packs report a configured capacity below what the cells actually
   hold, which read as "111.26 Ah / 100.99 Ah" — that looks like a defect and helps

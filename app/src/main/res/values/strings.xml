@@ -290,4 +290,6 @@
     <string name="bat_cycles">Charge cycles</string>
     <string name="bat_discharged_total">Discharged in total</string>
     <string name="bat_nominal">Rated capacity</string>
+    <string name="merge_confirm">Merge %1$d trips into one? This cannot be undone.</string>
+    <string name="merge_do">Merge</string>
 </resources>

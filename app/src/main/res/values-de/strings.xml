@@ -287,4 +287,6 @@
     <string name="bat_cycles">Ladezyklen</string>
     <string name="bat_discharged_total">Entnommen gesamt</string>
     <string name="bat_nominal">Nennkapazität</string>
+    <string name="merge_confirm">%1$d Fahrten endgültig zu einer zusammenführen? Das lässt sich nicht rückgängig machen.</string>
+    <string name="merge_do">Zusammenführen</string>
 </resources>
