@@ -36,8 +36,12 @@ import kotlin.math.tan
 class RadarImageOverlay : Overlay() {
 
     private val paint = Paint().apply {
-        isFilterBitmap = true // beim Zoomen zwischen zwei Abrufen nicht verpixeln
-        isAntiAlias = true
+        // Bewusst ungeglättet: die Daten liegen im 1-km-Raster, und beim starken Zoom
+        // sind das nur noch wenige Zellen im Bild. Weichgezeichnet verschwimmen sie zu
+        // Farbnebel, in dem sich nicht mehr erkennen lässt, ob es regnet. Harte Kanten
+        // zeigen wenigstens ehrlich, wie grob die Messung ist.
+        isFilterBitmap = false
+        isAntiAlias = false
     }
     private val nw = Point()
     private val se = Point()

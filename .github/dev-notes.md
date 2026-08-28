@@ -22,13 +22,16 @@ cycle is not a change and does not appear here.
 
 ### Fixed
 
-- **The rain radar appears in a second or two instead of minutes.** A request to the DWD
+- **The rain radar appears in a second or two instead of after several loops.** A request to the DWD
   server costs two to four seconds no matter how much ground it covers — one 256-pixel
   tile takes as long as one image spanning twenty tiles. Built from tiles, a single frame
   needed about twenty requests and the whole loop over four hundred, which overflowed the
   download queue: requests were dropped, and the current frame stayed empty until the
   animation had run several times. Each frame is now fetched as one image for the visible
-  area, so the loop needs 21 requests instead of 400.
+  area, so the loop needs 21 requests instead of 400. It also waits for the map to be
+  measured and centred before the first request, and keeps the radar image unsmoothed —
+  the data is a one-kilometre grid, and blurring it into a haze at high zoom hides
+  whether it is raining at all.
 - **Merging trips asks first.** Trips could be merged with a single tap on the toolbar,
   and merging cannot be undone.
 

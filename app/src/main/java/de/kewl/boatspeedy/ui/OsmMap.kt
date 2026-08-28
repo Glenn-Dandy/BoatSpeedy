@@ -156,11 +156,11 @@ fun OsmMap(
     // über eine Minute; alle auf einmal überlastet den DWD-Server.
     LaunchedEffect(showRadar, radarTimes, viewEpoch) {
         if (!showRadar || radarTimes.isEmpty()) return@LaunchedEffect
-        delay(350) // Karte erst zentrieren/zoomen lassen
+        if (!awaitMapReady(mapView) { centered }) return@LaunchedEffect
         val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
         // Großzügiger Rand: kleine Schwenks sollen kein Nachladen auslösen.
-        val area = view.expand(1.6)
-        val px = radarPixels(mapView.width, mapView.height)
+        val area = view.expand(RADAR_PAD)
+        val px = radarPixels(mapView.width, mapView.height, RADAR_PAD)
         framePngs.clear()
         fetchedArea = area
         radarOverlay.area = area.toBoundingBox()
@@ -183,10 +183,10 @@ fun OsmMap(
     // Blitze (nur Ist-Zeit).
     LaunchedEffect(showLightning, viewEpoch) {
         if (!showLightning) { lightningPng = null; return@LaunchedEffect }
-        delay(350)
+        if (!awaitMapReady(mapView) { centered }) return@LaunchedEffect
         val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
-        val area = view.expand(1.6)
-        val px = radarPixels(mapView.width, mapView.height)
+        val area = view.expand(RADAR_PAD)
+        val px = radarPixels(mapView.width, mapView.height, RADAR_PAD)
         lightningOverlay.area = area.toBoundingBox()
         lightningPng = withContext(Dispatchers.IO) {
             fetchRadarPng(DWD_LIGHTNING_LAYER, null, area, px.first, px.second)
@@ -339,12 +339,38 @@ fun AnchorMap(
 }
 
 /**
- * Bildgröße für einen Radarabruf. Begrenzt, weil der DWD ohnehin nur ein 1-km-Raster
- * liefert: mehr Pixel bringen keine Details, kosten aber Speicher und Zeit beim
- * Dekodieren. Der Rand aus [MercatorBox.expand] ist mit eingerechnet.
+ * Bildgröße für einen Radarabruf, samt dem Rand aus [MercatorBox.expand].
+ *
+ * Zwei Dinge müssen stimmen: Das Seitenverhältnis muss dem des angefragten Rechtecks
+ * entsprechen — wird es unabhängig gekappt, liefert der WMS ein gestauchtes Bild, und
+ * auf einem Hochkant-Schirm sieht der Regen dann verzerrt aus. Und die sichtbare Fläche
+ * braucht ungefähr so viele Bildpunkte wie der Schirm, sonst wird beim Zeichnen
+ * hochskaliert und alles wirkt matschig. Begrenzt wird nur die Gesamtfläche, damit ein
+ * Frame beim Dekodieren nicht zweistellige Megabyte belegt.
  */
-private fun radarPixels(viewW: Int, viewH: Int): Pair<Int, Int> {
-    val w = ((viewW.coerceAtLeast(320)) * 1.6).toInt().coerceIn(320, 1024)
-    val h = ((viewH.coerceAtLeast(320)) * 1.6).toInt().coerceIn(320, 1024)
-    return w to h
+private fun radarPixels(viewW: Int, viewH: Int, pad: Double): Pair<Int, Int> {
+    val w = (viewW.coerceAtLeast(360) * pad)
+    val h = (viewH.coerceAtLeast(360) * pad)
+    val maxPixels = 2_400_000.0
+    val scale = kotlin.math.min(1.0, kotlin.math.sqrt(maxPixels / (w * h)))
+    return (w * scale).toInt().coerceAtLeast(256) to (h * scale).toInt().coerceAtLeast(256)
+}
+
+/** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt ein Abruf ohne Nachladen. */
+private const val RADAR_PAD = 1.25
+
+/**
+ * Wartet, bis die Karte vermessen und auf die Position zentriert ist. Ohne das liefert
+ * `boundingBox` einen unbrauchbaren Ausschnitt (Größe 0, Mittelpunkt 0/0), das Radar
+ * würde für die falsche Fläche geladen und erst die nächste Prüfung holt das Richtige —
+ * genau der eine leere Durchlauf, den man vorher gesehen hat.
+ */
+private suspend fun awaitMapReady(map: MapView, centered: () -> Boolean): Boolean {
+    repeat(60) { // höchstens ~6 s
+        val box = runCatching { map.boundingBox }.getOrNull()
+        val span = if (box == null) 0.0 else box.latitudeSpan * box.longitudeSpanWithDateLine
+        if (map.width > 0 && map.height > 0 && centered() && span > 0.0) return true
+        delay(100)
+    }
+    return false
 }
