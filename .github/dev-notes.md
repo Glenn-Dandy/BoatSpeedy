@@ -20,6 +20,13 @@ cycle is not a change and does not appear here.
   hidden: seven taps on the version number in About unlock Settings → Developer, and a
   button in the diagnostic hides it again.
 
+- **The radar is drawn smoothly, like the DWD's own app.** The measurements are
+  interpolated between the one-kilometre grid cells and coloured afterwards, rather than
+  the finished picture being blurred — so cores and edges stay readable instead of turning
+  into haze. The colour ladder comes from the layer's own style definition, so the shades
+  match the official one, only without the fifteen hard steps. Each frame is now fetched
+  at the resolution of the data, which also cuts the download to a few kilobytes.
+
 ### Fixed
 
 - **The rain radar appears in a second or two instead of after several loops.** A request to the DWD

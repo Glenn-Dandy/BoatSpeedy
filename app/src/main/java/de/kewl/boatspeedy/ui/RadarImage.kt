@@ -36,12 +36,11 @@ import kotlin.math.tan
 class RadarImageOverlay : Overlay() {
 
     private val paint = Paint().apply {
-        // Bewusst ungeglättet: die Daten liegen im 1-km-Raster, und beim starken Zoom
-        // sind das nur noch wenige Zellen im Bild. Weichgezeichnet verschwimmen sie zu
-        // Farbnebel, in dem sich nicht mehr erkennen lässt, ob es regnet. Harte Kanten
-        // zeigen wenigstens ehrlich, wie grob die Messung ist.
-        isFilterBitmap = false
-        isAntiAlias = false
+        // Geglättet wird bereits beim Aufbereiten (smoothRadar) – dort werden die
+        // Messwerte interpoliert, nicht die Farben. Was hier noch skaliert wird, sind
+        // schon Zwischenwerte, deshalb ist die Filterung an dieser Stelle richtig.
+        isFilterBitmap = true
+        isAntiAlias = true
     }
     private val nw = Point()
     private val se = Point()
@@ -154,3 +153,85 @@ fun fetchRadarPng(layer: String, timeIso: String?, box: MercatorBox, width: Int,
 
 fun decodeRadar(png: ByteArray): Bitmap? =
     runCatching { BitmapFactory.decodeByteArray(png, 0, png.size) }.getOrNull()
+
+/**
+ * Die Farbleiter des DWD-Stils, von schwach nach stark. Aus dem SLD des Layers
+ * (`REQUEST=GetStyles`) übernommen, damit die Zuordnung stimmt und nicht geraten ist:
+ * 0.1–0.2 mm/h bis ≥ 150 mm/h.
+ */
+private val RADAR_RAMP = intArrayOf(
+    0x33FFFF, 0x1ACC9A, 0x019934, 0x4DB31B, 0x99CC01, 0xCCE601, 0xFFFF01, 0xFFC401,
+    0xFF8901, 0xFF4501, 0xFE0000, 0xE5004C, 0xCC0098, 0x6600CB, 0x0000FE,
+)
+
+/** Ordnet eine Bildfarbe ihrer Klasse zu: 0 = kein Regen, 1..15 = die Stufen der Leiter. */
+private fun classOf(pixel: Int): Float {
+    if ((pixel ushr 24) < 128) return 0f            // durchsichtig = kein Niederschlag
+    val rgb = pixel and 0xFFFFFF
+    for (i in RADAR_RAMP.indices) if (RADAR_RAMP[i] == rgb) return (i + 1).toFloat()
+    // Unbekannt (z. B. das Grau für „keine Daten") – wie kein Regen behandeln.
+    return 0f
+}
+
+private fun lerp(a: Int, b: Int, t: Float): Int {
+    val ar = (a shr 16) and 0xFF; val ag = (a shr 8) and 0xFF; val ab = a and 0xFF
+    val br = (b shr 16) and 0xFF; val bg = (b shr 8) and 0xFF; val bb = b and 0xFF
+    val r = (ar + (br - ar) * t).toInt(); val g = (ag + (bg - ag) * t).toInt()
+    val bl = (ab + (bb - ab) * t).toInt()
+    return (r shl 16) or (g shl 8) or bl
+}
+
+/** Farbe für einen Zwischenwert der Leiter – stufenlos statt in fünfzehn Sprüngen. */
+private fun rampColor(v: Float): Int {
+    if (v <= 0f) return 0
+    // Unterhalb der ersten Stufe blendet die Deckkraft auf, damit Ränder auslaufen.
+    if (v < 1f) return ((v * 255).toInt().coerceIn(0, 255) shl 24) or RADAR_RAMP[0]
+    val t = (v - 1f).coerceAtMost((RADAR_RAMP.size - 1).toFloat())
+    val i = t.toInt().coerceAtMost(RADAR_RAMP.size - 2)
+    val f = t - i
+    return (0xFF shl 24) or lerp(RADAR_RAMP[i], RADAR_RAMP[i + 1], f)
+}
+
+/**
+ * Glättet das Radarbild so, wie es die DWD-App zeigt: nicht das Bild wird weichgezeichnet,
+ * sondern die **Messwerte** werden zwischen den Rasterzellen interpoliert und danach neu
+ * eingefärbt. Ein Weichzeichner über das fertige Bild verwischt nur die Farben und macht
+ * Matsch; hier entstehen echte Zwischenwerte, deshalb bleiben Kerne und Ränder erkennbar.
+ *
+ * Erwartet [src] in der Auflösung der Messdaten (ein Bildpunkt ≈ ein Kilometer).
+ */
+fun smoothRadar(src: Bitmap, maxFactor: Int): Bitmap {
+    val sw = src.width
+    val sh = src.height
+    // Der Vergrößerungsfaktor muss begrenzt werden: bei einem weiten Ausschnitt hat das
+    // Rohbild schon einige hundert Punkte Kantenlänge, und das Sechsfache davon wären
+    // dreistellige Megabyte. Lieber gröber interpolieren als abstürzen.
+    val maxPixels = 2_500_000.0
+    val fit = kotlin.math.sqrt(maxPixels / (sw.toDouble() * sh)).toInt()
+    val factor = fit.coerceIn(1, maxFactor)
+    val ow = (sw * factor).coerceAtLeast(1)
+    val oh = (sh * factor).coerceAtLeast(1)
+    val srcPx = IntArray(sw * sh)
+    src.getPixels(srcPx, 0, sw, 0, 0, sw, sh)
+    val values = FloatArray(sw * sh) { classOf(srcPx[it]) }
+
+    val out = IntArray(ow * oh)
+    for (y in 0 until oh) {
+        val fy = ((y + 0.5f) / factor) - 0.5f
+        val y0 = kotlin.math.floor(fy).toInt().coerceIn(0, sh - 1)
+        val y1 = (y0 + 1).coerceAtMost(sh - 1)
+        val wy = (fy - y0).coerceIn(0f, 1f)
+        for (x in 0 until ow) {
+            val fx = ((x + 0.5f) / factor) - 0.5f
+            val x0 = kotlin.math.floor(fx).toInt().coerceIn(0, sw - 1)
+            val x1 = (x0 + 1).coerceAtMost(sw - 1)
+            val wx = (fx - x0).coerceIn(0f, 1f)
+            val v00 = values[y0 * sw + x0]; val v10 = values[y0 * sw + x1]
+            val v01 = values[y1 * sw + x0]; val v11 = values[y1 * sw + x1]
+            val top = v00 + (v10 - v00) * wx
+            val bot = v01 + (v11 - v01) * wx
+            out[y * ow + x] = rampColor(top + (bot - top) * wy)
+        }
+    }
+    return Bitmap.createBitmap(out, ow, oh, Bitmap.Config.ARGB_8888)
+}

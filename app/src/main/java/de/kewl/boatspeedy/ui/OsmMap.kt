@@ -106,6 +106,8 @@ fun OsmMap(
     var lightningPng by remember { mutableStateOf<ByteArray?>(null) }
     // Ein Zähler, der einen Neu-Abruf auslöst, wenn der Ausschnitt weggewandert ist.
     var viewEpoch by remember { mutableIntStateOf(0) }
+    // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner).
+    var shownFrame by remember { mutableIntStateOf(-1) }
 
     DisposableEffect(Unit) {
         mapView.onResume()
@@ -153,6 +155,14 @@ fun OsmMap(
             val wanderedOff = loaded != null && now != null && !loaded.contains(now)
             val zoomedIn = loaded != null && now != null && now.width > 0 &&
                 loaded.width / now.width > RADAR_PAD * 2.2
+            if (zoomedIn) {
+                // Sonst bleibt das Übersichtsbild über dem kleinen Ausschnitt gespannt
+                // und wandert beim Schwenken sichtbar falsch mit.
+                radarOverlay.image?.recycle()
+                radarOverlay.image = null
+                shownFrame = -1
+                mapView.invalidate()
+            }
             if (wanderedOff || zoomedIn) viewEpoch++
         }
     }
@@ -162,11 +172,11 @@ fun OsmMap(
     // über eine Minute; alle auf einmal überlastet den DWD-Server.
     LaunchedEffect(showRadar, radarTimes, viewEpoch) {
         if (!showRadar || radarTimes.isEmpty()) return@LaunchedEffect
-        if (!awaitMapReady(mapView) { centered }) return@LaunchedEffect
+        while (!awaitMapReady(mapView) { centered }) delay(500) // nicht aufgeben
         val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
         // Großzügiger Rand: kleine Schwenks sollen kein Nachladen auslösen.
         val area = view.expand(RADAR_PAD).clampToWorld()
-        val px = radarPixels(area, mapView.width, mapView.height, RADAR_PAD)
+        val px = radarPixels(area, area.toBoundingBox().centerLatitude)
         framePngs.clear()
         fetchedArea = area
         radarOverlay.area = area.toBoundingBox()
@@ -189,10 +199,10 @@ fun OsmMap(
     // Blitze (nur Ist-Zeit).
     LaunchedEffect(showLightning, viewEpoch) {
         if (!showLightning) { lightningPng = null; return@LaunchedEffect }
-        if (!awaitMapReady(mapView) { centered }) return@LaunchedEffect
+        while (!awaitMapReady(mapView) { centered }) delay(500)
         val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
         val area = view.expand(RADAR_PAD).clampToWorld()
-        val px = radarPixels(area, mapView.width, mapView.height, RADAR_PAD)
+        val px = radarPixels(area, area.toBoundingBox().centerLatitude)
         lightningOverlay.area = area.toBoundingBox()
         lightningPng = withContext(Dispatchers.IO) {
             fetchRadarPng(DWD_LIGHTNING_LAYER, null, area, px.first, px.second)
@@ -201,13 +211,18 @@ fun OsmMap(
 
     // Nur den gezeigten Frame dekodieren und das alte Bild danach freigeben. Fehlt der
     // Frame noch, bleibt das bisherige Bild stehen – sonst blinkt die Schleife leer.
-    var shownFrame by remember { mutableIntStateOf(-1) }
     LaunchedEffect(showRadar, radarFrameIndex, framePngs.size) {
         if (!showRadar) { shownFrame = -1; return@LaunchedEffect }
         val idx = radarFrameIndex.coerceIn(0, (radarTimes.size - 1).coerceAtLeast(0))
         if (idx == shownFrame && radarOverlay.image != null) return@LaunchedEffect
         val png = framePngs[idx] ?: return@LaunchedEffect
-        val bmp = withContext(Dispatchers.Default) { decodeRadar(png) } ?: return@LaunchedEffect
+        val bmp = withContext(Dispatchers.Default) {
+            decodeRadar(png)?.let { raw ->
+                val smoothed = smoothRadar(raw, RADAR_SMOOTH)
+                raw.recycle()
+                smoothed
+            }
+        } ?: return@LaunchedEffect
         val old = radarOverlay.image
         radarOverlay.image = bmp
         shownFrame = idx
@@ -345,26 +360,26 @@ fun AnchorMap(
 }
 
 /**
- * Bildgröße für einen Radarabruf.
+ * Bildgröße für einen Radarabruf: **ein Bildpunkt je Kilometer**, also genau die
+ * Auflösung der Messdaten.
  *
- * Das Seitenverhältnis muss dem des **angefragten Rechtecks** entsprechen, nicht dem des
- * Bildschirms. Beim starken Herauszoomen begrenzt osmdroid den Ausschnitt in der Breite
- * (±85°), Rechteck und Schirm haben dann verschiedene Verhältnisse — rechnet man mit dem
- * des Schirms, kommt das Bild gestaucht zurück und sitzt schief auf der Karte.
- *
- * Angestrebt wird ungefähr ein Bildpunkt je Bildschirmpunkt für die sichtbare Fläche.
- * Begrenzt wird die Gesamtfläche, damit ein Frame beim Dekodieren nicht zweistellige
- * Megabyte belegt.
+ * Mehr anzufordern bringt nichts — der DWD vergrößert dann selbst mit harten Kanten, und
+ * genau die wollen wir nicht. Weniger würde Daten wegwerfen. Aus diesem kleinen Bild
+ * rechnet [smoothRadar] die Zwischenwerte, und das Ergebnis wird beim Zeichnen auf die
+ * Karte skaliert. Nebenbei sinkt die Downloadgröße auf wenige Kilobyte je Frame.
  */
-private fun radarPixels(box: MercatorBox, viewW: Int, viewH: Int, pad: Double): Pair<Int, Int> {
-    val ratio = if (box.height > 0) box.width / box.height else 1.0
-    val target = (viewW.coerceAtLeast(360) * pad) * (viewH.coerceAtLeast(360) * pad)
-    val maxPixels = 2_400_000.0
-    val area = kotlin.math.min(target, maxPixels)
-    val h = kotlin.math.sqrt(area / ratio)
-    val w = h * ratio
-    return w.toInt().coerceIn(256, 4096) to h.toInt().coerceIn(256, 4096)
+private fun radarPixels(box: MercatorBox, centerLat: Double): Pair<Int, Int> {
+    // In Web-Mercator ist ein Meter am Boden 1/cos(Breite) Mercator-Meter.
+    val metersPerCell = 1000.0 / kotlin.math.cos(Math.toRadians(centerLat.coerceIn(-80.0, 80.0)))
+    // Nach oben begrenzt: ein Ausschnitt über hunderte Kilometer braucht die
+    // Kilometer-Auflösung nicht, und das Glätten danach kostet sonst zu viel Speicher.
+    val w = (box.width / metersPerCell).toInt().coerceIn(16, 600)
+    val h = (box.height / metersPerCell).toInt().coerceIn(16, 600)
+    return w to h
 }
+
+/** Wie fein zwischen den Rasterzellen interpoliert wird (Vielfaches der Datenauflösung). */
+private const val RADAR_SMOOTH = 6
 
 /** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt ein Abruf ohne Nachladen. */
 private const val RADAR_PAD = 1.25
