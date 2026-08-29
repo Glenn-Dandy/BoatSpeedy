@@ -124,4 +124,7 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.osmdroid.android)
+
+    // Nur für `./gradlew test` – landet nicht in der App und ändert das Release-APK nicht.
+    testImplementation(libs.junit)
 }

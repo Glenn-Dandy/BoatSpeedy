@@ -44,6 +44,12 @@ jobs:
 
       # Keystore für signierte Builds: Release (Tag) und DEV (dev-Branch) nutzen
       # denselben Release-Key. Bei PRs nicht nötig → unsignierter Debug-Check.
+      - name: Run unit tests
+        # Läuft vor jedem Build und bei jedem PR. Prüft die Protokoll-Auswerter gegen
+        # echte, mitgeschnittene Frames und die Fahrten-Rechnung – Fehler dort sehen im
+        # laufenden Betrieb wie plausible Werte aus und fallen sonst erst auf dem Wasser auf.
+        run: ./gradlew testDebugUnitTest --no-daemon
+
       - name: Restore keystore
         if: ${{ env.IS_TAG == 'true' || env.IS_DEV == 'true' }}
         run: |

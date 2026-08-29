@@ -30,6 +30,16 @@ Beim Release wandern die Punkte nach `CHANGELOG.md` (deutsch, ausführlicher) un
 `fastlane/metadata/android/{de-DE,en-US}/changelogs/<versionCode>.txt`. Danach fängt
 `dev-notes.md` mit der neuen Versionsnummer wieder bei null an.
 
+## Tests
+
+`app/src/test/` prüft, was reine Rechnerei ist: die Protokoll-Auswerter (JBD, Redodo)
+gegen **echte, mitgeschnittene Frames** und das Zusammenführen von Fahrten. Läuft mit
+`./gradlew testDebugUnitTest` und im Workflow vor jedem Build.
+
+Wer an Byte-Offsets, Einheiten oder Zeitrechnung rührt, ergänzt dort einen Fall. Der Grund:
+Fehler dieser Art erzeugen **plausible falsche Werte** — das sieht man der App nicht an,
+das merkt man erst auf dem Wasser.
+
 ## Bauen und Veröffentlichen
 
 - Entwicklung auf `dev`, `main` nur über PR und Tag.
