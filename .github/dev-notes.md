@@ -28,7 +28,17 @@ cycle is not a change and does not appear here.
   the shades are the official ones. Each frame is fetched at the resolution of the data
   now, which also cuts the download to a few kilobytes.
 
+- **The radar shows the clock time of each frame**, not just how far ahead it is.
+
 ### Fixed
+
+- **The radar no longer ages while you watch it.** The list of frames was built once when
+  the map opened and never renewed, so with the map left running — which is what happens
+  on the water — "now" quietly became the situation from half an hour ago and the whole
+  forecast was shifted with it. The list is rebuilt every five minutes, the interval at
+  which the DWD publishes.
+- **Redodo / LiTime is no longer marked experimental.** It has been verified against real
+  hardware, current direction included.
 
 - **The rain radar appears in a second or two instead of after several loops.** A request to the DWD
   server costs two to four seconds no matter how much ground it covers — one 256-pixel

@@ -67,7 +67,18 @@ fun LiveMapScreen(
     // Hintergrund; „Play" läuft dann sofort flüssig.
     var playing by remember { mutableStateOf(false) }
     var frameIndex by remember { mutableIntStateOf(0) }
-    val frames = remember { radarFrames() }
+    // Die Frame-Liste altert: bleibt die Karte offen, zeigt „jetzt" sonst irgendwann den
+    // Stand von vor einer halben Stunde. Deshalb im 5-Minuten-Takt neu bilden – das ist
+    // genau der Takt, in dem der DWD neue Daten veröffentlicht.
+    var framesEpoch by remember { mutableIntStateOf(0) }
+    LaunchedEffect(showWeather) {
+        while (showWeather) {
+            val now = System.currentTimeMillis()
+            delay(5 * 60_000L - (now % (5 * 60_000L)) + 20_000L) // kurz nach dem Wechsel
+            framesEpoch++
+        }
+    }
+    val frames = remember(framesEpoch) { radarFrames() }
     val radarTimes = remember(frames) { frames.map { it.timeIso } }
     val bubble: (TrackPoint) -> String = { p -> buildTrackBubble(context, settings, p) }
 
@@ -147,14 +158,24 @@ fun LiveMapScreen(
                                 contentDescription = stringResource(R.string.weather_play),
                             )
                         }
-                        val label = frames[frameIndex.coerceIn(0, frames.lastIndex)].label
+                        val frame = frames[frameIndex.coerceIn(0, frames.lastIndex)]
                         // feste Breite → der Regler bleibt immer gleich lang
-                        Text(
-                            if (label.isBlank()) stringResource(R.string.radar_now) else label,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
+                        Column(
                             modifier = Modifier.width(64.dp),
-                        )
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                frame.clock,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center,
+                            )
+                            Text(
+                                frame.label.ifBlank { stringResource(R.string.radar_now) },
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                         Slider(
                             value = frameIndex.toFloat(),
                             onValueChange = { playing = false; frameIndex = it.roundToInt().coerceIn(0, frames.lastIndex) },
