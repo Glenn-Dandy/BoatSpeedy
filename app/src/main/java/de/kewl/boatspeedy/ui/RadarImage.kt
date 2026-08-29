@@ -207,15 +207,17 @@ private fun classColor(v: Float): Int {
  *
  * Erwartet [src] in der Auflösung der Messdaten (ein Bildpunkt ≈ ein Kilometer).
  */
-fun smoothRadar(src: Bitmap, maxFactor: Int): Bitmap {
+fun smoothRadar(src: Bitmap, maxEdge: Int): Bitmap {
     val sw = src.width
     val sh = src.height
-    // Der Vergrößerungsfaktor muss begrenzt werden: bei einem weiten Ausschnitt hat das
-    // Rohbild schon einige hundert Punkte Kantenlänge, und das Sechsfache davon wären
-    // dreistellige Megabyte. Lieber gröber interpolieren als abstürzen.
-    val maxPixels = 2_500_000.0
-    val fit = kotlin.math.sqrt(maxPixels / (sw.toDouble() * sh)).toInt()
-    val factor = fit.coerceIn(1, maxFactor)
+    // Entscheidend ist die **absolute** Ausgabegröße, nicht der Vergrößerungsfaktor.
+    // Mit festem Faktor wächst das Bild mit dem Ausschnitt: bei hundert Kilometern Blick
+    // wären es acht Megabyte je Frame und über hundertsiebzig für die ganze Schleife.
+    // Der Zwischenspeicher läuft dann über, jeder Wechsel rechnet neu — und es ruckelt.
+    // Diese Kante reicht für den Bildschirm; den Rest erledigt die Skalierung beim
+    // Zeichnen, die ohnehin nur noch leicht glättet.
+    val longest = kotlin.math.max(sw, sh).coerceAtLeast(1)
+    val factor = (maxEdge / longest).coerceIn(1, 12)
     val ow = (sw * factor).coerceAtLeast(1)
     val oh = (sh * factor).coerceAtLeast(1)
     val srcPx = IntArray(sw * sh)

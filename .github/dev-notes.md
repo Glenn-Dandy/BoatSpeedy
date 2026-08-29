@@ -44,8 +44,8 @@ cycle is not a change and does not appear here.
   and neither can be undone.
 - **The radar animation runs smoothly again.** Every frame change re-did the whole
   interpolation, so dragging the time slider queued up work and stuttered. Frames are
-  smoothed once, kept ready, and the loop reuses them; they are also prepared in advance
-  while the frames are still downloading.
+  smoothed once at a fixed size, kept ready, and the loop reuses them; they are also
+  prepared in advance while the frames are still downloading.
 - **The radar stays put while panning and zooming.** The image and the ground it covers
   were set at different moments, so between a pan and the new image arriving the old
   picture was stretched onto the new area — it slid along with the finger instead of

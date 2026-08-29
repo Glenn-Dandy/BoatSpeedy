@@ -108,7 +108,7 @@ fun OsmMap(
     var viewEpoch by remember { mutableIntStateOf(0) }
     // Fertig geglättete Frames. Ohne den Zwischenspeicher wird bei jedem Wechsel neu
     // interpoliert – beim Schieben des Reglers reiht sich das auf und ruckelt.
-    val smoothedFrames = remember(radarTimes) { mutableMapOf<Int, android.graphics.Bitmap>() }
+    val smoothedFrames = remember(radarTimes) { mutableMapOf<Int, Pair<Int, android.graphics.Bitmap>>() }
     // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner) und zu welchem Abruf.
     var shownFrame by remember { mutableIntStateOf(-1) }
     var shownEpoch by remember { mutableIntStateOf(-1) }
@@ -198,12 +198,14 @@ fun OsmMap(
         // Die Frames im Voraus glätten, solange niemand hinschaut. Sonst rechnet der
         // erste Durchlauf der Schleife bei jedem Wechsel neu und ruckelt.
         for (i in radarTimes.indices) {
-            if (smoothedFrames.containsKey(i)) continue
+            if (smoothedFrames[i]?.first == viewEpoch) continue
             val png = framePngs[i] ?: continue
             val bmp = withContext(Dispatchers.Default) {
-                decodeRadar(png)?.let { raw -> smoothRadar(raw, RADAR_SMOOTH) }
+                decodeRadar(png)?.let { raw ->
+                    runCatching { smoothRadar(raw, RADAR_EDGE) }.getOrDefault(raw)
+                }
             } ?: continue
-            smoothedFrames[i] = bmp
+            smoothedFrames[i] = viewEpoch to bmp
             trimSmoothed(smoothedFrames, shownFrame)
         }
     }
@@ -234,7 +236,7 @@ fun OsmMap(
 
         // Schon geglättet? Dann sofort zeigen – ohne Umweg über einen Hintergrundlauf,
         // damit das Durchschieben des Reglers unmittelbar folgt.
-        smoothedFrames[idx]?.let { ready ->
+        smoothedFrames[idx]?.takeIf { it.first == viewEpoch }?.let { (_, ready) ->
             radarOverlay.setImage(ready, box)
             shownFrame = idx
             shownEpoch = viewEpoch
@@ -244,9 +246,13 @@ fun OsmMap(
 
         val png = framePngs[idx] ?: return@LaunchedEffect
         val bmp = withContext(Dispatchers.Default) {
-            decodeRadar(png)?.let { raw -> smoothRadar(raw, RADAR_SMOOTH) }
+            // Sollte der Speicher einmal nicht reichen, lieber das ungeglättete Bild
+            // zeigen als abstürzen.
+            decodeRadar(png)?.let { raw ->
+                runCatching { smoothRadar(raw, RADAR_EDGE) }.getOrDefault(raw)
+            }
         } ?: return@LaunchedEffect
-        smoothedFrames[idx] = bmp
+        smoothedFrames[idx] = viewEpoch to bmp
         trimSmoothed(smoothedFrames, idx)
         // Bild und Fläche gehören zusammen und werden deshalb gemeinsam gesetzt. Getrennt
         // gesetzt zeigt das Overlay zwischendurch das alte Bild auf der neuen Fläche –
@@ -404,12 +410,13 @@ private fun radarPixels(box: MercatorBox, centerLat: Double): Pair<Int, Int> {
 }
 
 /**
- * Wie fein zwischen den Rasterzellen interpoliert wird (Vielfaches der Datenauflösung).
- * Zehn ist am Bildschirm ausprobiert: die Umrisse sind rund, die Farbgrenzen bleiben
- * scharf, und der Speicherbedarf hält sich in Grenzen. Höhere Werte sind kaum noch zu
- * sehen; bei weiten Ausschnitten senkt [smoothRadar] den Faktor ohnehin von selbst.
+ * Längste Kante des geglätteten Frames. Am Bildschirm ausprobiert: bei dieser Größe sind
+ * die Umrisse rund und die Farbgrenzen scharf, und ein Frame belegt rund anderthalb
+ * Megabyte — so passt die ganze Schleife in den Speicher, statt bei jedem Wechsel neu
+ * gerechnet werden zu müssen. Was danach beim Zeichnen noch vergrößert wird, wirkt wie
+ * Kantenglättung, nicht wie Unschärfe.
  */
-private const val RADAR_SMOOTH = 10
+private const val RADAR_EDGE = 640
 
 /** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt ein Abruf ohne Nachladen. */
 private const val RADAR_PAD = 1.8
@@ -437,13 +444,13 @@ private suspend fun awaitMapReady(map: MapView, centered: () -> Boolean): Boolea
  * dreistellige Megabyte belegen. Geworfen wird der jeweils älteste Eintrag, nie der
  * gerade gezeigte.
  */
-private fun trimSmoothed(cache: MutableMap<Int, android.graphics.Bitmap>, keep: Int) {
-    val budget = 28 * 1024 * 1024
-    var used = cache.values.sumOf { it.allocationByteCount }
+private fun trimSmoothed(cache: MutableMap<Int, Pair<Int, android.graphics.Bitmap>>, keep: Int) {
+    val budget = 40 * 1024 * 1024
+    var used = cache.values.sumOf { it.second.allocationByteCount }
     if (used <= budget) return
     val order = cache.keys.filter { it != keep }.toMutableList()
     while (used > budget && order.isNotEmpty()) {
         val victim = order.removeAt(0)
-        used -= cache.remove(victim)?.allocationByteCount ?: 0
+        used -= cache.remove(victim)?.second?.allocationByteCount ?: 0
     }
 }
