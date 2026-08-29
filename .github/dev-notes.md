@@ -20,12 +20,13 @@ cycle is not a change and does not appear here.
   hidden: seven taps on the version number in About unlock Settings → Developer, and a
   button in the diagnostic hides it again.
 
-- **The radar is drawn smoothly, like the DWD's own app.** The measurements are
-  interpolated between the one-kilometre grid cells and coloured afterwards, rather than
-  the finished picture being blurred — so cores and edges stay readable instead of turning
-  into haze. The colour ladder comes from the layer's own style definition, so the shades
-  match the official one, only without the fifteen hard steps. Each frame is now fetched
-  at the resolution of the data, which also cuts the download to a few kilobytes.
+- **The radar is drawn like the DWD's own app: round outlines, crisp colour edges.** The
+  measurements are interpolated between the one-kilometre grid cells and only then
+  coloured, so the shapes get their curves back — but the colouring keeps the fifteen
+  steps of the official ladder instead of fading between them, which is what makes it
+  readable rather than hazy. The ladder is taken from the layer's own style definition, so
+  the shades are the official ones. Each frame is fetched at the resolution of the data
+  now, which also cuts the download to a few kilobytes.
 
 ### Fixed
 

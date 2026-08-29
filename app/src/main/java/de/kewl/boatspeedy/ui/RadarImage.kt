@@ -184,23 +184,19 @@ private fun classOf(pixel: Int): Float {
     return 0f
 }
 
-private fun lerp(a: Int, b: Int, t: Float): Int {
-    val ar = (a shr 16) and 0xFF; val ag = (a shr 8) and 0xFF; val ab = a and 0xFF
-    val br = (b shr 16) and 0xFF; val bg = (b shr 8) and 0xFF; val bb = b and 0xFF
-    val r = (ar + (br - ar) * t).toInt(); val g = (ag + (bg - ag) * t).toInt()
-    val bl = (ab + (bb - ab) * t).toInt()
-    return (r shl 16) or (g shl 8) or bl
-}
-
-/** Farbe für einen Zwischenwert der Leiter – stufenlos statt in fünfzehn Sprüngen. */
-private fun rampColor(v: Float): Int {
-    if (v <= 0f) return 0
-    // Unterhalb der ersten Stufe blendet die Deckkraft auf, damit Ränder auslaufen.
-    if (v < 1f) return ((v * 255).toInt().coerceIn(0, 255) shl 24) or RADAR_RAMP[0]
-    val t = (v - 1f).coerceAtMost((RADAR_RAMP.size - 1).toFloat())
-    val i = t.toInt().coerceAtMost(RADAR_RAMP.size - 2)
-    val f = t - i
-    return (0xFF shl 24) or lerp(RADAR_RAMP[i], RADAR_RAMP[i + 1], f)
+/**
+ * Farbe für einen interpolierten Wert — gerundet auf die **nächste Stufe** der Leiter,
+ * nicht dazwischen gemischt.
+ *
+ * Das ist der Punkt, an dem ein erster Versuch danebenlag: mischt man die Farben
+ * stufenlos, verschwimmt alles zu Farbnebel. Die DWD-App macht es anders, und man sieht
+ * es ihrem Bild an — die Farbflächen haben **weiche Umrisse, aber harte Grenzen**.
+ * Interpoliert werden also die Messwerte, die Einfärbung bleibt in ihren fünfzehn Stufen.
+ */
+private fun classColor(v: Float): Int {
+    val i = kotlin.math.round(v).toInt()
+    if (i <= 0) return 0
+    return (0xFF shl 24) or RADAR_RAMP[(i - 1).coerceAtMost(RADAR_RAMP.size - 1)]
 }
 
 /**
@@ -241,7 +237,7 @@ fun smoothRadar(src: Bitmap, maxFactor: Int): Bitmap {
             val v01 = values[y1 * sw + x0]; val v11 = values[y1 * sw + x1]
             val top = v00 + (v10 - v00) * wx
             val bot = v01 + (v11 - v01) * wx
-            out[y * ow + x] = rampColor(top + (bot - top) * wy)
+            out[y * ow + x] = classColor(top + (bot - top) * wy)
         }
     }
     return Bitmap.createBitmap(out, ow, oh, Bitmap.Config.ARGB_8888)

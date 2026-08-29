@@ -384,8 +384,13 @@ private fun radarPixels(box: MercatorBox, centerLat: Double): Pair<Int, Int> {
     return w to h
 }
 
-/** Wie fein zwischen den Rasterzellen interpoliert wird (Vielfaches der Datenauflösung). */
-private const val RADAR_SMOOTH = 6
+/**
+ * Wie fein zwischen den Rasterzellen interpoliert wird (Vielfaches der Datenauflösung).
+ * Zehn ist am Bildschirm ausprobiert: die Umrisse sind rund, die Farbgrenzen bleiben
+ * scharf, und der Speicherbedarf hält sich in Grenzen. Höhere Werte sind kaum noch zu
+ * sehen; bei weiten Ausschnitten senkt [smoothRadar] den Faktor ohnehin von selbst.
+ */
+private const val RADAR_SMOOTH = 10
 
 /** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt ein Abruf ohne Nachladen. */
 private const val RADAR_PAD = 1.8
