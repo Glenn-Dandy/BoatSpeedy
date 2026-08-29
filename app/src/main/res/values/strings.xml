@@ -127,7 +127,7 @@
     <string name="bat_current">Current</string>
     <string name="bat_cell_n">Cell %1$d</string>
     <string name="bat_detail_hint">Connect this battery to see live details.</string>
-    <string name="bat_soc">Charge</string>
+    <string name="bat_soc">SoC</string>
     <string name="bat_remaining">Remaining</string>
     <string name="bat_temp">Temperature</string>
     <string name="bat_cells">Cells</string>
@@ -274,4 +274,24 @@
     <string name="download">Download</string>
     <string name="open_release">Open release page</string>
     <string name="update_check_failed">Update check failed. Please try again.</string>
+    <!-- Versteckte Entwicklerwerkzeuge -->
+    <string name="group_developer">Developer</string>
+    <string name="cat_developer_desc">BLE diagnostic for bug reports</string>
+    <string name="dev_unlocked">Developer tools unlocked — see Settings</string>
+    <string name="dev_countdown">%d more taps to unlock developer tools</string>
+    <string name="diag_title">BLE diagnostic</string>
+    <string name="diag_intro">Scans without any filter, then tries every protocol BoatSpeedy knows on the battery you pick and records what comes back. Close the manufacturer app first — most BMS allow only one Bluetooth connection at a time. Share the report and attach it to your issue.</string>
+    <string name="diag_pick">Pick the battery</string>
+    <string name="diag_no_name">(no name)</string>
+    <string name="diag_share">Share report</string>
+    <string name="dev_hide">Hide developer tools</string>
+    <string name="dev_hidden">Developer tools hidden — tap the version number in About seven times to bring them back</string>
+    <string name="bat_history">History</string>
+    <string name="bat_cycles">Charge cycles</string>
+    <string name="bat_discharged_total">Discharged in total</string>
+    <string name="bat_nominal">Rated capacity</string>
+    <string name="merge_confirm">Merge %1$d trips into one? This cannot be undone.</string>
+    <string name="merge_do">Merge</string>
+    <string name="delete_confirm">Delete %1$d trips for good? This cannot be undone.</string>
+    <string name="delete_do">Delete</string>
 </resources>

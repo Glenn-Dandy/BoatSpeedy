@@ -12,8 +12,8 @@ import java.util.TimeZone
 const val DWD_RADAR_LAYER = "Radar_rv_product_1x1km_ger" // RADOLAN-RV: −1 h … +2 h, PT5M
 const val DWD_LIGHTNING_LAYER = "Blitzdichte" // nur Ist-Zeit (keine Zukunft)
 
-/** Ein Radar-Frame (Zeitpunkt für WMS + Anzeige-Label). */
-data class RadarFrame(val timeIso: String, val label: String)
+/** Ein Radar-Frame: Zeitpunkt für den WMS, Versatz zu jetzt und die Uhrzeit zum Ablesen. */
+data class RadarFrame(val timeIso: String, val label: String, val clock: String)
 
 /**
  * osmdroid-Kachelquelle, die pro XYZ-Kachel eine DWD-WMS-GetMap-Anfrage baut
@@ -56,13 +56,18 @@ fun radarFrames(): List<RadarFrame> {
     val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
+    // Ortszeit zum Ablesen – ein „+30 min" allein sagt nichts, wenn die Liste älter ist
+    // als der Blick auf den Bildschirm.
+    val clockFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
     val now = System.currentTimeMillis()
     val base = now - (now % (5 * 60_000L)) // auf 5 Min abrunden
     return (0..20).map { i ->
         val offMin = i * 5
+        val at = base + offMin * 60_000L
         RadarFrame(
-            timeIso = fmt.format(Date(base + offMin * 60_000L)),
+            timeIso = fmt.format(Date(at)),
             label = if (offMin == 0) "" else "+$offMin min",
+            clock = clockFmt.format(Date(at)),
         )
     }
 }

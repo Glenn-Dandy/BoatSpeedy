@@ -7,6 +7,12 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -17,11 +23,8 @@ import androidx.core.content.ContextCompat
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.trip.TrackPoint
 import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.MapTileProviderBasic
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.tileprovider.util.SimpleInvalidationHandler
 import org.osmdroid.util.GeoPoint
-import org.osmdroid.util.MapTileIndex
 import kotlinx.coroutines.delay
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.util.BoundingBox
@@ -29,7 +32,6 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
-import org.osmdroid.views.overlay.TilesOverlay
 import java.io.File
 
 /**
@@ -93,106 +95,178 @@ fun OsmMap(
             infoWindow = TrackInfoWindow(mapView)
         }
     }
-    // Ein Overlay je Radar-Frame – jedes mit EIGENEM Cache (osmdroid cacht nach z/x/y,
-    // nicht nach Zeit; nur so zeigt der Frame-Wechsel wirklich neue Daten).
-    val radarLayers = remember(radarTimes) {
-        radarTimes.map { t ->
-            val p = MapTileProviderBasic(context).apply {
-                setTileSource(DwdWmsTileSource(DWD_RADAR_LAYER, t))
-                // Fertige Downloads sollen die Karte neu zeichnen (sonst erst beim Antippen).
-                setTileRequestCompleteHandler(SimpleInvalidationHandler(mapView))
-            }
-            val ov = TilesOverlay(p, context).apply {
-                loadingBackgroundColor = android.graphics.Color.TRANSPARENT
-                isEnabled = false
-            }
-            ov to p
-        }
-    }
-    val lightningProvider = remember(mapView) {
-        MapTileProviderBasic(context).apply { setTileRequestCompleteHandler(SimpleInvalidationHandler(mapView)) }
-    }
-    val lightningOverlay = remember(mapView) { TilesOverlay(lightningProvider, context).apply { loadingBackgroundColor = android.graphics.Color.TRANSPARENT } }
+    // Ein Overlay für den Regen, eines für die Blitze – jeweils EIN Bild für den
+    // ganzen Ausschnitt statt zwanzig Kacheln (siehe RadarImage.kt).
+    val radarOverlay = remember(mapView) { RadarImageOverlay() }
+    val lightningOverlay = remember(mapView) { RadarImageOverlay() }
+
+    // PNG-Bytes je Frame; dekodiert wird nur der sichtbare.
+    val framePngs = remember(radarTimes) { mutableStateMapOf<Int, ByteArray>() }
+    var fetchedArea by remember(radarTimes) { mutableStateOf<MercatorBox?>(null) }
+    var lightningPng by remember { mutableStateOf<ByteArray?>(null) }
+    // Ein Zähler, der einen Neu-Abruf auslöst, wenn der Ausschnitt weggewandert ist.
+    var viewEpoch by remember { mutableIntStateOf(0) }
+    // Fertig geglättete Frames. Ohne den Zwischenspeicher wird bei jedem Wechsel neu
+    // interpoliert – beim Schieben des Reglers reiht sich das auf und ruckelt.
+    val smoothedFrames = remember(radarTimes) { mutableMapOf<Int, Pair<Int, android.graphics.Bitmap>>() }
+    // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner) und zu welchem Abruf.
+    var shownFrame by remember { mutableIntStateOf(-1) }
+    var shownEpoch by remember { mutableIntStateOf(-1) }
+    var lightningArea by remember { mutableStateOf<MercatorBox?>(null) }
 
     DisposableEffect(Unit) {
         mapView.onResume()
         onDispose {
             mapView.onPause()
             mapView.onDetach()
-            radarLayers.forEach { (_, p) -> p.detach() }
-            lightningProvider.detach()
         }
     }
 
-    // Alle Frame-Overlays unten einhängen/aushängen (nur einer ist jeweils sichtbar).
-    DisposableEffect(showRadar, radarLayers) {
-        radarLayers.forEach { (ov, _) ->
-            if (showRadar) { if (!mapView.overlays.contains(ov)) mapView.overlays.add(0, ov) }
-            else mapView.overlays.remove(ov)
+    // Overlays ein-/aushängen.
+    DisposableEffect(showRadar) {
+        if (showRadar) {
+            if (!mapView.overlays.contains(radarOverlay)) mapView.overlays.add(0, radarOverlay)
+        } else {
+            mapView.overlays.remove(radarOverlay)
+            radarOverlay.setImage(null, null)
+            shownFrame = -1
         }
         mapView.invalidate()
         onDispose { }
     }
 
-    // Nur den aktuellen Frame sichtbar schalten.
-    LaunchedEffect(showRadar, radarFrameIndex, radarLayers) {
-        radarLayers.forEachIndexed { i, (ov, _) -> ov.isEnabled = showRadar && i == radarFrameIndex }
-        mapView.invalidate()
-    }
-
-    // Alle Frames für den sichtbaren Bereich im Hintergrund vorladen (Kachel-Cache wärmen),
-    // damit die Schleife beim Drücken von „Play" sofort flüssig läuft.
-    // Frames NACHEINANDER vorladen – der sichtbare zuerst. Alles auf einmal anzufordern
-    // sprengt die Download-Warteschlange, dann werden Kacheln verworfen und der Frame
-    // („jetzt") bleibt leer bzw. füllt sich erst nach mehreren Durchläufen.
-    LaunchedEffect(showRadar, radarLayers) {
-        if (!showRadar || radarLayers.isEmpty()) return@LaunchedEffect
-        delay(400) // Karte zentrieren/zoomen lassen
-        val z = mapView.zoomLevelDouble.toInt().coerceIn(3, 14)
-        val n = 1 shl z
-        val bb = mapView.boundingBox
-        fun lon2x(lon: Double) = (((lon + 180.0) / 360.0) * n).toInt()
-        fun lat2y(lat: Double): Int {
-            val r = Math.toRadians(lat)
-            return (((1.0 - Math.log(Math.tan(r) + 1.0 / Math.cos(r)) / Math.PI) / 2.0) * n).toInt()
-        }
-        val x0 = (lon2x(bb.lonWest) - 1).coerceIn(0, n - 1)
-        val x1 = (lon2x(bb.lonEast) + 1).coerceIn(0, n - 1)
-        val y0 = (lat2y(bb.latNorth) - 1).coerceIn(0, n - 1)
-        val y1 = (lat2y(bb.latSouth) + 1).coerceIn(0, n - 1)
-
-        fun request(index: Int) {
-            val p = radarLayers.getOrNull(index)?.second ?: return
-            for (x in x0..x1) for (y in y0..y1) {
-                runCatching { p.getMapTile(MapTileIndex.getTileIndex(z, x, y)) }
-            }
-        }
-
-        // 1) sichtbarer Frame sofort, damit „jetzt" gleich erscheint
-        val first = radarFrameIndex.coerceIn(0, radarLayers.lastIndex)
-        request(first)
-        mapView.invalidate()
-        delay(900)
-        // 2) die übrigen Frames der Reihe nach
-        radarLayers.indices.filter { it != first }.forEach { i ->
-            request(i)
-            delay(450)
-        }
-    }
-
-    // Blitze (Ist-Zeit), über dem Regen, unter den Markern.
-    DisposableEffect(showLightning, radarLayers) {
+    DisposableEffect(showLightning) {
         if (showLightning) {
-            lightningProvider.setTileSource(DwdWmsTileSource(DWD_LIGHTNING_LAYER, null))
             if (!mapView.overlays.contains(lightningOverlay)) {
-                val radarCount = radarLayers.count { mapView.overlays.contains(it.first) }
-                mapView.overlays.add(radarCount, lightningOverlay)
+                val at = if (mapView.overlays.contains(radarOverlay)) 1 else 0
+                mapView.overlays.add(at, lightningOverlay)
             }
         } else {
             mapView.overlays.remove(lightningOverlay)
+            lightningOverlay.setImage(null, null)
         }
         mapView.invalidate()
         onDispose { }
+    }
+
+    // Merkt, wenn der sichtbare Bereich den geladenen verlässt → neu holen.
+    LaunchedEffect(showRadar || showLightning) {
+        while (showRadar || showLightning) {
+            delay(1200)
+            val loaded = fetchedArea
+            val now = runCatching { mapView.boundingBox.toMercator() }.getOrNull()
+            // Neu holen, wenn der Blick den geladenen Bereich verlässt – aber auch, wenn
+            // er deutlich kleiner geworden ist: sonst bleibt nach dem Herauszoomen und
+            // Wiederhineinzoomen das grobe Übersichtsbild stehen und wirkt „kaputt".
+            val wanderedOff = loaded != null && now != null && !loaded.contains(now)
+            val zoomedIn = loaded != null && now != null && now.width > 0 &&
+                loaded.width / now.width > RADAR_PAD * 2.2
+            // Nur nachfordern. Das vorhandene Bild bleibt stehen, bis das neue fertig
+            // ist – es sitzt ja weiterhin richtig auf dem Boden, nur gröber.
+            if (wanderedOff || zoomedIn) viewEpoch++
+        }
+    }
+
+    // Alle Frames holen – der sichtbare zuerst, damit sofort etwas zu sehen ist,
+    // der Rest danach in kleinen Gruppen parallel. Seriell wären 21 Anfragen à 2–4 s
+    // über eine Minute; alle auf einmal überlastet den DWD-Server.
+    LaunchedEffect(showRadar, radarTimes, viewEpoch) {
+        if (!showRadar || radarTimes.isEmpty()) return@LaunchedEffect
+        while (!awaitMapReady(mapView) { centered }) delay(500) // nicht aufgeben
+        val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
+        // Großzügiger Rand: kleine Schwenks sollen kein Nachladen auslösen.
+        val area = view.expand(RADAR_PAD).clampToWorld()
+        val px = radarPixels(area, area.toBoundingBox().centerLatitude)
+        framePngs.clear()
+        smoothedFrames.clear()
+        fetchedArea = area
+
+        suspend fun load(i: Int) {
+            val png = withContext(Dispatchers.IO) {
+                fetchRadarPng(DWD_RADAR_LAYER, radarTimes[i], area, px.first, px.second)
+            }
+            if (png != null) framePngs[i] = png
+        }
+
+        val first = radarFrameIndex.coerceIn(0, radarTimes.lastIndex)
+        load(first)
+        mapView.invalidate()
+        radarTimes.indices.filter { it != first }.chunked(4).forEach { group ->
+            coroutineScope { group.forEach { i -> launch { load(i) } } }
+        }
+
+        // Die Frames im Voraus glätten, solange niemand hinschaut. Sonst rechnet der
+        // erste Durchlauf der Schleife bei jedem Wechsel neu und ruckelt.
+        for (i in radarTimes.indices) {
+            if (smoothedFrames[i]?.first == viewEpoch) continue
+            val png = framePngs[i] ?: continue
+            val bmp = withContext(Dispatchers.Default) {
+                decodeRadar(png)?.let { raw ->
+                    runCatching { smoothRadar(raw, RADAR_EDGE) }.getOrDefault(raw)
+                }
+            } ?: continue
+            smoothedFrames[i] = viewEpoch to bmp
+            trimSmoothed(smoothedFrames, shownFrame)
+        }
+    }
+
+    // Blitze (nur Ist-Zeit).
+    LaunchedEffect(showLightning, viewEpoch) {
+        if (!showLightning) { lightningPng = null; return@LaunchedEffect }
+        while (!awaitMapReady(mapView) { centered }) delay(500)
+        val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
+        val area = view.expand(RADAR_PAD).clampToWorld()
+        val px = radarPixels(area, area.toBoundingBox().centerLatitude)
+        lightningArea = area
+        lightningPng = withContext(Dispatchers.IO) {
+            fetchRadarPng(DWD_LIGHTNING_LAYER, null, area, px.first, px.second)
+        }
+    }
+
+    // Nur den gezeigten Frame dekodieren und das alte Bild danach freigeben. Fehlt der
+    // Frame noch, bleibt das bisherige Bild stehen – sonst blinkt die Schleife leer.
+    LaunchedEffect(showRadar, radarFrameIndex, framePngs.size, viewEpoch) {
+        if (!showRadar) { shownFrame = -1; return@LaunchedEffect }
+        val idx = radarFrameIndex.coerceIn(0, (radarTimes.size - 1).coerceAtLeast(0))
+        if (idx == shownFrame && shownEpoch == viewEpoch && radarOverlay.image != null) {
+            return@LaunchedEffect
+        }
+        val area = fetchedArea ?: return@LaunchedEffect
+        val box = area.toBoundingBox()
+
+        // Schon geglättet? Dann sofort zeigen – ohne Umweg über einen Hintergrundlauf,
+        // damit das Durchschieben des Reglers unmittelbar folgt.
+        smoothedFrames[idx]?.takeIf { it.first == viewEpoch }?.let { (_, ready) ->
+            radarOverlay.setImage(ready, box)
+            shownFrame = idx
+            shownEpoch = viewEpoch
+            mapView.invalidate()
+            return@LaunchedEffect
+        }
+
+        val png = framePngs[idx] ?: return@LaunchedEffect
+        val bmp = withContext(Dispatchers.Default) {
+            // Sollte der Speicher einmal nicht reichen, lieber das ungeglättete Bild
+            // zeigen als abstürzen.
+            decodeRadar(png)?.let { raw ->
+                runCatching { smoothRadar(raw, RADAR_EDGE) }.getOrDefault(raw)
+            }
+        } ?: return@LaunchedEffect
+        smoothedFrames[idx] = viewEpoch to bmp
+        trimSmoothed(smoothedFrames, idx)
+        // Bild und Fläche gehören zusammen und werden deshalb gemeinsam gesetzt. Getrennt
+        // gesetzt zeigt das Overlay zwischendurch das alte Bild auf der neuen Fläche –
+        // es springt und wirkt, als hinge es am Finger statt am Boden.
+        radarOverlay.setImage(bmp, box)
+        shownFrame = idx
+        shownEpoch = viewEpoch
+        mapView.invalidate()
+    }
+
+    LaunchedEffect(lightningPng) {
+        val bmp = lightningPng?.let { withContext(Dispatchers.Default) { decodeRadar(it) } }
+        lightningOverlay.setImage(bmp, lightningArea?.toBoundingBox())
+        mapView.invalidate()
     }
 
     // Nutzer-Schwenk erkennen (→ Folgen aussetzen).
@@ -314,4 +388,69 @@ fun AnchorMap(
     }
 
     AndroidView(factory = { mapView }, modifier = modifier)
+}
+
+/**
+ * Bildgröße für einen Radarabruf: **ein Bildpunkt je Kilometer**, also genau die
+ * Auflösung der Messdaten.
+ *
+ * Mehr anzufordern bringt nichts — der DWD vergrößert dann selbst mit harten Kanten, und
+ * genau die wollen wir nicht. Weniger würde Daten wegwerfen. Aus diesem kleinen Bild
+ * rechnet [smoothRadar] die Zwischenwerte, und das Ergebnis wird beim Zeichnen auf die
+ * Karte skaliert. Nebenbei sinkt die Downloadgröße auf wenige Kilobyte je Frame.
+ */
+private fun radarPixels(box: MercatorBox, centerLat: Double): Pair<Int, Int> {
+    // In Web-Mercator ist ein Meter am Boden 1/cos(Breite) Mercator-Meter.
+    val metersPerCell = 1000.0 / kotlin.math.cos(Math.toRadians(centerLat.coerceIn(-80.0, 80.0)))
+    // Nach oben begrenzt: ein Ausschnitt über hunderte Kilometer braucht die
+    // Kilometer-Auflösung nicht, und das Glätten danach kostet sonst zu viel Speicher.
+    val w = (box.width / metersPerCell).toInt().coerceIn(16, 600)
+    val h = (box.height / metersPerCell).toInt().coerceIn(16, 600)
+    return w to h
+}
+
+/**
+ * Längste Kante des geglätteten Frames. Am Bildschirm ausprobiert: bei dieser Größe sind
+ * die Umrisse rund und die Farbgrenzen scharf, und ein Frame belegt rund anderthalb
+ * Megabyte — so passt die ganze Schleife in den Speicher, statt bei jedem Wechsel neu
+ * gerechnet werden zu müssen. Was danach beim Zeichnen noch vergrößert wird, wirkt wie
+ * Kantenglättung, nicht wie Unschärfe.
+ */
+private const val RADAR_EDGE = 640
+
+/** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt ein Abruf ohne Nachladen. */
+private const val RADAR_PAD = 1.8
+
+/**
+ * Wartet, bis die Karte vermessen und auf die Position zentriert ist. Ohne das liefert
+ * `boundingBox` einen unbrauchbaren Ausschnitt (Größe 0, Mittelpunkt 0/0), das Radar
+ * würde für die falsche Fläche geladen und erst die nächste Prüfung holt das Richtige —
+ * genau der eine leere Durchlauf, den man vorher gesehen hat.
+ */
+private suspend fun awaitMapReady(map: MapView, centered: () -> Boolean): Boolean {
+    repeat(60) { // höchstens ~6 s
+        val box = runCatching { map.boundingBox }.getOrNull()
+        val span = if (box == null) 0.0 else box.latitudeSpan * box.longitudeSpanWithDateLine
+        if (map.width > 0 && map.height > 0 && centered() && span > 0.0) return true
+        delay(100)
+    }
+    return false
+}
+
+/**
+ * Hält den Speicher der geglätteten Frames im Rahmen. Bei einem engen Ausschnitt sind das
+ * unter einem Megabyte je Frame und alle einundzwanzig passen bequem hinein; bei einem
+ * weiten Blick wird ein Frame um ein Vielfaches größer, und dann würden alle zusammen
+ * dreistellige Megabyte belegen. Geworfen wird der jeweils älteste Eintrag, nie der
+ * gerade gezeigte.
+ */
+private fun trimSmoothed(cache: MutableMap<Int, Pair<Int, android.graphics.Bitmap>>, keep: Int) {
+    val budget = 40 * 1024 * 1024
+    var used = cache.values.sumOf { it.second.allocationByteCount }
+    if (used <= budget) return
+    val order = cache.keys.filter { it != keep }.toMutableList()
+    while (used > budget && order.isNotEmpty()) {
+        val victim = order.removeAt(0)
+        used -= cache.remove(victim)?.second?.allocationByteCount ?: 0
+    }
 }

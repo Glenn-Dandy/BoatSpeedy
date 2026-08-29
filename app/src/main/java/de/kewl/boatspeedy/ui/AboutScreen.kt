@@ -2,10 +2,12 @@ package de.kewl.boatspeedy.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,10 +42,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -73,6 +77,8 @@ fun AboutScreen(
     language: AppLanguage,
     onLanguage: (AppLanguage) -> Unit,
     onOpenMenu: () -> Unit,
+    devMode: Boolean = false,
+    onDevMode: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -147,11 +153,41 @@ fun AboutScreen(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
+            // Sieben Tipper schalten die Entwicklerwerkzeuge frei (Android-Geste).
+            // Gezaehlt wird beim Aufsetzen des Fingers, nicht beim fertigen Klick: der Text
+            // sitzt in einem scrollbaren Bereich, der schnelle Tipper sonst als Wischen
+            // wertet und verschluckt. Der Countdown steht bewusst als Text darunter und
+            // nicht als Toast – die Systemmeldungen kamen den schnellen Tippern in die Quere.
+            var taps by remember { mutableIntStateOf(0) }
+            val versionLabel = "${stringResource(R.string.version)} ${BuildConfig.VERSION_NAME}"
+            val unlockedText = stringResource(R.string.dev_unlocked)
             Text(
-                "${stringResource(R.string.version)} ${BuildConfig.VERSION_NAME}",
+                versionLabel,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.pointerInput(devMode) {
+                    detectTapGestures(
+                        onPress = {
+                            if (devMode) return@detectTapGestures
+                            taps++
+                            if (taps >= 7) {
+                                taps = 0
+                                onDevMode(true)
+                                Toast.makeText(context, unlockedText, Toast.LENGTH_LONG).show()
+                            }
+                        },
+                    )
+                },
             )
+            val left = 7 - taps
+            if (!devMode && taps > 0 && left in 1..3) {
+                Text(
+                    stringResource(R.string.dev_countdown, left),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
             Spacer(Modifier.size(24.dp))
 
             // --- Feedback ---

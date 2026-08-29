@@ -58,6 +58,8 @@ object Jbd {
         val current = s16(payload, 2) / 100.0f                 // 10 mA (signed)
         val remaining = u16(payload, 4) / 100.0f               // 10 mAh → Ah
         val nominal = u16(payload, 6) / 100.0f                 // 10 mAh → Ah
+        // Ladezyklen ab Offset 8; kurze Frames mancher Firmware haben sie nicht.
+        val cycles = if (payload.size >= 10) u16(payload, 8) else null
         // SoC: aus dem Byte, sonst aus Rest/Nenn hochgerechnet.
         val soc = if (payload.size > 19) payload[19].toInt() and 0xFF
         else if (nominal > 0f) ((remaining / nominal) * 100f).roundToInt().coerceIn(0, 100)
@@ -76,6 +78,7 @@ object Jbd {
             tempC = temp,
             chargingFet = fet and 0x01 != 0,
             dischargingFet = fet and 0x02 != 0,
+            cycles = cycles,
         )
     }
 
@@ -100,5 +103,6 @@ object Jbd {
         val tempC: Float?,
         val chargingFet: Boolean,
         val dischargingFet: Boolean,
+        val cycles: Int?,
     )
 }

@@ -52,7 +52,10 @@ and how far you can still get** — all on one screen.
   30 s / 60 s) so it doesn't jitter with the motor load
 - **Dashboard tiles** for battery and range (always visible, or hidden in Settings),
   plus a subtle **A · B · Σ** selector to view a single pack or the combined bank
-- **BMS support**: **JBD / Jiabaida** (tested), **Daly** and **JK / Jikong** (experimental)
+- **BMS support**: **JBD / Jiabaida** and **Redodo / LiTime / Power Queen** (both verified
+  on hardware), **Daly** and **JK / Jikong** (experimental). The BMS type is stored per
+  battery, so different packs can be mixed in one bank
+- **Wear**: charge cycles, and total discharged Ah where the BMS reports it
 
 ### Trips, maps & weather
 - **Trip history**: saved trips with distance, moving/total/pause time, consumption (Ah),
@@ -89,6 +92,7 @@ with a critical eye and please report back:
 | GPS speed, trip, stats | ✅ working |
 | JBD battery link, live values | ✅ verified on hardware |
 | JBD current sign & range/time math | ✅ field-tested (negative = discharge) |
+| **Redodo / LiTime / Power Queen** | ✅ verified on hardware, current sign included |
 | **Daly BMS** | ⚠️ experimental — UUIDs/offsets from public docs, **untested** |
 | **JK / Jikong BMS** | ⚠️ experimental — esp. JK02 offsets/SOC, **untested** |
 | **Series / parallel combination** of multiple packs | ⚠️ **untested** on a real multi-pack setup |
@@ -96,7 +100,8 @@ with a critical eye and please report back:
 ## Roadmap / TODO
 
 - [ ] Verify **series / parallel** combination on a real multi-battery setup
-- [ ] Calibrate **Daly** and **JK** against real hardware (UUIDs/offsets)
+- [ ] Calibrate **Daly** and **JK** against real hardware (UUIDs/offsets) — the built-in
+      **BLE diagnostic** produces the report needed for this
 - [ ] **F-Droid**: drop Google Play Services (use `LocationManager`) to become fully FOSS
 - [ ] **Play Store**: App Bundle (`.aab`), privacy policy, data-safety declaration
 
@@ -200,8 +205,10 @@ siehst.
   (Aus / 15 s / 30 s / 60 s), damit nichts mit der Motorlast zappelt
 - **Dashboard-Kacheln** für Batterie und Reichweite (immer sichtbar oder ausblendbar),
   dazu ein dezenter **A · B · Σ**-Umschalter (einzeln oder kombiniert)
-- **BMS-Unterstützung**: **JBD / Jiabaida** (getestet), **Daly** und **JK / Jikong**
-  (experimentell)
+- **BMS-Unterstützung**: **JBD / Jiabaida** und **Redodo / LiTime / Power Queen** (beide
+  an Hardware verifiziert), **Daly** und **JK / Jikong** (experimentell). Der BMS-Typ hängt
+  an der einzelnen Batterie, gemischte Bänke sind also möglich
+- **Verschleiß**: Ladezyklen und, wo das BMS es liefert, insgesamt entnommene Amperestunden
 
 **Fahrten, Karten & Wetter**
 - **Fahrten-Historie**: gespeicherte Fahrten mit Distanz, Fahr-/Gesamt-/Pausenzeit,
@@ -238,6 +245,7 @@ und Rückmeldung geben:
 | GPS-Tempo, Fahrt, Statistik | ✅ funktioniert |
 | JBD-Anbindung, Live-Werte | ✅ an Hardware verifiziert |
 | JBD Strom-Vorzeichen & Reichweiten-/Zeitrechnung | ✅ im Feldtest bestätigt (negativ = Entladen) |
+| **Redodo / LiTime / Power Queen** | ✅ an Hardware verifiziert, samt Strom-Vorzeichen |
 | **Daly-BMS** | ⚠️ experimentell — UUIDs/Offsets aus Doku, **ungetestet** |
 | **JK / Jikong-BMS** | ⚠️ experimentell — v. a. JK02-Offsets/SOC, **ungetestet** |
 | **Reihen-/Parallel-Kombination** mehrerer Akkus | ⚠️ **ungetestet** an echtem Mehr-Akku-Aufbau |
@@ -245,7 +253,8 @@ und Rückmeldung geben:
 ### Roadmap / TODO
 
 - [ ] **Reihen-/Parallel**-Kombination an echtem Mehr-Akku-Aufbau prüfen
-- [ ] **Daly** und **JK** an echter Hardware kalibrieren (UUIDs/Offsets)
+- [ ] **Daly** und **JK** an echter Hardware kalibrieren (UUIDs/Offsets) — die eingebaute
+      **BLE-Diagnose** liefert den dafür nötigen Bericht
 - [ ] **F-Droid**: Google Play Services entfernen (`LocationManager`) → vollständig FOSS
 - [ ] **Play Store**: App-Bundle (`.aab`), Datenschutzerklärung, Data-Safety-Angaben
 

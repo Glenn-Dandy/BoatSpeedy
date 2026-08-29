@@ -16,3 +16,4 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+dev-release-notes.md

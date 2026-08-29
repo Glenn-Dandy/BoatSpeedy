@@ -294,6 +294,14 @@ private fun BatteryDetailCard(
             saved.bleName?.takeIf { it.isNotBlank() }?.let {
                 ValueRow(stringResource(R.string.bat_type), it)
             }
+            // Nennkapazität als Typenschild-Angabe: abgeschnitten, nicht gerundet. Das BMS
+            // hinterlegt sie krumm (Redodo: 100,99 Ah), gemeint sind die glatten 100 Ah.
+            d?.nominalAh?.takeIf { it > 0f }?.let {
+                ValueRow(
+                    stringResource(R.string.bat_nominal),
+                    String.format(Locale.getDefault(), "%d Ah", it.toInt()),
+                )
+            }
             ValueRow(stringResource(R.string.bat_mac), saved.address)
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             if (d == null) {
@@ -309,18 +317,30 @@ private fun BatteryDetailCard(
             ValueRow(stringResource(R.string.bat_current), fmt(d.currentA, "A"))
             ValueRow(stringResource(R.string.bat_soc), "${d.soc} %")
             // Rest und Temperatur immer zeigen – „--", solange das BMS nichts liefert.
+            // Die Nennkapazität nur als Bezug zeigen, solange sie einer sein kann.
+            // Manche BMS (Redodo) haben eine zu klein hinterlegte Kapazität, dann steht
+            // dort mehr Rest als Maximum – das liest sich wie ein Fehler und hilft niemandem.
             ValueRow(
                 stringResource(R.string.bat_remaining),
-                if (d.remainingAh > 0f || d.nominalAh > 0f) {
-                    fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah")
-                } else {
-                    "--"
+                when {
+                    d.remainingAh <= 0f && d.nominalAh <= 0f -> "--"
+                    d.nominalAh >= d.remainingAh && d.nominalAh > 0f ->
+                        fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah")
+                    else -> fmt(d.remainingAh, "Ah")
                 },
             )
             ValueRow(
                 stringResource(R.string.bat_temp),
                 d.tempC?.let { fmt(it, "°C") } ?: "--",
             )
+            if (d.cycles != null || d.dischargedAhTotal != null) {
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                Text(stringResource(R.string.bat_history), style = MaterialTheme.typography.titleSmall)
+                d.cycles?.let { ValueRow(stringResource(R.string.bat_cycles), "$it") }
+                d.dischargedAhTotal?.let {
+                    ValueRow(stringResource(R.string.bat_discharged_total), fmt0(it, "Ah"))
+                }
+            }
             if (d.cells.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text(stringResource(R.string.bat_cells), style = MaterialTheme.typography.titleSmall)

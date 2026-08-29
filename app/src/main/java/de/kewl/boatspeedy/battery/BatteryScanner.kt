@@ -80,7 +80,8 @@ class BatteryScanner(
             val dev = result.device
             // Typ aus den beworbenen Service-UUIDs ableiten (null, wenn nicht eindeutig).
             val advertised = result.scanRecord?.serviceUuids?.map { it.uuid }.orEmpty()
-            val type = BmsType.entries.firstOrNull { t -> BmsProtocol.of(t).serviceUuid in advertised }
+            val name = dev.name ?: result.scanRecord?.deviceName
+            val type = BmsProtocol.detect(advertised, name)
             found[dev.address] = ScanDevice(dev.name, dev.address, result.rssi, type)
             onResults(found.values.sortedByDescending { it.rssi })
         }

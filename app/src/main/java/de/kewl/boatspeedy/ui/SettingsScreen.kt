@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeveloperMode
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Language
@@ -74,6 +75,8 @@ fun SettingsHomeScreen(
     onTracks: () -> Unit,
     onGps: () -> Unit,
     onOpenMenu: () -> Unit,
+    showDeveloper: Boolean = false,
+    onDeveloper: () -> Unit = {},
 ) {
     SettingsScaffold(
         title = stringResource(R.string.settings),
@@ -121,6 +124,16 @@ fun SettingsHomeScreen(
             stringResource(R.string.cat_gps_desc),
             onGps,
         )
+        // Nur nach dem Freischalten über die sieben Tipper in „Über" – auch im DEV-Build.
+        if (showDeveloper) {
+            HorizontalDivider()
+            CategoryRow(
+                Icons.Filled.DeveloperMode,
+                stringResource(R.string.group_developer),
+                stringResource(R.string.cat_developer_desc),
+                onDeveloper,
+            )
+        }
     }
 }
 

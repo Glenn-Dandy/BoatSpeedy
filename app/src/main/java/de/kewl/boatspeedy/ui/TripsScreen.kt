@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +38,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -76,6 +78,8 @@ fun TripsScreen(
     onOpenMenu: () -> Unit,
 ) {
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var confirmMerge by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val selecting = selection.isNotEmpty()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -96,7 +100,7 @@ fun TripsScreen(
                     actions = {
                         // Mehrere Fahrten zu einer zusammenführen.
                         if (selection.size >= 2) {
-                            IconButton(onClick = { onMerge(selection); selection = emptySet() }) {
+                            IconButton(onClick = { confirmMerge = true }) {
                                 Icon(Icons.Filled.Merge, contentDescription = stringResource(R.string.merge_trips))
                             }
                         }
@@ -137,10 +141,7 @@ fun TripsScreen(
                         }) {
                             Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.export))
                         }
-                        IconButton(onClick = {
-                            onDelete(selection)
-                            selection = emptySet()
-                        }) {
+                        IconButton(onClick = { confirmDelete = true }) {
                             Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.remove))
                         }
                     },
@@ -198,6 +199,46 @@ fun TripsScreen(
                 )
             }
         }
+    }
+
+    // Zusammenführen lässt sich nicht rückgängig machen – vorher fragen.
+    if (confirmMerge) {
+        val count = selection.size
+        AlertDialog(
+            onDismissRequest = { confirmMerge = false },
+            title = { Text(stringResource(R.string.merge_trips)) },
+            text = { Text(stringResource(R.string.merge_confirm, count)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onMerge(selection)
+                    selection = emptySet()
+                    confirmMerge = false
+                }) { Text(stringResource(R.string.merge_do)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmMerge = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    // Löschen ebenso – markierte Fahrten waren mit einem Fingertipp weg.
+    if (confirmDelete) {
+        val count = selection.size
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.remove)) },
+            text = { Text(stringResource(R.string.delete_confirm, count)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(selection)
+                    selection = emptySet()
+                    confirmDelete = false
+                }) { Text(stringResource(R.string.delete_do)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
     }
 }
 

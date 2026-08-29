@@ -7,6 +7,7 @@ enum class BmsType(val display: String, val tested: Boolean) {
     JBD("JBD / Jiabaida", true),
     DALY("Daly", false),
     JK("JK (Jikong)", false),
+    REDODO("Redodo / LiTime", true),
 }
 
 /**
@@ -38,6 +39,23 @@ abstract class BmsProtocol {
             BmsType.JBD -> JbdProtocol()
             BmsType.DALY -> DalyProtocol()
             BmsType.JK -> JkProtocol()
+            BmsType.REDODO -> RedodoProtocol()
+        }
+
+        /**
+         * Leitet den BMS-Typ aus den beworbenen Service-UUIDs ab. FFE0 bewerben JK *und*
+         * Redodo/LiTime – dieselbe UUID eines gaengigen Seriell-ueber-BLE-Moduls. Dann
+         * entscheidet der Geraetename: Redodo meldet sich als "R-…", LiTime als "LT-…".
+         */
+        fun detect(advertised: List<UUID>, name: String?): BmsType? {
+            val matches = BmsType.entries.filter { t -> of(t).serviceUuid in advertised }
+            if (matches.size > 1 && name != null) {
+                val n = name.uppercase()
+                if (n.startsWith("R-") || n.startsWith("LT-")) {
+                    matches.firstOrNull { it == BmsType.REDODO }?.let { return it }
+                }
+            }
+            return matches.firstOrNull()
         }
 
         internal fun uuid16(short: String): UUID =

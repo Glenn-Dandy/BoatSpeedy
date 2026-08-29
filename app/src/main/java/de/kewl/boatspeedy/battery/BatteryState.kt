@@ -15,6 +15,10 @@ data class BatteryData(
     val chargingFet: Boolean = false,
     val dischargingFet: Boolean = false,
     val cells: List<Float> = emptyList(),
+    /** Ladezyklen laut BMS; null = meldet das BMS nicht. */
+    val cycles: Int? = null,
+    /** Insgesamt entnommene Amperestunden; nur Redodo/LiTime liefert das. */
+    val dischargedAhTotal: Float? = null,
 ) {
     /** Entladestrom in A (Betrag), 0 wenn geladen wird / kein Verbrauch. */
     val dischargeA: Float get() = if (currentA < 0) -currentA else 0f

@@ -44,8 +44,8 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 38                       // manuell, altes kleines Schema (steigt je Release)
-        versionName = "1.3.3"                   // manuell (F-Droid-lesbar + reproduzierbar)
+        versionCode = 39                       // manuell, altes kleines Schema (steigt je Release)
+        versionName = "1.3.4"                   // manuell (F-Droid-lesbar + reproduzierbar)
         resValue("string", "app_name", "BoatSpeedy")
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }
@@ -67,7 +67,10 @@ android {
         // ohne Deinstallieren funktionieren.
         debug {
             applicationIdSuffix = ".debug"
-            versionNameSuffix = "-dev"
+            // Fortlaufende Nummer je CI-Lauf: -PdevBuild=<n> → "1.3.3-dev142".
+            // Lokal ohne Eigenschaft bleibt es schlicht "-dev". Betrifft nur den
+            // Debug-Build; das versionName oben, das F-Droid ausliest, bleibt unberührt.
+            versionNameSuffix = "-dev" + (project.findProperty("devBuild") ?: "")
             resValue("string", "app_name", "BoatSpeedy DEV")
             if (hasKeystore) {
                 signingConfig = signingConfigs.getByName("release")
@@ -121,4 +124,7 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.osmdroid.android)
+
+    // Nur für `./gradlew test` – landet nicht in der App und ändert das Release-APK nicht.
+    testImplementation(libs.junit)
 }

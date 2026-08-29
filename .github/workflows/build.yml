@@ -44,6 +44,12 @@ jobs:
 
       # Keystore für signierte Builds: Release (Tag) und DEV (dev-Branch) nutzen
       # denselben Release-Key. Bei PRs nicht nötig → unsignierter Debug-Check.
+      - name: Run unit tests
+        # Läuft vor jedem Build und bei jedem PR. Prüft die Protokoll-Auswerter gegen
+        # echte, mitgeschnittene Frames und die Fahrten-Rechnung – Fehler dort sehen im
+        # laufenden Betrieb wie plausible Werte aus und fallen sonst erst auf dem Wasser auf.
+        run: ./gradlew testDebugUnitTest --no-daemon
+
       - name: Restore keystore
         if: ${{ env.IS_TAG == 'true' || env.IS_DEV == 'true' }}
         run: |
@@ -74,25 +80,61 @@ jobs:
       # Aktualisiert das eine „dev-build"-Pre-Release → immer nur der aktuelle Dev-Build.
       - name: Build DEV APK (signed with release key)
         if: ${{ env.IS_DEV == 'true' }}
-        run: ./gradlew assembleDebug --no-daemon
+        # Laufnummer als Versionssuffix: die App zeigt dann z. B. "1.3.3-dev142",
+        # damit Rückmeldungen einem konkreten Build zuzuordnen sind.
+        run: ./gradlew assembleDebug --no-daemon -PdevBuild=${{ github.run_number }}
 
       - name: Rename DEV APK
         if: ${{ env.IS_DEV == 'true' }}
-        run: cp app/build/outputs/apk/debug/app-debug.apk "BoatSpeedy-dev.apk"
+        # Dateiname trägt die Version, damit auf dem Handy erkennbar bleibt, welcher
+        # Build im Download-Ordner liegt (statt BoatSpeedy-dev(1).apk, (2), …).
+        run: |
+          V=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          cp app/build/outputs/apk/debug/app-debug.apk "BoatSpeedy-$V-dev${{ github.run_number }}.apk"
+
+      - name: Remove the old dev pre-release
+        if: ${{ env.IS_DEV == 'true' }}
+        # Nicht nur die Datei, sondern den ganzen Eintrag löschen und neu anlegen lassen.
+        # GitHub sortiert die Release-Liste nach Veröffentlichungsdatum; ein bestehender
+        # Eintrag behält seines beim Überschreiben und sackt unter jedes echte Release –
+        # dann sieht niemand mehr, dass es einen neuen Dev-Build gibt. Der Tag geht mit,
+        # damit er im nächsten Schritt auf dem aktuellen Commit neu entsteht.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete dev-build -y --cleanup-tag || true
+
+      - name: Compose the dev release notes
+        if: ${{ env.IS_DEV == 'true' }}
+        # Die inhaltlichen Punkte stehen gepflegt in .github/dev-notes.md – automatisch
+        # aus den Commits erzeugt waere es unbrauchbar, weil dort auch Aenderungen
+        # auftauchen, die waehrend der Dev-Phase wieder zurueckgenommen wurden.
+        run: |
+          {
+            cat <<'HEAD'
+          Rolling development build — package `de.kewl.boatspeedy.debug`, label “BoatSpeedy DEV”
+          (installs alongside the release app, so your normal BoatSpeedy stays untouched).
+          Signed with the release key.
+          HEAD
+            echo
+            echo "Build ${{ github.run_number }} · branch ${{ github.ref_name }} · commit ${{ github.sha }}"
+            echo "The app shows this build as -dev${{ github.run_number }}."
+            echo
+            cat .github/dev-notes.md
+          } > dev-release-notes.md
 
       - name: Publish rolling dev pre-release
         if: ${{ env.IS_DEV == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: dev-build
+          # Ohne das legt GitHub den Tag auf dem Standard-Branch an, nicht auf dem
+          # gebauten Commit. Das Erstellungsdatum des Releases ist aber das Commit-Datum
+          # des Tags – der Eintrag landete dadurch wieder hinter dem letzten Release.
+          target_commitish: ${{ github.sha }}
           name: Latest dev build
           prerelease: true
-          body: |
-            Rolling development build — package `de.kewl.boatspeedy.debug`, label “BoatSpeedy DEV”
-            (installs alongside the release app). Signed with the release key.
-
-            Built from branch `${{ github.ref_name }}` · commit ${{ github.sha }}
-          files: BoatSpeedy-dev.apk
+          body_path: dev-release-notes.md
+          files: BoatSpeedy-*-dev*.apk
 
       # --- PR-Check: unsignierter Debug-Build (nur Kompilier-Check) ---
       - name: Build debug APK (PR check)

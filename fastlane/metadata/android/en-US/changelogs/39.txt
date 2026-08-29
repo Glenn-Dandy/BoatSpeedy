@@ -1,0 +1,14 @@
+1.3.4
+New
+* Redodo, LiTime and Power Queen batteries are supported and verified on real hardware
+* Charge cycles and total discharge in a new History section of the battery card
+* Rated capacity shown with the battery type
+* Hidden BLE diagnostic for reporting unsupported batteries (seven taps on the version in About)
+Changed
+* The rain radar is drawn like the DWD's own app: round outlines with crisp colour edges
+* The radar frame shows its clock time, not just how far ahead it is
+* Merging and deleting trips now ask for confirmation
+Fixed
+* The radar appears in a second or two instead of after several loops
+* The radar no longer ages while the map stays open, and stays put while panning and zooming
+* Remaining charge no longer shows a reference capacity smaller than the charge itself
