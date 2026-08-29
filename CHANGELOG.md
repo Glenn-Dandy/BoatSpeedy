@@ -2,6 +2,58 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.3.4] – 2026-08-29
+
+### Neu
+- **Redodo, LiTime und Power Queen** werden als eigener BMS-Typ unterstützt. Ausgelöst
+  durch eine Fehlermeldung: die Batterie meldete sich als „JK", lieferte aber keine Daten.
+  Sie bewirbt nur `FFE0` — die UUID eines verbreiteten Seriell-über-BLE-Moduls, also kein
+  Beweis für JK. Dahinter steckt ein eigenes Protokoll, das aus zwei unabhängigen
+  Nachbauten der Hersteller-App bekannt ist. An echter Hardware geprüft: Spannung, Strom,
+  Ladestand, Zellspannungen und Temperatur decken sich mit der Hersteller-App, das
+  Vorzeichen des Stroms ebenfalls. Batterien mit Namen `R-…` oder `LT-…` werden
+  automatisch erkannt.
+- **Ladezyklen und entnommene Amperestunden** im neuen Bereich „Verlauf" der
+  Batteriekachel, über den Zellen. Die Zyklen liefern beide BMS, die entnommene Menge nur
+  Redodo — bei anderen Typen entfällt die Zeile, statt einen Strich zu zeigen.
+- **Nennkapazität** zwischen Batterietyp und MAC-Adresse, in vollen Amperestunden.
+- **BLE-Diagnose** zum Melden nicht unterstützter Batterien. Sie scannt ohne Filter,
+  listet den vollständigen GATT-Baum und probiert alle bekannten Protokolle über jeden
+  beschreibbaren Kanal; das Ergebnis lässt sich als Textdatei an eine Issue hängen.
+  Versteckt: sieben Tipper auf die Versionsnummer in „Über" schalten
+  Einstellungen → Entwickler frei, ein Knopf in der Diagnose blendet sie wieder aus.
+
+### Geändert
+- **Das Regenradar wird gezeichnet wie in der DWD-App**: runde Umrisse mit scharfen
+  Farbgrenzen. Interpoliert werden die **Messwerte** zwischen den 1-km-Rasterzellen, die
+  Einfärbung bleibt in den fünfzehn Stufen der amtlichen Leiter — das macht den
+  Unterschied zwischen lesbar und Farbnebel. Die Farbleiter stammt aus der
+  Stildefinition des Layers.
+- **Der Radar-Regler zeigt die Uhrzeit** des Frames, nicht mehr nur den Versatz.
+- **Zusammenführen und Löschen von Fahrten fragen nach.** Beides passierte mit einem
+  Fingertipp und lässt sich nicht rückgängig machen.
+
+### Behoben
+- **Das Radar erscheint nach ein bis zwei Sekunden** statt erst nach mehreren Durchläufen.
+  Eine WMS-Anfrage an den DWD kostet zwei bis vier Sekunden, unabhängig von der Fläche —
+  eine 256er-Kachel dauert so lange wie ein Bild über zwanzig Kachelflächen. Aus Kacheln
+  gebaut brauchte ein Frame rund zwanzig Anfragen und die ganze Schleife über
+  vierhundert; die Warteschlange lief über, Anfragen wurden verworfen. Jetzt wird je
+  Frame **ein** Bild geholt.
+- **Das Radar veraltet nicht mehr** bei offener Karte. Die Frame-Liste entstand einmal
+  beim Öffnen und blieb; auf dem Wasser zeigte „jetzt" nach einer halben Stunde still den
+  Stand von vorhin. Sie wird alle fünf Minuten neu gebildet.
+- **Das Radar bleibt beim Schwenken und Zoomen an Ort und Stelle.** Bild und zugehörige
+  Fläche wurden getrennt gesetzt; dazwischen saß das alte Bild auf neuem Boden und
+  rutschte mit dem Finger mit.
+- **Der Ladestand zeigt keine Bezugskapazität mehr, die kleiner ist als er selbst.**
+  Redodo hinterlegt eine Kapazität unter dem, was die Zellen halten — „111,26 Ah /
+  100,99 Ah" sah nach einem Fehler aus.
+
+### Intern
+- **Unit-Tests** für die Protokoll-Auswerter und das Zusammenführen von Fahrten, geprüft
+  gegen echte, mitgeschnittene Frames. Laufen im Workflow vor jedem Build.
+
 ## [1.3.3] – 2026-08-12
 
 ### Sicherheit

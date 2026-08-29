@@ -1,0 +1,14 @@
+1.3.4
+Neu
+* Redodo-, LiTime- und Power-Queen-Batterien werden unterstützt, an echter Hardware geprüft
+* Ladezyklen und entnommene Amperestunden im neuen Bereich „Verlauf" der Batteriekachel
+* Nennkapazität steht beim Batterietyp
+* Versteckte BLE-Diagnose zum Melden nicht unterstützter Batterien (sieben Tipper auf die Version in „Über")
+Geändert
+* Das Regenradar wird wie in der DWD-App gezeichnet: runde Umrisse mit scharfen Farbgrenzen
+* Der Radar-Regler zeigt die Uhrzeit, nicht nur den Versatz
+* Zusammenführen und Löschen von Fahrten fragen nach
+Behoben
+* Das Radar erscheint nach ein bis zwei Sekunden statt erst nach mehreren Durchläufen
+* Das Radar veraltet nicht mehr bei offener Karte und bleibt beim Schwenken und Zoomen an Ort und Stelle
+* Der Ladestand zeigt keine Bezugskapazität mehr, die kleiner ist als der Ladestand selbst
