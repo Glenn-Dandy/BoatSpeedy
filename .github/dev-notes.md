@@ -41,6 +41,11 @@ cycle is not a change and does not appear here.
   whether it is raining at all.
 - **Merging and deleting trips ask first.** Both happened on a single tap on the toolbar,
   and neither can be undone.
+- **The radar stays put while panning and zooming.** The image and the ground it covers
+  were set at different moments, so between a pan and the new image arriving the old
+  picture was stretched onto the new area — it slid along with the finger instead of
+  staying on the ground, and disappeared while zooming. They are now only ever set
+  together, and the previous image simply stays until its replacement is ready.
 - **The radar no longer breaks when zooming far out and back in.** Zoomed out across a
   continent the requested area ran past the edges of the map projection, so the image came
   back skewed; and once a wide area had been loaded, zooming back in kept showing that

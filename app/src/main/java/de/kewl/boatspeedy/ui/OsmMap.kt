@@ -106,8 +106,10 @@ fun OsmMap(
     var lightningPng by remember { mutableStateOf<ByteArray?>(null) }
     // Ein Zähler, der einen Neu-Abruf auslöst, wenn der Ausschnitt weggewandert ist.
     var viewEpoch by remember { mutableIntStateOf(0) }
-    // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner).
+    // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner) und zu welchem Abruf.
     var shownFrame by remember { mutableIntStateOf(-1) }
+    var shownEpoch by remember { mutableIntStateOf(-1) }
+    var lightningArea by remember { mutableStateOf<MercatorBox?>(null) }
 
     DisposableEffect(Unit) {
         mapView.onResume()
@@ -123,7 +125,8 @@ fun OsmMap(
             if (!mapView.overlays.contains(radarOverlay)) mapView.overlays.add(0, radarOverlay)
         } else {
             mapView.overlays.remove(radarOverlay)
-            radarOverlay.image = null
+            radarOverlay.setImage(null, null)
+            shownFrame = -1
         }
         mapView.invalidate()
         onDispose { }
@@ -137,7 +140,7 @@ fun OsmMap(
             }
         } else {
             mapView.overlays.remove(lightningOverlay)
-            lightningOverlay.image = null
+            lightningOverlay.setImage(null, null)
         }
         mapView.invalidate()
         onDispose { }
@@ -155,14 +158,8 @@ fun OsmMap(
             val wanderedOff = loaded != null && now != null && !loaded.contains(now)
             val zoomedIn = loaded != null && now != null && now.width > 0 &&
                 loaded.width / now.width > RADAR_PAD * 2.2
-            if (zoomedIn) {
-                // Sonst bleibt das Übersichtsbild über dem kleinen Ausschnitt gespannt
-                // und wandert beim Schwenken sichtbar falsch mit.
-                radarOverlay.image?.recycle()
-                radarOverlay.image = null
-                shownFrame = -1
-                mapView.invalidate()
-            }
+            // Nur nachfordern. Das vorhandene Bild bleibt stehen, bis das neue fertig
+            // ist – es sitzt ja weiterhin richtig auf dem Boden, nur gröber.
             if (wanderedOff || zoomedIn) viewEpoch++
         }
     }
@@ -179,7 +176,6 @@ fun OsmMap(
         val px = radarPixels(area, area.toBoundingBox().centerLatitude)
         framePngs.clear()
         fetchedArea = area
-        radarOverlay.area = area.toBoundingBox()
 
         suspend fun load(i: Int) {
             val png = withContext(Dispatchers.IO) {
@@ -203,7 +199,7 @@ fun OsmMap(
         val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
         val area = view.expand(RADAR_PAD).clampToWorld()
         val px = radarPixels(area, area.toBoundingBox().centerLatitude)
-        lightningOverlay.area = area.toBoundingBox()
+        lightningArea = area
         lightningPng = withContext(Dispatchers.IO) {
             fetchRadarPng(DWD_LIGHTNING_LAYER, null, area, px.first, px.second)
         }
@@ -211,10 +207,15 @@ fun OsmMap(
 
     // Nur den gezeigten Frame dekodieren und das alte Bild danach freigeben. Fehlt der
     // Frame noch, bleibt das bisherige Bild stehen – sonst blinkt die Schleife leer.
-    LaunchedEffect(showRadar, radarFrameIndex, framePngs.size) {
+    LaunchedEffect(showRadar, radarFrameIndex, framePngs.size, viewEpoch) {
         if (!showRadar) { shownFrame = -1; return@LaunchedEffect }
         val idx = radarFrameIndex.coerceIn(0, (radarTimes.size - 1).coerceAtLeast(0))
-        if (idx == shownFrame && radarOverlay.image != null) return@LaunchedEffect
+        // Auch neu zeichnen, wenn derselbe Frame inzwischen für einen anderen
+        // Ausschnitt geladen wurde – sonst bliebe das grobe Bild ewig stehen.
+        if (idx == shownFrame && shownEpoch == viewEpoch && radarOverlay.image != null) {
+            return@LaunchedEffect
+        }
+        val area = fetchedArea ?: return@LaunchedEffect
         val png = framePngs[idx] ?: return@LaunchedEffect
         val bmp = withContext(Dispatchers.Default) {
             decodeRadar(png)?.let { raw ->
@@ -224,8 +225,12 @@ fun OsmMap(
             }
         } ?: return@LaunchedEffect
         val old = radarOverlay.image
-        radarOverlay.image = bmp
+        // Bild und Fläche gehören zusammen und werden deshalb gemeinsam gesetzt. Getrennt
+        // gesetzt zeigt das Overlay zwischendurch das alte Bild auf der neuen Fläche –
+        // es springt und wirkt, als hinge es am Finger statt am Boden.
+        radarOverlay.setImage(bmp, area.toBoundingBox())
         shownFrame = idx
+        shownEpoch = viewEpoch
         if (old != null && old !== bmp) old.recycle()
         mapView.invalidate()
     }
@@ -233,7 +238,8 @@ fun OsmMap(
     LaunchedEffect(lightningPng) {
         val bmp = lightningPng?.let { withContext(Dispatchers.Default) { decodeRadar(it) } }
         val old = lightningOverlay.image
-        lightningOverlay.image = bmp
+        val area = lightningArea
+        lightningOverlay.setImage(bmp, area?.toBoundingBox())
         if (old != null && old !== bmp) old.recycle()
         mapView.invalidate()
     }
@@ -382,7 +388,7 @@ private fun radarPixels(box: MercatorBox, centerLat: Double): Pair<Int, Int> {
 private const val RADAR_SMOOTH = 6
 
 /** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt ein Abruf ohne Nachladen. */
-private const val RADAR_PAD = 1.25
+private const val RADAR_PAD = 1.8
 
 /**
  * Wartet, bis die Karte vermessen und auf die Position zentriert ist. Ohne das liefert

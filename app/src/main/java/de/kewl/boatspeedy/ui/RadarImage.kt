@@ -46,9 +46,20 @@ class RadarImageOverlay : Overlay() {
     private val se = Point()
     private val dst = Rect()
 
-    /** Das aktuell gezeigte Bild samt der Fläche, die es abdeckt. */
+    /**
+     * Das aktuell gezeigte Bild samt der Fläche, die es abdeckt. Beides gehört zusammen
+     * und wird nur gemeinsam gesetzt — ein Bild auf einer anderen Fläche sitzt falsch auf
+     * der Karte und wandert beim Schwenken sichtbar mit dem Finger statt mit dem Boden.
+     */
     var image: Bitmap? = null
+        private set
     var area: BoundingBox? = null
+        private set
+
+    fun setImage(bitmap: Bitmap?, box: BoundingBox?) {
+        image = bitmap
+        area = box
+    }
 
     override fun draw(canvas: Canvas, projection: Projection) {
         val bmp = image ?: return
