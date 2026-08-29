@@ -106,6 +106,9 @@ fun OsmMap(
     var lightningPng by remember { mutableStateOf<ByteArray?>(null) }
     // Ein Zähler, der einen Neu-Abruf auslöst, wenn der Ausschnitt weggewandert ist.
     var viewEpoch by remember { mutableIntStateOf(0) }
+    // Fertig geglättete Frames. Ohne den Zwischenspeicher wird bei jedem Wechsel neu
+    // interpoliert – beim Schieben des Reglers reiht sich das auf und ruckelt.
+    val smoothedFrames = remember(radarTimes) { mutableMapOf<Int, android.graphics.Bitmap>() }
     // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner) und zu welchem Abruf.
     var shownFrame by remember { mutableIntStateOf(-1) }
     var shownEpoch by remember { mutableIntStateOf(-1) }
@@ -175,6 +178,7 @@ fun OsmMap(
         val area = view.expand(RADAR_PAD).clampToWorld()
         val px = radarPixels(area, area.toBoundingBox().centerLatitude)
         framePngs.clear()
+        smoothedFrames.clear()
         fetchedArea = area
 
         suspend fun load(i: Int) {
@@ -189,6 +193,18 @@ fun OsmMap(
         mapView.invalidate()
         radarTimes.indices.filter { it != first }.chunked(4).forEach { group ->
             coroutineScope { group.forEach { i -> launch { load(i) } } }
+        }
+
+        // Die Frames im Voraus glätten, solange niemand hinschaut. Sonst rechnet der
+        // erste Durchlauf der Schleife bei jedem Wechsel neu und ruckelt.
+        for (i in radarTimes.indices) {
+            if (smoothedFrames.containsKey(i)) continue
+            val png = framePngs[i] ?: continue
+            val bmp = withContext(Dispatchers.Default) {
+                decodeRadar(png)?.let { raw -> smoothRadar(raw, RADAR_SMOOTH) }
+            } ?: continue
+            smoothedFrames[i] = bmp
+            trimSmoothed(smoothedFrames, shownFrame)
         }
     }
 
@@ -210,37 +226,40 @@ fun OsmMap(
     LaunchedEffect(showRadar, radarFrameIndex, framePngs.size, viewEpoch) {
         if (!showRadar) { shownFrame = -1; return@LaunchedEffect }
         val idx = radarFrameIndex.coerceIn(0, (radarTimes.size - 1).coerceAtLeast(0))
-        // Auch neu zeichnen, wenn derselbe Frame inzwischen für einen anderen
-        // Ausschnitt geladen wurde – sonst bliebe das grobe Bild ewig stehen.
         if (idx == shownFrame && shownEpoch == viewEpoch && radarOverlay.image != null) {
             return@LaunchedEffect
         }
         val area = fetchedArea ?: return@LaunchedEffect
+        val box = area.toBoundingBox()
+
+        // Schon geglättet? Dann sofort zeigen – ohne Umweg über einen Hintergrundlauf,
+        // damit das Durchschieben des Reglers unmittelbar folgt.
+        smoothedFrames[idx]?.let { ready ->
+            radarOverlay.setImage(ready, box)
+            shownFrame = idx
+            shownEpoch = viewEpoch
+            mapView.invalidate()
+            return@LaunchedEffect
+        }
+
         val png = framePngs[idx] ?: return@LaunchedEffect
         val bmp = withContext(Dispatchers.Default) {
-            decodeRadar(png)?.let { raw ->
-                val smoothed = smoothRadar(raw, RADAR_SMOOTH)
-                raw.recycle()
-                smoothed
-            }
+            decodeRadar(png)?.let { raw -> smoothRadar(raw, RADAR_SMOOTH) }
         } ?: return@LaunchedEffect
-        val old = radarOverlay.image
+        smoothedFrames[idx] = bmp
+        trimSmoothed(smoothedFrames, idx)
         // Bild und Fläche gehören zusammen und werden deshalb gemeinsam gesetzt. Getrennt
         // gesetzt zeigt das Overlay zwischendurch das alte Bild auf der neuen Fläche –
         // es springt und wirkt, als hinge es am Finger statt am Boden.
-        radarOverlay.setImage(bmp, area.toBoundingBox())
+        radarOverlay.setImage(bmp, box)
         shownFrame = idx
         shownEpoch = viewEpoch
-        if (old != null && old !== bmp) old.recycle()
         mapView.invalidate()
     }
 
     LaunchedEffect(lightningPng) {
         val bmp = lightningPng?.let { withContext(Dispatchers.Default) { decodeRadar(it) } }
-        val old = lightningOverlay.image
-        val area = lightningArea
-        lightningOverlay.setImage(bmp, area?.toBoundingBox())
-        if (old != null && old !== bmp) old.recycle()
+        lightningOverlay.setImage(bmp, lightningArea?.toBoundingBox())
         mapView.invalidate()
     }
 
@@ -409,4 +428,22 @@ private suspend fun awaitMapReady(map: MapView, centered: () -> Boolean): Boolea
         delay(100)
     }
     return false
+}
+
+/**
+ * Hält den Speicher der geglätteten Frames im Rahmen. Bei einem engen Ausschnitt sind das
+ * unter einem Megabyte je Frame und alle einundzwanzig passen bequem hinein; bei einem
+ * weiten Blick wird ein Frame um ein Vielfaches größer, und dann würden alle zusammen
+ * dreistellige Megabyte belegen. Geworfen wird der jeweils älteste Eintrag, nie der
+ * gerade gezeigte.
+ */
+private fun trimSmoothed(cache: MutableMap<Int, android.graphics.Bitmap>, keep: Int) {
+    val budget = 28 * 1024 * 1024
+    var used = cache.values.sumOf { it.allocationByteCount }
+    if (used <= budget) return
+    val order = cache.keys.filter { it != keep }.toMutableList()
+    while (used > budget && order.isNotEmpty()) {
+        val victim = order.removeAt(0)
+        used -= cache.remove(victim)?.allocationByteCount ?: 0
+    }
 }
