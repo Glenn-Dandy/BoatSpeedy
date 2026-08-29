@@ -147,7 +147,13 @@ fun OsmMap(
             delay(1200)
             val loaded = fetchedArea
             val now = runCatching { mapView.boundingBox.toMercator() }.getOrNull()
-            if (loaded != null && now != null && !loaded.contains(now)) viewEpoch++
+            // Neu holen, wenn der Blick den geladenen Bereich verlässt – aber auch, wenn
+            // er deutlich kleiner geworden ist: sonst bleibt nach dem Herauszoomen und
+            // Wiederhineinzoomen das grobe Übersichtsbild stehen und wirkt „kaputt".
+            val wanderedOff = loaded != null && now != null && !loaded.contains(now)
+            val zoomedIn = loaded != null && now != null && now.width > 0 &&
+                loaded.width / now.width > RADAR_PAD * 2.2
+            if (wanderedOff || zoomedIn) viewEpoch++
         }
     }
 
@@ -159,8 +165,8 @@ fun OsmMap(
         if (!awaitMapReady(mapView) { centered }) return@LaunchedEffect
         val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
         // Großzügiger Rand: kleine Schwenks sollen kein Nachladen auslösen.
-        val area = view.expand(RADAR_PAD)
-        val px = radarPixels(mapView.width, mapView.height, RADAR_PAD)
+        val area = view.expand(RADAR_PAD).clampToWorld()
+        val px = radarPixels(area, mapView.width, mapView.height, RADAR_PAD)
         framePngs.clear()
         fetchedArea = area
         radarOverlay.area = area.toBoundingBox()
@@ -185,8 +191,8 @@ fun OsmMap(
         if (!showLightning) { lightningPng = null; return@LaunchedEffect }
         if (!awaitMapReady(mapView) { centered }) return@LaunchedEffect
         val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
-        val area = view.expand(RADAR_PAD)
-        val px = radarPixels(mapView.width, mapView.height, RADAR_PAD)
+        val area = view.expand(RADAR_PAD).clampToWorld()
+        val px = radarPixels(area, mapView.width, mapView.height, RADAR_PAD)
         lightningOverlay.area = area.toBoundingBox()
         lightningPng = withContext(Dispatchers.IO) {
             fetchRadarPng(DWD_LIGHTNING_LAYER, null, area, px.first, px.second)
@@ -339,21 +345,25 @@ fun AnchorMap(
 }
 
 /**
- * Bildgröße für einen Radarabruf, samt dem Rand aus [MercatorBox.expand].
+ * Bildgröße für einen Radarabruf.
  *
- * Zwei Dinge müssen stimmen: Das Seitenverhältnis muss dem des angefragten Rechtecks
- * entsprechen — wird es unabhängig gekappt, liefert der WMS ein gestauchtes Bild, und
- * auf einem Hochkant-Schirm sieht der Regen dann verzerrt aus. Und die sichtbare Fläche
- * braucht ungefähr so viele Bildpunkte wie der Schirm, sonst wird beim Zeichnen
- * hochskaliert und alles wirkt matschig. Begrenzt wird nur die Gesamtfläche, damit ein
- * Frame beim Dekodieren nicht zweistellige Megabyte belegt.
+ * Das Seitenverhältnis muss dem des **angefragten Rechtecks** entsprechen, nicht dem des
+ * Bildschirms. Beim starken Herauszoomen begrenzt osmdroid den Ausschnitt in der Breite
+ * (±85°), Rechteck und Schirm haben dann verschiedene Verhältnisse — rechnet man mit dem
+ * des Schirms, kommt das Bild gestaucht zurück und sitzt schief auf der Karte.
+ *
+ * Angestrebt wird ungefähr ein Bildpunkt je Bildschirmpunkt für die sichtbare Fläche.
+ * Begrenzt wird die Gesamtfläche, damit ein Frame beim Dekodieren nicht zweistellige
+ * Megabyte belegt.
  */
-private fun radarPixels(viewW: Int, viewH: Int, pad: Double): Pair<Int, Int> {
-    val w = (viewW.coerceAtLeast(360) * pad)
-    val h = (viewH.coerceAtLeast(360) * pad)
+private fun radarPixels(box: MercatorBox, viewW: Int, viewH: Int, pad: Double): Pair<Int, Int> {
+    val ratio = if (box.height > 0) box.width / box.height else 1.0
+    val target = (viewW.coerceAtLeast(360) * pad) * (viewH.coerceAtLeast(360) * pad)
     val maxPixels = 2_400_000.0
-    val scale = kotlin.math.min(1.0, kotlin.math.sqrt(maxPixels / (w * h)))
-    return (w * scale).toInt().coerceAtLeast(256) to (h * scale).toInt().coerceAtLeast(256)
+    val area = kotlin.math.min(target, maxPixels)
+    val h = kotlin.math.sqrt(area / ratio)
+    val w = h * ratio
+    return w.toInt().coerceIn(256, 4096) to h.toInt().coerceIn(256, 4096)
 }
 
 /** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt ein Abruf ohne Nachladen. */

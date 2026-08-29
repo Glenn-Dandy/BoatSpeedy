@@ -79,6 +79,7 @@ fun TripsScreen(
 ) {
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var confirmMerge by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val selecting = selection.isNotEmpty()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -140,10 +141,7 @@ fun TripsScreen(
                         }) {
                             Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.export))
                         }
-                        IconButton(onClick = {
-                            onDelete(selection)
-                            selection = emptySet()
-                        }) {
+                        IconButton(onClick = { confirmDelete = true }) {
                             Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.remove))
                         }
                     },
@@ -219,6 +217,26 @@ fun TripsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmMerge = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    // Löschen ebenso – markierte Fahrten waren mit einem Fingertipp weg.
+    if (confirmDelete) {
+        val count = selection.size
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.remove)) },
+            text = { Text(stringResource(R.string.delete_confirm, count)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(selection)
+                    selection = emptySet()
+                    confirmDelete = false
+                }) { Text(stringResource(R.string.delete_do)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }

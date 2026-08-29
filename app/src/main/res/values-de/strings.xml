@@ -289,4 +289,6 @@
     <string name="bat_nominal">Nennkapazität</string>
     <string name="merge_confirm">%1$d Fahrten endgültig zu einer zusammenführen? Das lässt sich nicht rückgängig machen.</string>
     <string name="merge_do">Zusammenführen</string>
+    <string name="delete_confirm">%1$d Fahrten endgültig löschen? Das lässt sich nicht rückgängig machen.</string>
+    <string name="delete_do">Löschen</string>
 </resources>

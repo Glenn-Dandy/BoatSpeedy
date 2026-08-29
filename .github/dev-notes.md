@@ -32,8 +32,12 @@ cycle is not a change and does not appear here.
   measured and centred before the first request, and keeps the radar image unsmoothed —
   the data is a one-kilometre grid, and blurring it into a haze at high zoom hides
   whether it is raining at all.
-- **Merging trips asks first.** Trips could be merged with a single tap on the toolbar,
-  and merging cannot be undone.
+- **Merging and deleting trips ask first.** Both happened on a single tap on the toolbar,
+  and neither can be undone.
+- **The radar no longer breaks when zooming far out and back in.** Zoomed out across a
+  continent the requested area ran past the edges of the map projection, so the image came
+  back skewed; and once a wide area had been loaded, zooming back in kept showing that
+  coarse overview stretched over a small view.
 
 - The remaining charge no longer prints a reference capacity that is smaller than the
   charge itself. Redodo packs report a configured capacity below what the cells actually

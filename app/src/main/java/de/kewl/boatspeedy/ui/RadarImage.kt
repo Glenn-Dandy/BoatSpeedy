@@ -99,6 +99,22 @@ fun MercatorBox.expand(factor: Double): MercatorBox {
     return MercatorBox(cx - w, cy - h, cx + w, cy + h)
 }
 
+/**
+ * Beschneidet den Ausschnitt auf die Welt. Beim starken Herauszoomen wächst der Rand aus
+ * [expand] über die Ränder von Web-Mercator hinaus; der WMS bekommt dann ein Rechteck,
+ * das es nicht gibt, und liefert ein Bild, das nicht mehr zur Fläche passt — das Overlay
+ * saß verzerrt auf der Karte.
+ */
+fun MercatorBox.clampToWorld(): MercatorBox = MercatorBox(
+    minX.coerceIn(-MERCATOR_ORIGIN, MERCATOR_ORIGIN),
+    minY.coerceIn(-MERCATOR_ORIGIN, MERCATOR_ORIGIN),
+    maxX.coerceIn(-MERCATOR_ORIGIN, MERCATOR_ORIGIN),
+    maxY.coerceIn(-MERCATOR_ORIGIN, MERCATOR_ORIGIN),
+)
+
+val MercatorBox.width: Double get() = maxX - minX
+val MercatorBox.height: Double get() = maxY - minY
+
 fun MercatorBox.contains(other: MercatorBox): Boolean =
     minX <= other.minX && minY <= other.minY && maxX >= other.maxX && maxY >= other.maxY
 

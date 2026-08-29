@@ -292,4 +292,6 @@
     <string name="bat_nominal">Rated capacity</string>
     <string name="merge_confirm">Merge %1$d trips into one? This cannot be undone.</string>
     <string name="merge_do">Merge</string>
+    <string name="delete_confirm">Delete %1$d trips for good? This cannot be undone.</string>
+    <string name="delete_do">Delete</string>
 </resources>
