@@ -294,4 +294,15 @@
     <string name="merge_do">Merge</string>
     <string name="delete_confirm">Delete %1$d trips for good? This cannot be undone.</string>
     <string name="delete_do">Delete</string>
+    <string name="nav_target">Set destination</string>
+    <string name="nav_pick_hint">Straight line, or a route along the waterways? A route needs a connection and is only as good as the map data — it knows nothing about depth or clearance.</string>
+    <string name="nav_line">Straight line</string>
+    <string name="nav_route">Route</string>
+    <string name="nav_routing">Looking for a way through…</string>
+    <string name="nav_clear">Remove destination</string>
+    <string name="nav_err_far">That is too far away for a route. Straight line still works.</string>
+    <string name="nav_err_offline">No connection to the map data. Out here that is normal — the straight line works without one.</string>
+    <string name="nav_err_nodata">No waterways are mapped around here.</string>
+    <string name="nav_err_unconnected">No continuous waterway leads there — at least none that is mapped.</string>
+    <string name="nav_err_notwater">There is no navigable waterway near that spot — at least none on the map.</string>
 </resources>

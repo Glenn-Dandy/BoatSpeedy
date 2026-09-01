@@ -442,6 +442,8 @@ private fun BoatSpeedyApp(
                         currentLon = gps.longitude,
                         points = livePoints,
                         settings = settings,
+                        tripDistanceM = tripStats.distanceM,
+                        tripChargeAh = tripStats.chargeAh,
                         onBack = { screen = Screen.SPEED },
                     )
 

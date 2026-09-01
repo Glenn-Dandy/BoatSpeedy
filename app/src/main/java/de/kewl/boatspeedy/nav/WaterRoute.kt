@@ -1,0 +1,258 @@
+package de.kewl.boatspeedy.nav
+
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.util.PriorityQueue
+
+/** Ein Punkt auf der Karte – bewusst ohne osmdroid-Typen, damit das hier testbar bleibt. */
+data class LatLon(val lat: Double, val lon: Double)
+
+/** Wie zum Ziel gerechnet wird. */
+enum class NavMode { LINE, ROUTE }
+
+/**
+ * Ein gesetztes Ziel samt Weg dorthin.
+ * [path] enthält bei [NavMode.LINE] nur Start und Ziel, bei [NavMode.ROUTE] den
+ * Verlauf entlang des Fahrwassers.
+ */
+data class NavTarget(
+    val target: LatLon,
+    val mode: NavMode,
+    val path: List<LatLon>,
+    val distanceM: Double,
+)
+
+/**
+ * Entfernung in Metern (Haversine). Bewusst selbst gerechnet statt über
+ * `Location.distanceBetween`: das ist eine Android-Klasse und im Unit-Test nur eine
+ * Attrappe, die 0 zurückgibt. So bleibt die ganze Routenrechnung ohne Android prüfbar,
+ * und auf den Entfernungen, um die es hier geht, ist der Unterschied kleiner als ein Meter.
+ */
+fun distanceM(a: LatLon, b: LatLon): Double {
+    val r = 6_371_000.0
+    val p1 = Math.toRadians(a.lat)
+    val p2 = Math.toRadians(b.lat)
+    val dp = Math.toRadians(b.lat - a.lat)
+    val dl = Math.toRadians(b.lon - a.lon)
+    val h = kotlin.math.sin(dp / 2).let { it * it } +
+        kotlin.math.cos(p1) * kotlin.math.cos(p2) * kotlin.math.sin(dl / 2).let { it * it }
+    return 2 * r * kotlin.math.asin(kotlin.math.sqrt(h).coerceAtMost(1.0))
+}
+
+fun pathLengthM(path: List<LatLon>): Double =
+    path.zipWithNext().sumOf { (a, b) -> distanceM(a, b) }
+
+/** Was beim Routen schiefgehen kann – jeder Fall bekommt in der UI seinen eigenen Text. */
+enum class RouteError { TOO_FAR, NO_NETWORK, NO_WATERWAYS, NOT_ON_WATER, NO_CONNECTION }
+
+sealed interface RouteResult {
+    data class Ok(val path: List<LatLon>) : RouteResult
+    data class Failed(val reason: RouteError) : RouteResult
+}
+
+/**
+ * Routet entlang der Wasserwege aus OpenStreetMap.
+ *
+ * Es gibt keinen fertigen Routendienst fürs Wasser — die üblichen kennen Straßen. Also
+ * holen wir die Wasserwege des Gebiets von der Overpass-Schnittstelle (ODbL, dieselbe
+ * Datenquelle wie die Karte), bauen daraus ein Wegenetz und suchen den kürzesten Weg.
+ *
+ * Grenzen, die der Nutzer kennen muss und die die UI auch nennt: das braucht **Netz**,
+ * die Daten sind unterschiedlich vollständig, und sie enthalten weder Tiefen noch
+ * Durchfahrtshöhen. Die Route ist ein Vorschlag, kein Fahrwasser.
+ */
+object WaterRouter {
+
+    /** Weiter entfernte Ziele würden eine riesige Abfrage auslösen. */
+    private const val MAX_DISTANCE_M = 60_000.0
+
+    /** Rand um die Strecke, damit ein Bogen im Kanal nicht abgeschnitten wird. */
+    private const val BBOX_PADDING_DEG = 0.05
+
+    /** Für das Zusammenfügen der Wege: OSM teilt Knoten, die Koordinaten sind identisch. */
+    private const val SNAP = 1_000_000.0
+
+    private const val OVERPASS = "https://overpass-api.de/api/interpreter"
+
+    /**
+     * Nur befahrbares Wasser. Gräben und Entwässerungen (`ditch`, `drain`, `stream`) sind
+     * in OSM zahlreich, hängen kaum zusammen und taugen für kein Boot — im Testgebiet
+     * blähten sie das Netz von 220 auf 2633 Wege auf, ohne eine einzige Fahrtstrecke
+     * hinzuzufügen.
+     */
+    private val WATERWAYS = "river|canal|fairway"
+
+    /** Weiter als das vom nächsten Wasserweg entfernt heißt: da ist kein Wasser. */
+    private const val MAX_SNAP_M = 300.0
+
+    fun route(from: LatLon, to: LatLon): RouteResult {
+        if (distanceM(from, to) > MAX_DISTANCE_M) return RouteResult.Failed(RouteError.TOO_FAR)
+
+        val json = fetch(from, to) ?: return RouteResult.Failed(RouteError.NO_NETWORK)
+        val ways = parseWays(json)
+        if (ways.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
+
+        val graph = buildGraph(ways)
+        if (graph.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
+
+        // Nicht einfach den nächsten Knoten nehmen: der liegt schnell auf einem
+        // abgehängten Stichkanal, und dann gibt es nie eine Verbindung. Stattdessen das
+        // Teilnetz suchen, das *beide* Punkte bedient.
+        val ends = pickComponent(graph, from, to) ?: return if (
+            nearestNode(graph.keys, from)?.let { distanceM(it.toLatLon(), from) > MAX_SNAP_M } != false ||
+            nearestNode(graph.keys, to)?.let { distanceM(it.toLatLon(), to) > MAX_SNAP_M } != false
+        ) {
+            RouteResult.Failed(RouteError.NOT_ON_WATER)
+        } else {
+            RouteResult.Failed(RouteError.NO_CONNECTION)
+        }
+
+        val path = shortestPath(graph, ends.first, ends.second)
+            ?: return RouteResult.Failed(RouteError.NO_CONNECTION)
+        // Vom Boot bis zum Wasserweg und vom Wasserweg bis zum Ziel jeweils gerade Linie.
+        return RouteResult.Ok(listOf(from) + path.map { it.toLatLon() } + listOf(to))
+    }
+
+    /* ------------------------------ Daten holen ------------------------------ */
+
+    private fun fetch(from: LatLon, to: LatLon): String? {
+        val south = minOf(from.lat, to.lat) - BBOX_PADDING_DEG
+        val north = maxOf(from.lat, to.lat) + BBOX_PADDING_DEG
+        val west = minOf(from.lon, to.lon) - BBOX_PADDING_DEG
+        val east = maxOf(from.lon, to.lon) + BBOX_PADDING_DEG
+        val query = """
+            [out:json][timeout:30];
+            way["waterway"~"^($WATERWAYS)${'$'}"]($south,$west,$north,$east);
+            out geom;
+        """.trimIndent()
+        return runCatching {
+            val c = (URL(OVERPASS).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 15_000
+                readTimeout = 60_000
+                doOutput = true
+                setRequestProperty("User-Agent", "BoatSpeedy")
+                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            }
+            try {
+                c.outputStream.use { it.write(("data=" + URLEncoder.encode(query, "UTF-8")).toByteArray()) }
+                if (c.responseCode != 200) return@runCatching null
+                c.inputStream.bufferedReader().use { it.readText() }
+            } finally {
+                c.disconnect()
+            }
+        }.getOrNull()
+    }
+
+    private fun parseWays(json: String): List<List<Node>> = runCatching {
+        val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptyList()
+        (0 until elements.length()).mapNotNull { i ->
+            val geom = elements.getJSONObject(i).optJSONArray("geometry") ?: return@mapNotNull null
+            (0 until geom.length()).map { g ->
+                val p = geom.getJSONObject(g)
+                Node.of(p.getDouble("lat"), p.getDouble("lon"))
+            }.takeIf { it.size >= 2 }
+        }
+    }.getOrDefault(emptyList())
+
+    /* ------------------------------ Wegenetz ------------------------------ */
+
+    /** Ein Knoten des Netzes; auf ganze Mikrograd gerundet, damit geteilte Punkte zusammenfallen. */
+    private data class Node(val lat: Int, val lon: Int) {
+        fun toLatLon() = LatLon(lat / SNAP, lon / SNAP)
+        companion object {
+            fun of(lat: Double, lon: Double) =
+                Node(Math.round(lat * SNAP).toInt(), Math.round(lon * SNAP).toInt())
+        }
+    }
+
+    private fun buildGraph(ways: List<List<Node>>): Map<Node, List<Pair<Node, Double>>> {
+        val g = HashMap<Node, MutableList<Pair<Node, Double>>>()
+        for (way in ways) {
+            for ((a, b) in way.zipWithNext()) {
+                if (a == b) continue
+                val d = distanceM(a.toLatLon(), b.toLatLon())
+                g.getOrPut(a) { mutableListOf() }.add(b to d)
+                g.getOrPut(b) { mutableListOf() }.add(a to d)
+            }
+        }
+        return g
+    }
+
+    private fun nearestNode(nodes: Collection<Node>, to: LatLon): Node? =
+        nodes.minByOrNull { distanceM(it.toLatLon(), to) }
+
+    /** Zerlegt das Netz in zusammenhängende Teile. */
+    private fun components(graph: Map<Node, List<Pair<Node, Double>>>): List<List<Node>> {
+        val seen = HashSet<Node>()
+        val out = ArrayList<List<Node>>()
+        for (s in graph.keys) {
+            if (!seen.add(s)) continue
+            val comp = ArrayList<Node>()
+            val stack = ArrayDeque<Node>().apply { add(s) }
+            while (stack.isNotEmpty()) {
+                val n = stack.removeLast()
+                comp.add(n)
+                for ((m, _) in graph[n].orEmpty()) if (seen.add(m)) stack.add(m)
+            }
+            out.add(comp)
+        }
+        return out
+    }
+
+    /**
+     * Sucht das Teilnetz, das Start und Ziel gemeinsam am besten bedient, und liefert die
+     * beiden Einstiegspunkte. null, wenn keines beide innerhalb [MAX_SNAP_M] erreicht.
+     */
+    private fun pickComponent(
+        graph: Map<Node, List<Pair<Node, Double>>>,
+        from: LatLon,
+        to: LatLon,
+    ): Pair<Node, Node>? {
+        var best: Triple<Double, Node, Node>? = null
+        for (comp in components(graph)) {
+            val s = comp.minByOrNull { distanceM(it.toLatLon(), from) } ?: continue
+            val z = comp.minByOrNull { distanceM(it.toLatLon(), to) } ?: continue
+            val ds = distanceM(s.toLatLon(), from)
+            val dz = distanceM(z.toLatLon(), to)
+            if (ds > MAX_SNAP_M || dz > MAX_SNAP_M) continue
+            if (best == null || ds + dz < best!!.first) best = Triple(ds + dz, s, z)
+        }
+        return best?.let { it.second to it.third }
+    }
+
+    private fun shortestPath(
+        graph: Map<Node, List<Pair<Node, Double>>>,
+        start: Node,
+        goal: Node,
+    ): List<Node>? {
+        if (start == goal) return listOf(start)
+        val dist = HashMap<Node, Double>().apply { put(start, 0.0) }
+        val prev = HashMap<Node, Node>()
+        val seen = HashSet<Node>()
+        val queue = PriorityQueue<Pair<Node, Double>>(compareBy { it.second })
+        queue.add(start to 0.0)
+
+        while (queue.isNotEmpty()) {
+            val (node, d) = queue.poll()!!
+            if (!seen.add(node)) continue
+            if (node == goal) break
+            for ((next, w) in graph[node].orEmpty()) {
+                if (next in seen) continue
+                val nd = d + w
+                if (nd < (dist[next] ?: Double.MAX_VALUE)) {
+                    dist[next] = nd
+                    prev[next] = node
+                    queue.add(next to nd)
+                }
+            }
+        }
+        if (goal !in dist) return null
+        val out = ArrayList<Node>()
+        var cur: Node? = goal
+        while (cur != null) { out.add(cur); cur = prev[cur] }
+        return out.reversed()
+    }
+}

@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import de.kewl.boatspeedy.R
+import de.kewl.boatspeedy.nav.LatLon
 import de.kewl.boatspeedy.trip.TrackPoint
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -54,6 +55,10 @@ fun OsmMap(
     radarTimes: List<String> = emptyList(),
     radarFrameIndex: Int = 0,
     showLightning: Boolean = false,
+    /** Langer Druck auf die Karte – für das Setzen eines Ziels. */
+    onLongPress: ((Double, Double) -> Unit)? = null,
+    /** Weg zum Ziel (Luftlinie oder Route); leer = kein Ziel gesetzt. */
+    navPath: List<LatLon> = emptyList(),
 ) {
     val context = LocalContext.current
     val pointsState = rememberUpdatedState(points)
@@ -86,6 +91,17 @@ fun OsmMap(
         }
     }
     val marker = remember(mapView) {
+        Marker(mapView).apply { setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) }
+    }
+    // Weg zum Ziel: kräftiges Orange, damit er sich vom blauen Track abhebt.
+    val navLine = remember(mapView) {
+        Polyline(mapView).apply {
+            outlinePaint.color = Color.parseColor("#FF6D00")
+            outlinePaint.strokeWidth = 8f
+            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(18f, 12f), 0f)
+        }
+    }
+    val navMarker = remember(mapView) {
         Marker(mapView).apply { setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) }
     }
     val bubbleMarker = remember(mapView) {
@@ -266,6 +282,36 @@ fun OsmMap(
     LaunchedEffect(lightningPng) {
         val bmp = lightningPng?.let { withContext(Dispatchers.Default) { decodeRadar(it) } }
         lightningOverlay.setImage(bmp, lightningArea?.toBoundingBox())
+        mapView.invalidate()
+    }
+
+    // Langer Druck auf die Karte → Ziel setzen.
+    DisposableEffect(onLongPress) {
+        val overlay = onLongPress?.let { cb ->
+            org.osmdroid.views.overlay.MapEventsOverlay(
+                object : org.osmdroid.events.MapEventsReceiver {
+                    override fun singleTapConfirmedHelper(p: GeoPoint?) = false
+                    override fun longPressHelper(p: GeoPoint?): Boolean {
+                        p?.let { cb(it.latitude, it.longitude) }
+                        return true
+                    }
+                },
+            ).also { mapView.overlays.add(it) }
+        }
+        onDispose { overlay?.let { mapView.overlays.remove(it) } }
+    }
+
+    // Weg zum Ziel zeichnen.
+    LaunchedEffect(navPath) {
+        if (navPath.size >= 2) {
+            navLine.setPoints(navPath.map { GeoPoint(it.lat, it.lon) })
+            if (!mapView.overlays.contains(navLine)) mapView.overlays.add(navLine)
+            navMarker.position = GeoPoint(navPath.last().lat, navPath.last().lon)
+            if (!mapView.overlays.contains(navMarker)) mapView.overlays.add(navMarker)
+        } else {
+            mapView.overlays.remove(navLine)
+            mapView.overlays.remove(navMarker)
+        }
         mapView.invalidate()
     }
 

@@ -291,4 +291,15 @@
     <string name="merge_do">Zusammenführen</string>
     <string name="delete_confirm">%1$d Fahrten endgültig löschen? Das lässt sich nicht rückgängig machen.</string>
     <string name="delete_do">Löschen</string>
+    <string name="nav_target">Ziel setzen</string>
+    <string name="nav_pick_hint">Luftlinie oder Route entlang der Wasserwege? Die Route braucht Empfang und ist nur so gut wie die Kartendaten — sie kennt weder Tiefen noch Durchfahrtshöhen.</string>
+    <string name="nav_line">Luftlinie</string>
+    <string name="nav_route">Route</string>
+    <string name="nav_routing">Suche einen Weg …</string>
+    <string name="nav_clear">Ziel entfernen</string>
+    <string name="nav_err_far">Für eine Route ist das zu weit weg. Die Luftlinie geht trotzdem.</string>
+    <string name="nav_err_offline">Keine Verbindung zu den Kartendaten. Draußen ist das normal — die Luftlinie kommt ohne aus.</string>
+    <string name="nav_err_nodata">Hier sind keine Wasserwege verzeichnet.</string>
+    <string name="nav_err_unconnected">Es führt kein durchgehender Wasserweg dorthin — jedenfalls keiner, der verzeichnet ist.</string>
+    <string name="nav_err_notwater">In der Nähe dieser Stelle liegt kein befahrbarer Wasserweg — jedenfalls keiner, der verzeichnet ist.</string>
 </resources>
