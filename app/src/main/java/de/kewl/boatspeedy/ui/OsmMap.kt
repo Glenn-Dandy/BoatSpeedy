@@ -59,6 +59,8 @@ fun OsmMap(
     onLongPress: ((Double, Double) -> Unit)? = null,
     /** Weg zum Ziel (Luftlinie oder Route); leer = kein Ziel gesetzt. */
     navPath: List<LatLon> = emptyList(),
+    /** Der Abschnitt entlang des Fahrwassers; davor und danach wird frei gefahren. */
+    navWaterPath: List<LatLon> = emptyList(),
 ) {
     val context = LocalContext.current
     val pointsState = rememberUpdatedState(points)
@@ -93,12 +95,19 @@ fun OsmMap(
     val marker = remember(mapView) {
         Marker(mapView).apply { setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) }
     }
-    // Weg zum Ziel: kräftiges Orange, damit er sich vom blauen Track abhebt.
+    // Zwei Linien, weil zwei verschiedene Dinge gemeint sind: gestrichelt, wo man selbst
+    // navigiert (Anfahrt und Auslauf), durchgezogen entlang des Fahrwassers.
     val navLine = remember(mapView) {
         Polyline(mapView).apply {
             outlinePaint.color = Color.parseColor("#FF6D00")
             outlinePaint.strokeWidth = 8f
             outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(18f, 12f), 0f)
+        }
+    }
+    val navWaterLine = remember(mapView) {
+        Polyline(mapView).apply {
+            outlinePaint.color = Color.parseColor("#FF6D00")
+            outlinePaint.strokeWidth = 9f
         }
     }
     val navMarker = remember(mapView) {
@@ -302,7 +311,7 @@ fun OsmMap(
     }
 
     // Weg zum Ziel zeichnen.
-    LaunchedEffect(navPath) {
+    LaunchedEffect(navPath, navWaterPath) {
         if (navPath.size >= 2) {
             navLine.setPoints(navPath.map { GeoPoint(it.lat, it.lon) })
             if (!mapView.overlays.contains(navLine)) mapView.overlays.add(navLine)
@@ -311,6 +320,12 @@ fun OsmMap(
         } else {
             mapView.overlays.remove(navLine)
             mapView.overlays.remove(navMarker)
+        }
+        if (navWaterPath.size >= 2) {
+            navWaterLine.setPoints(navWaterPath.map { GeoPoint(it.lat, it.lon) })
+            if (!mapView.overlays.contains(navWaterLine)) mapView.overlays.add(navWaterLine)
+        } else {
+            mapView.overlays.remove(navWaterLine)
         }
         mapView.invalidate()
     }

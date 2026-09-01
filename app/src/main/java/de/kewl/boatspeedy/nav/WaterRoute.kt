@@ -22,6 +22,8 @@ data class NavTarget(
     val mode: NavMode,
     val path: List<LatLon>,
     val distanceM: Double,
+    /** Der Teil entlang des Fahrwassers; der Rest davor und danach ist Luftlinie. */
+    val water: List<LatLon> = emptyList(),
 )
 
 /**
@@ -48,7 +50,7 @@ fun pathLengthM(path: List<LatLon>): Double =
 enum class RouteError { TOO_FAR, NO_NETWORK, NO_WATERWAYS, NOT_ON_WATER, NO_CONNECTION }
 
 sealed interface RouteResult {
-    data class Ok(val path: List<LatLon>) : RouteResult
+    data class Ok(val path: List<LatLon>, val water: List<LatLon>) : RouteResult
     data class Failed(val reason: RouteError) : RouteResult
 }
 
@@ -84,11 +86,23 @@ object WaterRouter {
      */
     private val WATERWAYS = "river|canal|fairway"
 
-    /** Weiter als das vom nächsten Wasserweg entfernt heißt: da ist kein Wasser. */
-    private const val MAX_SNAP_M = 300.0
+    /**
+     * Wie weit Start und Ziel vom verzeichneten Wasserweg entfernt liegen dürfen. Diese
+     * Strecken werden als Luftlinie gefahren — vom Liegeplatz aufs Fahrwasser hinaus und
+     * am Ende wieder heran.
+     *
+     * Fest auf 300 m war zu streng: an einem See oder einer breiten Stelle ist gar keine
+     * Linie verzeichnet (Seen sind Flächen, keine Wasserwege), und die Route wurde
+     * abgelehnt, statt die Anfahrt einfach gerade zu nehmen. Der erlaubte Abstand wächst
+     * deshalb mit der Gesamtstrecke — bei einer langen Fahrt fällt ein Kilometer Anfahrt
+     * kaum ins Gewicht, bei einer kurzen schon.
+     */
+    private fun maxSnapM(directM: Double) = (directM * 0.35).coerceIn(800.0, 5_000.0)
 
     fun route(from: LatLon, to: LatLon): RouteResult {
-        if (distanceM(from, to) > MAX_DISTANCE_M) return RouteResult.Failed(RouteError.TOO_FAR)
+        val direct = distanceM(from, to)
+        if (direct > MAX_DISTANCE_M) return RouteResult.Failed(RouteError.TOO_FAR)
+        val maxSnap = maxSnapM(direct)
 
         val json = fetch(from, to) ?: return RouteResult.Failed(RouteError.NO_NETWORK)
         val ways = parseWays(json)
@@ -100,19 +114,20 @@ object WaterRouter {
         // Nicht einfach den nächsten Knoten nehmen: der liegt schnell auf einem
         // abgehängten Stichkanal, und dann gibt es nie eine Verbindung. Stattdessen das
         // Teilnetz suchen, das *beide* Punkte bedient.
-        val ends = pickComponent(graph, from, to) ?: return if (
-            nearestNode(graph.keys, from)?.let { distanceM(it.toLatLon(), from) > MAX_SNAP_M } != false ||
-            nearestNode(graph.keys, to)?.let { distanceM(it.toLatLon(), to) > MAX_SNAP_M } != false
+        val ends = pickComponent(graph, from, to, maxSnap) ?: return if (
+            nearestNode(graph.keys, from)?.let { distanceM(it.toLatLon(), from) > maxSnap } != false ||
+            nearestNode(graph.keys, to)?.let { distanceM(it.toLatLon(), to) > maxSnap } != false
         ) {
             RouteResult.Failed(RouteError.NOT_ON_WATER)
         } else {
             RouteResult.Failed(RouteError.NO_CONNECTION)
         }
 
-        val path = shortestPath(graph, ends.first, ends.second)
+        val water = shortestPath(graph, ends.first, ends.second)?.map { it.toLatLon() }
             ?: return RouteResult.Failed(RouteError.NO_CONNECTION)
-        // Vom Boot bis zum Wasserweg und vom Wasserweg bis zum Ziel jeweils gerade Linie.
-        return RouteResult.Ok(listOf(from) + path.map { it.toLatLon() } + listOf(to))
+        // Anfahrt und Auslauf sind Luftlinie – sie werden getrennt zurückgegeben, damit die
+        // Karte sie anders zeichnen kann: dort fährt man auf eigene Rechnung.
+        return RouteResult.Ok(path = listOf(from) + water + listOf(to), water = water)
     }
 
     /* ------------------------------ Daten holen ------------------------------ */
@@ -204,12 +219,13 @@ object WaterRouter {
 
     /**
      * Sucht das Teilnetz, das Start und Ziel gemeinsam am besten bedient, und liefert die
-     * beiden Einstiegspunkte. null, wenn keines beide innerhalb [MAX_SNAP_M] erreicht.
+     * beiden Einstiegspunkte. null, wenn keines beide innerhalb [maxSnap] erreicht.
      */
     private fun pickComponent(
         graph: Map<Node, List<Pair<Node, Double>>>,
         from: LatLon,
         to: LatLon,
+        maxSnap: Double,
     ): Pair<Node, Node>? {
         var best: Triple<Double, Node, Node>? = null
         for (comp in components(graph)) {
@@ -217,7 +233,7 @@ object WaterRouter {
             val z = comp.minByOrNull { distanceM(it.toLatLon(), to) } ?: continue
             val ds = distanceM(s.toLatLon(), from)
             val dz = distanceM(z.toLatLon(), to)
-            if (ds > MAX_SNAP_M || dz > MAX_SNAP_M) continue
+            if (ds > maxSnap || dz > maxSnap) continue
             if (best == null || ds + dz < best!!.first) best = Triple(ds + dz, s, z)
         }
         return best?.let { it.second to it.third }

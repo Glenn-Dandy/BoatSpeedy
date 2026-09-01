@@ -17,5 +17,9 @@ cycle is not a change and does not appear here.
   waterway near it, if there is no continuous connection, or if there is no signal, it
   says so plainly and offers the straight line instead.
 
+  A route is a mixture: open water from where you are to the fairway, along the fairway,
+  then open water to the spot you picked. The map draws the two apart — dashed where you
+  navigate yourself, solid along the waterway.
+
   It is a suggestion, not a fairway: the map data knows nothing about depth, clearance or
   locks, and how complete it is varies from place to place.

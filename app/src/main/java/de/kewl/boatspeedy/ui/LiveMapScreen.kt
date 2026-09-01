@@ -137,7 +137,7 @@ fun LiveMapScreen(
             routing = false
             when (result) {
                 is RouteResult.Ok -> navTarget =
-                    NavTarget(at, mode, result.path, pathLengthM(result.path))
+                    NavTarget(at, mode, result.path, pathLengthM(result.path), result.water)
                 is RouteResult.Failed -> routeError = result.reason
             }
         }
@@ -192,6 +192,7 @@ fun LiveMapScreen(
                 showLightning = showWeather && showLightning,
                 onLongPress = { lat, lon -> askTarget = LatLon(lat, lon) },
                 navPath = navTarget?.path.orEmpty(),
+                navWaterPath = navTarget?.water.orEmpty(),
                 modifier = Modifier.fillMaxSize(),
             )
 
