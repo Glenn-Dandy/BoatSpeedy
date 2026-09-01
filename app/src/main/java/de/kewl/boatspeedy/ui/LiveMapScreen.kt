@@ -58,7 +58,9 @@ import java.util.Locale
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.nav.LatLon
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kewl.boatspeedy.nav.NavMode
+import de.kewl.boatspeedy.nav.NavRepository
 import de.kewl.boatspeedy.nav.NavTarget
 import de.kewl.boatspeedy.nav.RouteError
 import de.kewl.boatspeedy.nav.RouteResult
@@ -110,7 +112,7 @@ fun LiveMapScreen(
     // Der zuletzt gewählte Punkt, damit man nach einer gescheiterten Route direkt die
     // Luftlinie nehmen kann, ohne noch einmal zu zielen.
     var navTargetFallback by remember { mutableStateOf<LatLon?>(null) }
-    var navTarget by remember { mutableStateOf<NavTarget?>(null) }
+    val navTarget by NavRepository.target.collectAsStateWithLifecycle()
     var routing by remember { mutableStateOf(false) }
     var routeError by remember { mutableStateOf<RouteError?>(null) }
     val scope = rememberCoroutineScope()
@@ -128,7 +130,7 @@ fun LiveMapScreen(
         routeError = null
         navTargetFallback = at
         if (mode == NavMode.LINE) {
-            navTarget = NavTarget(at, mode, listOf(from, at), distanceM(from, at))
+            NavRepository.set(NavTarget(at, mode, listOf(from, at), distanceM(from, at)))
             return
         }
         routing = true
@@ -136,8 +138,9 @@ fun LiveMapScreen(
             val result = withContext(Dispatchers.IO) { WaterRouter.route(from, at) }
             routing = false
             when (result) {
-                is RouteResult.Ok -> navTarget =
-                    NavTarget(at, mode, result.path, pathLengthM(result.path), result.water)
+                is RouteResult.Ok -> NavRepository.set(
+                    NavTarget(at, mode, result.path, pathLengthM(result.path), result.water),
+                )
                 is RouteResult.Failed -> routeError = result.reason
             }
         }
@@ -226,7 +229,7 @@ fun LiveMapScreen(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                             )
                         }
-                        IconButton(onClick = { navTarget = null }) {
+                        IconButton(onClick = { NavRepository.clear() }) {
                             Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.nav_clear))
                         }
                     }

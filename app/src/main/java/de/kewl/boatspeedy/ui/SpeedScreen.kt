@@ -44,6 +44,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.battery.BatteryData
 import de.kewl.boatspeedy.battery.ChargeState
@@ -183,11 +185,16 @@ fun DashboardScreen(
 private fun MapMiniTile(points: List<TrackPoint>, lat: Double?, lon: Double?, onOpenMap: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+            // Der Weg zum Ziel gehört auch auf die kleine Kachel – sonst müsste man für
+            // einen Blick darauf jedes Mal die große Karte öffnen.
+            val navTarget by de.kewl.boatspeedy.nav.NavRepository.target.collectAsStateWithLifecycle()
             OsmMap(
                 points = points,
                 currentLat = lat,
                 currentLon = lon,
                 interactive = false,
+                navPath = navTarget?.path.orEmpty(),
+                navWaterPath = navTarget?.water.orEmpty(),
                 modifier = Modifier.matchParentSize(),
             )
             // Nicht-interaktive Vorschau: Overlay fängt den Tap (→ große Karte),

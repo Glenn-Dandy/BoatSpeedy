@@ -29,6 +29,18 @@ class RouteMathTest {
     }
 
     @Test
+    fun `Ziel gilt erst im Umkreis von fuenf Metern als erreicht`() {
+        val ziel = LatLon(53.2000, 7.5000)
+        NavRepository.set(NavTarget(ziel, NavMode.LINE, listOf(ziel), 0.0))
+        // gut 20 m daneben – noch unterwegs
+        assert(!NavRepository.onLocation(53.20018, 7.5000))
+        assert(NavRepository.target.value != null)
+        // knapp 3 m daneben – angekommen, Ziel wird abgeräumt
+        assert(NavRepository.onLocation(53.200025, 7.5000))
+        assert(NavRepository.target.value == null)
+    }
+
+    @Test
     fun `ein einzelner Punkt hat keine Laenge`() {
         assertEquals(0.0, pathLengthM(listOf(LatLon(53.0, 7.0))), 0.0)
         assertEquals(0.0, pathLengthM(emptyList()), 0.0)

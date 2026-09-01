@@ -21,5 +21,9 @@ cycle is not a change and does not appear here.
   then open water to the spot you picked. The map draws the two apart — dashed where you
   navigate yourself, solid along the waterway.
 
+  The destination belongs to the trip, not to the screen: it survives switching between
+  dashboard and map, shows up on the small map tile too, and stays until you remove it or
+  come within five metres of it.
+
   It is a suggestion, not a fairway: the map data knows nothing about depth, clearance or
   locks, and how complete it is varies from place to place.

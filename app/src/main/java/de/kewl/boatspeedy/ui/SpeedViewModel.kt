@@ -395,7 +395,13 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         lastDisplayMs = null
         badTicks = 0
         collectJob = viewModelScope.launch {
-            locationProvider.state.collect { _gps.value = it }
+            locationProvider.state.collect { g ->
+                _gps.value = g
+                // Ziel abräumen, sobald es erreicht ist.
+                val la = g.latitude
+                val lo = g.longitude
+                if (la != null && lo != null) de.kewl.boatspeedy.nav.NavRepository.onLocation(la, lo)
+            }
         }
     }
 
