@@ -226,6 +226,17 @@ private fun BoatSpeedyApp(
             }
 
             // Bluetooth-Berechtigungen für die Batterie-Verbindung.
+            // Das Ziel räumt sich beim Ankommen selbst ab. Die Meldung dazu gehört hierher
+            // und nicht in einen einzelnen Bildschirm – ankommen kann man auch, während
+            // das Dashboard offen ist.
+            val arrived by de.kewl.boatspeedy.nav.NavRepository.arrived.collectAsStateWithLifecycle()
+            val arrivedText = stringResource(R.string.nav_arrived)
+            LaunchedEffect(arrived) {
+                if (arrived > 0) {
+                    android.widget.Toast.makeText(context, arrivedText, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+
             var pendingBt by remember { mutableStateOf<(() -> Unit)?>(null) }
             val btLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions(),

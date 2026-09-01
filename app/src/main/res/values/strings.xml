@@ -305,4 +305,5 @@
     <string name="nav_err_nodata">No waterways are mapped around here.</string>
     <string name="nav_err_unconnected">No continuous waterway leads there — at least none that is mapped.</string>
     <string name="nav_err_notwater">There is no navigable waterway near that spot — at least none on the map.</string>
+    <string name="nav_arrived">Destination reached</string>
 </resources>

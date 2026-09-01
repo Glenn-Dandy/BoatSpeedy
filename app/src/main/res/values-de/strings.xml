@@ -302,4 +302,5 @@
     <string name="nav_err_nodata">Hier sind keine Wasserwege verzeichnet.</string>
     <string name="nav_err_unconnected">Es führt kein durchgehender Wasserweg dorthin — jedenfalls keiner, der verzeichnet ist.</string>
     <string name="nav_err_notwater">In der Nähe dieser Stelle liegt kein befahrbarer Wasserweg — jedenfalls keiner, der verzeichnet ist.</string>
+    <string name="nav_arrived">Ziel erreicht</string>
 </resources>

@@ -23,7 +23,9 @@ cycle is not a change and does not appear here.
 
   The destination belongs to the trip, not to the screen: it survives switching between
   dashboard and map, shows up on the small map tile too, and stays until you remove it or
-  come within five metres of it.
+  come within ten metres of it — close enough that GPS accuracy, which is three to ten
+  metres in practice, does not leave the route standing while you are already there. It
+  says "destination reached" when it goes, so its disappearance is never a mystery.
 
   It is a suggestion, not a fairway: the map data knows nothing about depth, clearance or
   locks, and how complete it is varies from place to place.
