@@ -27,5 +27,14 @@ cycle is not a change and does not appear here.
   metres in practice, does not leave the route standing while you are already there. It
   says "destination reached" when it goes, so its disappearance is never a mystery.
 
+- **A course arrow.** The position marker turns the way you are travelling, and next to
+  the destination an arrow shows how far to turn to head straight at it — upright means the
+  course is right, to the right means starboard. It is the difference from your course, not
+  a compass direction, so there is no map to read while steering. Standing still, GPS has no
+  course to give: the arrow keeps its last direction and greys out rather than spinning.
+
+  On the dashboard the destination gets its own line under the speed, showing the arrow,
+  the distance and the estimated amp hours. It appears only while a destination is set.
+
   It is a suggestion, not a fairway: the map data knows nothing about depth, clearance or
   locks, and how complete it is varies from place to place.

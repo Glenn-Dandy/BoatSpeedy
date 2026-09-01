@@ -65,7 +65,9 @@ import de.kewl.boatspeedy.nav.NavTarget
 import de.kewl.boatspeedy.nav.RouteError
 import de.kewl.boatspeedy.nav.RouteResult
 import de.kewl.boatspeedy.nav.WaterRouter
+import de.kewl.boatspeedy.nav.bearingDeg
 import de.kewl.boatspeedy.nav.distanceM
+import de.kewl.boatspeedy.nav.relativeBearing
 import de.kewl.boatspeedy.nav.pathLengthM
 import de.kewl.boatspeedy.trip.TrackPoint
 import kotlinx.coroutines.delay
@@ -113,6 +115,7 @@ fun LiveMapScreen(
     // Luftlinie nehmen kann, ohne noch einmal zu zielen.
     var navTargetFallback by remember { mutableStateOf<LatLon?>(null) }
     val navTarget by NavRepository.target.collectAsStateWithLifecycle()
+    val course by NavRepository.course.collectAsStateWithLifecycle()
     var routing by remember { mutableStateOf(false) }
     var routeError by remember { mutableStateOf<RouteError?>(null) }
     val scope = rememberCoroutineScope()
@@ -196,6 +199,7 @@ fun LiveMapScreen(
                 onLongPress = { lat, lon -> askTarget = LatLon(lat, lon) },
                 navPath = navTarget?.path.orEmpty(),
                 navWaterPath = navTarget?.water.orEmpty(),
+                courseDeg = course?.deg,
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -208,9 +212,22 @@ fun LiveMapScreen(
                     tonalElevation = 3.dp,
                 ) {
                     Row(
-                        modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                        modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        // Pfeil nur, wenn überhaupt einmal ein Kurs bekannt war.
+                        if (currentLat != null && currentLon != null) {
+                            course?.let { c ->
+                                CourseArrow(
+                                    relativeDeg = relativeBearing(
+                                        c.deg,
+                                        bearingDeg(LatLon(currentLat, currentLon), t.target),
+                                    ),
+                                    stale = c.stale,
+                                )
+                                Spacer(Modifier.size(8.dp))
+                            }
+                        }
                         Text(
                             buildString {
                                 append(String.format(Locale.getDefault(), "%.2f km", t.distanceM / 1000.0))

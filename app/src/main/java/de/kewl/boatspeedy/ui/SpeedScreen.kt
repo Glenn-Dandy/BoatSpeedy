@@ -140,6 +140,15 @@ fun DashboardScreen(
             ) {
                 Spacer(Modifier.height(16.dp))
 
+                // Zielzeile – erscheint nur, wenn ein Ziel gesetzt ist, und sitzt damit
+                // direkt unter der großen Zahl, wo beim Fahren ohnehin hingeschaut wird.
+                NavRow(
+                    lat = gps.latitude,
+                    lon = gps.longitude,
+                    tripDistanceM = tripStats.distanceM,
+                    tripChargeAh = tripStats.chargeAh,
+                )
+
                 if (weatherWarnings.isNotEmpty()) {
                     WeatherBanner(weatherWarnings)
                     Spacer(Modifier.height(12.dp))
@@ -487,3 +496,53 @@ private fun StatusRow(gps: GpsState, showSatDetails: Boolean) {
 
 private fun num(v: Float, unit: String) = String.format(Locale.getDefault(), "%.2f %s", v, unit)
 private fun watts(v: Float) = String.format(Locale.getDefault(), "%.0f W", v)
+
+/**
+ * Entfernung, geschätzter Verbrauch und der Kurspfeil zum gesetzten Ziel.
+ *
+ * Zeigt sich nur, solange ein Ziel gesetzt ist — ohne Ziel bleibt das Dashboard
+ * unverändert. Der Pfeil zeigt die Drehung zum Ziel, nicht die Himmelsrichtung.
+ */
+@Composable
+private fun NavRow(lat: Double?, lon: Double?, tripDistanceM: Double, tripChargeAh: Float) {
+    val target by de.kewl.boatspeedy.nav.NavRepository.target.collectAsStateWithLifecycle()
+    val course by de.kewl.boatspeedy.nav.NavRepository.course.collectAsStateWithLifecycle()
+    val t = target ?: return
+
+    val ahPerKm = if (tripDistanceM > 300.0 && tripChargeAh > 0f) {
+        (tripChargeAh / (tripDistanceM / 1000.0)).toFloat()
+    } else {
+        null
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (lat != null && lon != null) {
+            course?.let { c ->
+                CourseArrow(
+                    relativeDeg = de.kewl.boatspeedy.nav.relativeBearing(
+                        c.deg,
+                        de.kewl.boatspeedy.nav.bearingDeg(de.kewl.boatspeedy.nav.LatLon(lat, lon), t.target),
+                    ),
+                    stale = c.stale,
+                    size = 30.dp,
+                )
+                Spacer(Modifier.width(10.dp))
+            }
+        }
+        Text(
+            buildString {
+                append(String.format(Locale.getDefault(), "%.2f km", t.distanceM / 1000.0))
+                ahPerKm?.let {
+                    append(" · ~")
+                    append(String.format(Locale.getDefault(), "%.1f Ah", it * (t.distanceM / 1000.0)))
+                }
+            },
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}

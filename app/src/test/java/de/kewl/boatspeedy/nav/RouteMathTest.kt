@@ -46,3 +46,29 @@ class RouteMathTest {
         assertEquals(0.0, pathLengthM(emptyList()), 0.0)
     }
 }
+
+/** Der Kurspfeil: Peilung und die Drehung, die er anzeigt. */
+class BearingTest {
+
+    @org.junit.Test
+    fun `Peilung zeigt in die richtige Himmelsrichtung`() {
+        val hier = LatLon(53.2000, 7.5000)
+        org.junit.Assert.assertEquals(0f, bearingDeg(hier, LatLon(53.2100, 7.5000)), 0.5f)   // Nord
+        org.junit.Assert.assertEquals(90f, bearingDeg(hier, LatLon(53.2000, 7.5200)), 0.5f)  // Ost
+        org.junit.Assert.assertEquals(180f, bearingDeg(hier, LatLon(53.1900, 7.5000)), 0.5f) // Süd
+        org.junit.Assert.assertEquals(270f, bearingDeg(hier, LatLon(53.2000, 7.4800)), 0.5f) // West
+    }
+
+    @org.junit.Test
+    fun `Drehung ist kurz und vorzeichenrichtig`() {
+        // Kurs Nord, Ziel im Osten → 90 Grad nach steuerbord.
+        org.junit.Assert.assertEquals(90f, relativeBearing(0f, 90f), 0.01f)
+        // Kurs Nord, Ziel im Westen → 90 Grad nach backbord.
+        org.junit.Assert.assertEquals(-90f, relativeBearing(0f, 270f), 0.01f)
+        // Über den Nullpunkt hinweg immer den kurzen Weg, nicht 350 Grad herum.
+        org.junit.Assert.assertEquals(-20f, relativeBearing(10f, 350f), 0.01f)
+        org.junit.Assert.assertEquals(20f, relativeBearing(350f, 10f), 0.01f)
+        // Kurs stimmt.
+        org.junit.Assert.assertEquals(0f, relativeBearing(123f, 123f), 0.01f)
+    }
+}

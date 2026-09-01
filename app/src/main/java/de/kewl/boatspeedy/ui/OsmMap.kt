@@ -61,6 +61,8 @@ fun OsmMap(
     navPath: List<LatLon> = emptyList(),
     /** Der Abschnitt entlang des Fahrwassers; davor und danach wird frei gefahren. */
     navWaterPath: List<LatLon> = emptyList(),
+    /** Kurs über Grund in Grad; dreht den Positionsmarker in Fahrtrichtung. */
+    courseDeg: Float? = null,
 ) {
     val context = LocalContext.current
     val pointsState = rememberUpdatedState(points)
@@ -353,6 +355,16 @@ fun OsmMap(
                 }
                 true
             }
+        }
+    }
+
+    // Marker in Fahrtrichtung drehen. osmdroid dreht gegen den Uhrzeigersinn, der
+    // Kompasskurs läuft mit – deshalb das umgekehrte Vorzeichen. Steht das Boot, kommt
+    // hier nichts an und die letzte Richtung bleibt stehen, statt zu zappeln.
+    LaunchedEffect(courseDeg) {
+        courseDeg?.let {
+            marker.rotation = ((-it % 360f) + 360f) % 360f
+            mapView.invalidate()
         }
     }
 

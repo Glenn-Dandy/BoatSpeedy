@@ -27,6 +27,27 @@ object NavRepository {
     private val _arrived = MutableStateFlow(0)
     val arrived: StateFlow<Int> = _arrived.asStateFlow()
 
+    /**
+     * Unterhalb dieser Fahrt liefert das GPS keinen brauchbaren Kurs mehr, sondern
+     * Rauschen — der Pfeil würde im Stand kreiseln.
+     */
+    const val MIN_COURSE_SPEED_MS = 0.5f
+
+    /** Zuletzt bekannter Kurs über Grund und ob er noch aktuell ist. */
+    data class Course(val deg: Float, val stale: Boolean)
+
+    private val _course = MutableStateFlow<Course?>(null)
+    val course: StateFlow<Course?> = _course.asStateFlow()
+
+    /** Kurs einspeisen. Ohne Fahrt bleibt der letzte stehen, nur als „veraltet" markiert. */
+    fun onCourse(bearingDeg: Float?, speedMs: Float?) {
+        val moving = speedMs != null && speedMs >= MIN_COURSE_SPEED_MS
+        _course.value = when {
+            moving && bearingDeg != null -> Course(bearingDeg, stale = false)
+            else -> _course.value?.copy(stale = true)
+        }
+    }
+
     fun set(target: NavTarget) {
         _target.value = target
     }

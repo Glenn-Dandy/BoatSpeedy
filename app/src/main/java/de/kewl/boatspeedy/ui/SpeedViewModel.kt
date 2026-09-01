@@ -401,6 +401,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
                 val la = g.latitude
                 val lo = g.longitude
                 if (la != null && lo != null) de.kewl.boatspeedy.nav.NavRepository.onLocation(la, lo)
+                de.kewl.boatspeedy.nav.NavRepository.onCourse(g.bearingDeg, g.speedMs)
             }
         }
     }

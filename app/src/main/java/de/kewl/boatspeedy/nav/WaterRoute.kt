@@ -43,6 +43,34 @@ fun distanceM(a: LatLon, b: LatLon): Double {
     return 2 * r * kotlin.math.asin(kotlin.math.sqrt(h).coerceAtMost(1.0))
 }
 
+/**
+ * Rechtweisende Peilung von [a] nach [b] in Grad (0 = Nord, im Uhrzeigersinn).
+ */
+fun bearingDeg(a: LatLon, b: LatLon): Float {
+    val p1 = Math.toRadians(a.lat)
+    val p2 = Math.toRadians(b.lat)
+    val dl = Math.toRadians(b.lon - a.lon)
+    val y = kotlin.math.sin(dl) * kotlin.math.cos(p2)
+    val x = kotlin.math.cos(p1) * kotlin.math.sin(p2) -
+        kotlin.math.sin(p1) * kotlin.math.cos(p2) * kotlin.math.cos(dl)
+    val deg = Math.toDegrees(kotlin.math.atan2(y, x))
+    return (((deg % 360) + 360) % 360).toFloat()
+}
+
+/**
+ * Wie weit man drehen muss, um vom aktuellen Kurs auf die Peilung zum Ziel zu kommen:
+ * −180 … +180 Grad, negativ = nach backbord, positiv = nach steuerbord.
+ *
+ * Genau das zeigt der Pfeil an. Steht er senkrecht, stimmt der Kurs; zeigt er nach
+ * rechts, muss man nach rechts — man muss die Karte dafür nicht lesen.
+ */
+fun relativeBearing(courseDeg: Float, targetBearingDeg: Float): Float {
+    var d = (targetBearingDeg - courseDeg) % 360f
+    if (d > 180f) d -= 360f
+    if (d < -180f) d += 360f
+    return d
+}
+
 fun pathLengthM(path: List<LatLon>): Double =
     path.zipWithNext().sumOf { (a, b) -> distanceM(a, b) }
 
