@@ -527,6 +527,10 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Batterie umbenennen (Typ/MAC bleiben erhalten). */
+    /** Einstellbefehl an das Shunt-Messgerät (Zähler nullen, auf voll setzen, Strom abgleichen). */
+    fun sendMeterCommand(address: String, command: ByteArray): Boolean =
+        BatteryRepository.send(address, command)
+
     fun renameBattery(address: String, name: String) {
         val clean = name.trim().take(24)
         if (clean.isEmpty()) return

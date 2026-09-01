@@ -5,6 +5,17 @@ cycle is not a change and does not appear here.
 
 ### Added
 
+- **Shunt meters are supported** — the kind that reports as `WBMS` over a CH9141 radio.
+  It is not a BMS: it gives voltage, current and the energy it has counted, nothing else,
+  and it sends by itself every few seconds rather than answering questions. Its three
+  settings — zero the current, mark the battery full, clear the counted energy — sit in
+  the battery card and ask before they are sent, since none of them can be undone.
+- **The scan no longer hides devices that advertise no service.** It used to filter on the
+  service UUIDs of the known BMS, and a device that advertises none — the meter shows its
+  services only after connecting — could never appear. Scanning is unfiltered now: known
+  devices stay at the top of the list, everything else with a name sits behind "show other
+  devices". Unnamed devices, mostly phones nearby, are left out.
+
 - **Set a destination by long-pressing the map.** You are then asked how it should be
   measured: as a **straight line**, or as a **route along the waterways**. Either way the
   bar at the top shows the distance in kilometres and, once the current trip has enough

@@ -471,6 +471,7 @@ private fun BoatSpeedyApp(
                         onRename = vm::renameBattery,
                         onBatteryBms = vm::setBatteryBms,
                         onBankMode = vm::setBankMode,
+                        onMeterCommand = { addr, cmd -> vm.sendMeterCommand(addr, cmd) },
                         onOpenMenu = { openDrawer() },
                     )
 

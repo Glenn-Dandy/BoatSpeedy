@@ -92,6 +92,10 @@ object BatteryRepository {
         conn.connect()
     }
 
+    /** Einen Einstellbefehl an eine verbundene Batterie schicken. */
+    fun send(address: String, command: ByteArray): Boolean =
+        connections[address]?.send(command) ?: false
+
     fun disconnect(address: String) {
         desired.remove(address)
         main.removeCallbacksAndMessages(tokenFor(address))

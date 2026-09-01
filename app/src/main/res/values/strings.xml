@@ -306,4 +306,15 @@
     <string name="nav_err_unconnected">No continuous waterway leads there — at least none that is mapped.</string>
     <string name="nav_err_notwater">There is no navigable waterway near that spot — at least none on the map.</string>
     <string name="nav_arrived">Destination reached</string>
+    <string name="bat_show_others">Show other devices (%1$d)</string>
+    <string name="bat_hide_others">Hide other devices</string>
+    <string name="bat_energy_total">Energy counted</string>
+    <string name="meter_actions">Meter settings</string>
+    <string name="meter_zero">Zero current</string>
+    <string name="meter_full">Set full</string>
+    <string name="meter_clear">Clear energy</string>
+    <string name="meter_send">Send</string>
+    <string name="meter_zero_confirm">Take the present reading as zero current? Do this only with nothing flowing, or every later reading will be off.</string>
+    <string name="meter_full_confirm">Tell the meter the battery is full right now?</string>
+    <string name="meter_clear_confirm">Reset the counted energy to zero? The previous total is gone.</string>
 </resources>

@@ -125,6 +125,19 @@ class BatteryConnection(
         main.postDelayed({ poll() }, token, POLL_MS)
     }
 
+    /**
+     * Schickt einen einzelnen Befehl – für Einstellungen, die der Nutzer auslöst
+     * (etwa den Zähler des Shunt-Messgeräts nullen), nicht für den Poll-Takt.
+     * Gibt false zurück, wenn die Verbindung dafür nicht bereit ist.
+     */
+    fun send(value: ByteArray): Boolean {
+        val g = gatt ?: return false
+        val ch = writeChar ?: return false
+        if (closed) return false
+        write(g, ch, value)
+        return true
+    }
+
     private fun write(g: BluetoothGatt, ch: BluetoothGattCharacteristic, value: ByteArray) {
         val type = if (protocol.writeNoResponse)
             BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE

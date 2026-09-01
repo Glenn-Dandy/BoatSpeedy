@@ -303,4 +303,15 @@
     <string name="nav_err_unconnected">Es führt kein durchgehender Wasserweg dorthin — jedenfalls keiner, der verzeichnet ist.</string>
     <string name="nav_err_notwater">In der Nähe dieser Stelle liegt kein befahrbarer Wasserweg — jedenfalls keiner, der verzeichnet ist.</string>
     <string name="nav_arrived">Ziel erreicht</string>
+    <string name="bat_show_others">Weitere Geräte anzeigen (%1$d)</string>
+    <string name="bat_hide_others">Weitere Geräte ausblenden</string>
+    <string name="bat_energy_total">Gezählte Energie</string>
+    <string name="meter_actions">Messgerät einstellen</string>
+    <string name="meter_zero">Strom nullen</string>
+    <string name="meter_full">Auf voll setzen</string>
+    <string name="meter_clear">Energie löschen</string>
+    <string name="meter_send">Senden</string>
+    <string name="meter_zero_confirm">Den aktuellen Messwert als Nullpunkt übernehmen? Nur machen, wenn gerade kein Strom fließt — sonst sind alle späteren Werte verschoben.</string>
+    <string name="meter_full_confirm">Dem Messgerät sagen, dass die Batterie jetzt voll ist?</string>
+    <string name="meter_clear_confirm">Die gezählte Energie auf null zurücksetzen? Der bisherige Stand ist damit weg.</string>
 </resources>
