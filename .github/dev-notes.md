@@ -5,7 +5,7 @@ cycle is not a change and does not appear here.
 
 ### Added
 
-- **Shunt meters are supported** — the kind that reports as `WBMS` over a CH9141 radio.
+- **Coulometers are supported** — the Hall-sensor kind that reports as `WBMS` over a CH9141 radio.
   It is not a BMS: it gives voltage, current and the energy it has counted, nothing else,
   and it sends by itself every few seconds rather than answering questions. Its three
   settings — zero the current, mark the battery full, clear the counted energy — sit in
@@ -31,6 +31,9 @@ cycle is not a change and does not appear here.
   A route is a mixture: open water from where you are to the fairway, along the fairway,
   then open water to the spot you picked. The map draws the two apart — dashed where you
   navigate yourself, solid along the waterway.
+
+  The position marker is an arrow that turns the way you are travelling, on the dashboard
+  tile as well as the full map, and the destination is a flag rather than another pin.
 
   The destination belongs to the trip, not to the screen: it survives switching between
   dashboard and map, shows up on the small map tile too, and stays until you remove it or

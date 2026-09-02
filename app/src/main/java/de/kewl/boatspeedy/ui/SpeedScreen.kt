@@ -197,6 +197,7 @@ private fun MapMiniTile(points: List<TrackPoint>, lat: Double?, lon: Double?, on
             // Der Weg zum Ziel gehört auch auf die kleine Kachel – sonst müsste man für
             // einen Blick darauf jedes Mal die große Karte öffnen.
             val navTarget by de.kewl.boatspeedy.nav.NavRepository.target.collectAsStateWithLifecycle()
+            val mapCourse by de.kewl.boatspeedy.nav.NavRepository.course.collectAsStateWithLifecycle()
             OsmMap(
                 points = points,
                 currentLat = lat,
@@ -204,6 +205,7 @@ private fun MapMiniTile(points: List<TrackPoint>, lat: Double?, lon: Double?, on
                 interactive = false,
                 navPath = navTarget?.path.orEmpty(),
                 navWaterPath = navTarget?.water.orEmpty(),
+                courseDeg = mapCourse?.deg,
                 modifier = Modifier.matchParentSize(),
             )
             // Nicht-interaktive Vorschau: Overlay fängt den Tap (→ große Karte),

@@ -94,8 +94,13 @@ fun OsmMap(
             outlinePaint.strokeWidth = 9f
         }
     }
+    // Richtungspfeil statt Stecknadel: er dreht sich in Fahrtrichtung, also muss er um
+    // seinen Mittelpunkt hängen – eine Nadel mit Spitze unten würde beim Drehen wandern.
     val marker = remember(mapView) {
-        Marker(mapView).apply { setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) }
+        Marker(mapView).apply {
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+            icon = ContextCompat.getDrawable(context, R.drawable.ic_nav_arrow)
+        }
     }
     // Zwei Linien, weil zwei verschiedene Dinge gemeint sind: gestrichelt, wo man selbst
     // navigiert (Anfahrt und Auslauf), durchgezogen entlang des Fahrwassers.
@@ -112,8 +117,12 @@ fun OsmMap(
             outlinePaint.strokeWidth = 9f
         }
     }
+    // Zielfahne; der Fuß der Stange sitzt auf dem Zielpunkt.
     val navMarker = remember(mapView) {
-        Marker(mapView).apply { setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) }
+        Marker(mapView).apply {
+            setAnchor(Marker.ANCHOR_LEFT, Marker.ANCHOR_BOTTOM)
+            icon = ContextCompat.getDrawable(context, R.drawable.ic_dest_flag)
+        }
     }
     val bubbleMarker = remember(mapView) {
         Marker(mapView).apply {

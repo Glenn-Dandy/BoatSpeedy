@@ -27,6 +27,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -177,16 +181,32 @@ fun BatteryScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BmsSelector(selected: BmsType, locked: Boolean, onBms: (BmsType) -> Unit) {
+    var open by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(stringResource(R.string.bms), style = MaterialTheme.typography.titleSmall)
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            BmsType.entries.forEachIndexed { i, t ->
-                SegmentedButton(
-                    selected = selected == t,
-                    onClick = { if (!locked) onBms(t) },
-                    enabled = !locked,
-                    shape = SegmentedButtonDefaults.itemShape(i, BmsType.entries.size),
-                ) { Text(t.display.substringBefore(" ")) }
+        // Ausklappliste statt Balkenreihe: die Namen passen ausgeschrieben hinein, und
+        // ein fünfter Typ sprengt die Reihe nicht mehr.
+        ExposedDropdownMenuBox(
+            expanded = open && !locked,
+            onExpandedChange = { if (!locked) open = !open },
+        ) {
+            OutlinedTextField(
+                value = selected.display,
+                onValueChange = {},
+                readOnly = true,
+                enabled = !locked,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = open) },
+                modifier = Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth(),
+            )
+            ExposedDropdownMenu(expanded = open && !locked, onDismissRequest = { open = false }) {
+                BmsType.entries.forEach { t ->
+                    DropdownMenuItem(
+                        text = { Text(t.display) },
+                        onClick = { onBms(t); open = false },
+                    )
+                }
             }
         }
         if (!selected.tested) {

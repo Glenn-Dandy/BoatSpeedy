@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Positionsmarker: zeigt in Fahrtrichtung. Die Spitze liegt oben, damit die Drehung
+     um den Mittelpunkt dem Kurs entspricht. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Weißer Rand, damit der Pfeil auf jeder Kartenfarbe zu sehen bleibt -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,3 L41,42 L24,33 L7,42 Z" />
+    <path
+        android:fillColor="#1E88E5"
+        android:pathData="M24,9 L36.5,38 L24,31.5 L11.5,38 Z" />
+</vector>

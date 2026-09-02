@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Zielfahne. Der Fuß der Stange sitzt unten links – dort wird der Marker verankert,
+     damit die Fahne genau auf dem Zielpunkt steht. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M8,46 L8,2 L12,2 L12,46 Z" />
+    <path
+        android:fillColor="#37474F"
+        android:pathData="M9,45 L9,3 L11,3 L11,45 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11,3 L36,3 L36,21 L11,21 Z" />
+    <path
+        android:fillColor="#FF6D00"
+        android:pathData="M12,5 L34,5 L34,19 L12,19 Z" />
+</vector>
