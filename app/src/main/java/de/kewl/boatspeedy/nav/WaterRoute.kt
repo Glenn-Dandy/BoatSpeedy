@@ -157,6 +157,24 @@ object WaterRouter {
     private const val OBSTACLE_NEAR_M = 40.0
 
     /**
+     * Wege, die als Fluss oder Kanal getaggt sind, aber nicht befahren werden dürfen oder
+     * können. Ohne diese Prüfung schickt die Route durch **Rohrdurchlässe** und über
+     * gesperrte Abschnitte — im Testgebiet trugen von 307 befahrbar getaggten Wegen 65 ein
+     * `tunnel=culvert`, 43 ein `boat=no` und 29 ein `motorboat=no`. Genau so kommt eine
+     * Route zustande, die an der Schleuse vorbeiführt statt hindurch.
+     */
+    private fun isForbidden(tags: JSONObject?): Boolean {
+        if (tags == null) return false
+        if (tags.optString("boat") == "no") return true
+        if (tags.optString("motorboat") == "no") return true
+        if (tags.optString("ship") == "no") return true
+        if (tags.optString("access") in setOf("no", "private")) return true
+        // Ein Rohr unter einer Straße ist kein Fahrwasser.
+        if (tags.optString("tunnel") in setOf("culvert", "pipe", "building_passage")) return true
+        return false
+    }
+
+    /**
      * Wie weit Start und Ziel vom verzeichneten Wasserweg entfernt liegen dürfen. Diese
      * Strecken werden als Luftlinie gefahren — vom Liegeplatz aufs Fahrwasser hinaus und
      * am Ende wieder heran.
@@ -178,7 +196,7 @@ object WaterRouter {
         val ways = parseWays(json)
         if (ways.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
-        val graph = buildGraph(ways)
+        val graph = buildGraph(ways, barrierNodes(json))
         if (graph.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
         // Nicht einfach den nächsten Knoten nehmen: der liegt schnell auf einem
@@ -220,6 +238,8 @@ object WaterRouter {
               way["waterway"~"^($WATERWAYS)${'$'}"]($south,$west,$north,$east);
               node["waterway"~"^($OBSTACLES)${'$'}"]($south,$west,$north,$east);
               way["waterway"~"^($OBSTACLES)${'$'}"]($south,$west,$north,$east);
+              node["seamark:notice:category"="no_entry"]($south,$west,$north,$east);
+              node["seamark:notice:function"="prohibition"]($south,$west,$north,$east);
             );
             out geom;
         """.trimIndent()
@@ -246,7 +266,9 @@ object WaterRouter {
         val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptyList()
         (0 until elements.length()).mapNotNull { i ->
             val el = elements.getJSONObject(i)
-            if (el.optJSONObject("tags")?.optString("waterway") !in NAVIGABLE) return@mapNotNull null
+            val tags = el.optJSONObject("tags")
+            if (tags?.optString("waterway") !in NAVIGABLE) return@mapNotNull null
+            if (isForbidden(tags)) return@mapNotNull null
             val geom = el.optJSONArray("geometry") ?: return@mapNotNull null
             (0 until geom.length()).map { g ->
                 val p = geom.getJSONObject(g)
@@ -302,11 +324,37 @@ object WaterRouter {
         }
     }
 
-    private fun buildGraph(ways: List<List<Node>>): Map<Node, List<Pair<Node, Double>>> {
+    /**
+     * Punkte, an denen das Netz aufgetrennt wird: Wehre und Dämme sind nicht passierbar,
+     * ebenso ein Einfahrtsverbot. Schleusentore gehören **nicht** dazu — durch eine
+     * Schleuse kommt man, sie kostet nur Zeit.
+     */
+    private fun barrierNodes(json: String): Set<Node> = runCatching {
+        val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptySet()
+        (0 until elements.length()).mapNotNull { i ->
+            val el = elements.getJSONObject(i)
+            val tags = el.optJSONObject("tags") ?: return@mapNotNull null
+            val blocking = tags.optString("waterway") in setOf("weir", "dam") ||
+                tags.optString("seamark:notice:category") == "no_entry" ||
+                tags.optString("seamark:notice:function") == "prohibition"
+            if (!blocking) return@mapNotNull null
+            when {
+                el.has("lat") -> Node.of(el.getDouble("lat"), el.getDouble("lon"))
+                else -> el.optJSONArray("geometry")?.takeIf { it.length() > 0 }?.let { geom ->
+                    val p = geom.getJSONObject(geom.length() / 2)
+                    Node.of(p.getDouble("lat"), p.getDouble("lon"))
+                }
+            }
+        }.toSet()
+    }.getOrDefault(emptySet())
+
+    private fun buildGraph(ways: List<List<Node>>, barriers: Set<Node>): Map<Node, List<Pair<Node, Double>>> {
         val g = HashMap<Node, MutableList<Pair<Node, Double>>>()
         for (way in ways) {
             for ((a, b) in way.zipWithNext()) {
                 if (a == b) continue
+                // Kein Weg durch ein Wehr oder an einem Einfahrtsverbot vorbei.
+                if (a in barriers || b in barriers) continue
                 val d = distanceM(a.toLatLon(), b.toLatLon())
                 g.getOrPut(a) { mutableListOf() }.add(b to d)
                 g.getOrPut(b) { mutableListOf() }.add(a to d)

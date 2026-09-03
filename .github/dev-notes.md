@@ -62,6 +62,12 @@ cycle is not a change and does not appear here.
   On the dashboard the destination gets its own line under the speed, showing the arrow,
   the distance and the estimated amp hours. It appears only while a destination is set.
 
+  Ways that may not be used are left out of the route: `boat=no`, `motorboat=no`,
+  `ship=no`, private water, and culverts — a pipe under a road is tagged as a canal but is
+  not one. Weirs, dams and no-entry signs cut the network, so a route cannot lead through
+  them. In the test area that removes 96 of 307 ways and 23 crossings; without it, routes
+  went round locks through culverts they had no business in.
+
   A route also reports the **locks and weirs** it passes, fetched in the same request that
   builds it. Locks cost time; a weir usually means the way is closed, so it is called out
   in red. Around Leer alone the map knows 57 lock gates and 44 weirs, many of them named,
