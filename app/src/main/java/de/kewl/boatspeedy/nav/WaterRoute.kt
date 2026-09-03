@@ -80,20 +80,24 @@ fun relativeBearing(courseDeg: Float, targetBearingDeg: Float): Float {
 }
 
 /**
- * Schneidet vom Weg ab, was hinter uns liegt: gesucht wird der nächstgelegene Punkt, alles
- * davor entfällt. Ohne das bliebe der gezeichnete Weg unverändert stehen und die Entfernung
- * gleich, während man sich dem Ziel längst nähert.
+ * Reststrecke entlang eines Weges: von hier bis zum nächstgelegenen Punkt des Weges und
+ * von dort bis ans Ende.
+ *
+ * Der Weg selbst bleibt unangetastet. Ein früherer Versuch schnitt das Zurückgelegte
+ * tatsächlich ab — und kürzte dabei bei **jeder** Meldung um einen Punkt, auch im Stand.
+ * Nach ein paar Sekunden war die Route aufgefressen.
  */
-fun trimBehind(path: List<LatLon>, from: LatLon): List<LatLon> {
-    if (path.size <= 1) return path
+fun remainingAlong(path: List<LatLon>, from: LatLon): Double {
+    if (path.isEmpty()) return 0.0
+    if (path.size == 1) return distanceM(from, path[0])
     var best = 0
     var bestD = Double.MAX_VALUE
     path.forEachIndexed { i, p ->
         val d = distanceM(p, from)
         if (d < bestD) { bestD = d; best = i }
     }
-    // Den erreichten Punkt selbst weglassen – sonst zeigt die Linie kurz zurück.
-    return if (best + 1 <= path.lastIndex) path.subList(best + 1, path.size) else listOf(path.last())
+    val rest = path.subList(best, path.size)
+    return bestD + pathLengthM(rest)
 }
 
 fun pathLengthM(path: List<LatLon>): Double =

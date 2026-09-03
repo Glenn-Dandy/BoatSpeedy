@@ -76,13 +76,16 @@ object NavRepository {
             _arrived.value = _arrived.value + 1
             return true
         }
-        val water = if (t.mode == NavMode.ROUTE && t.water.size >= 2) {
-            trimBehind(t.water, here)
-        } else {
-            emptyList()
+        _target.value = when (t.mode) {
+            // Luftlinie hängt am Boot: sie beginnt immer dort, wo man gerade ist.
+            NavMode.LINE -> t.copy(
+                path = listOf(here, t.target),
+                distanceM = distanceM(here, t.target),
+            )
+            // Die Route bleibt stehen, wie sie berechnet wurde – nur die Reststrecke
+            // schrumpft, während man ihr folgt.
+            NavMode.ROUTE -> t.copy(distanceM = remainingAlong(t.path, here))
         }
-        val path = listOf(here) + water + listOf(t.target)
-        _target.value = t.copy(path = path, water = water, distanceM = pathLengthM(path))
         return false
     }
 }

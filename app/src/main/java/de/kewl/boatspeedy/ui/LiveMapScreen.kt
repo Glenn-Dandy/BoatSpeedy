@@ -200,19 +200,15 @@ fun LiveMapScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
-                actions = {
-                    // In der Wetteransicht ist das Radar der Zweck – da braucht es keinen
-                    // Schalter, der es abstellt.
-                    if (!weatherMode) {
-                        IconToggleButton(checked = showWeather, onCheckedChange = { showWeather = it }) {
-                            Icon(Icons.Filled.Cloud, contentDescription = stringResource(R.string.weather_show))
-                        }
-                    }
-                },
+                // Kein Wetter-Schalter mehr: das Radar hat sein eigenes Menü, und die
+                // Live-Karte ist zum Fahren da.
+                actions = {},
             )
         },
         floatingActionButton = {
-            if (!follow) {
+            // In der Wetteransicht folgt die Karte nicht, also braucht es auch den
+            // Knopf zum Zurückspringen nicht.
+            if (!follow && !weatherMode) {
                 FloatingActionButton(onClick = { follow = true }) {
                     Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.follow_position))
                 }
@@ -225,26 +221,29 @@ fun LiveMapScreen(
                 currentLat = currentLat,
                 currentLon = currentLon,
                 interactive = true,
-                follow = follow,
+                follow = follow && !weatherMode,
                 onUserPan = { follow = false },
                 bubbleText = bubble,
                 showRadar = showWeather,
                 radarTimes = radarTimes,
                 radarFrameIndex = frameIndex.coerceIn(0, frames.lastIndex),
                 showLightning = showWeather && showLightning,
-                onLongPress = { lat, lon -> askTarget = LatLon(lat, lon) },
-                navPath = navTarget?.path.orEmpty(),
-                navWaterPath = navTarget?.water.orEmpty(),
-                obstacles = navTarget?.obstacles.orEmpty(),
+                // In der Wetteransicht wird nicht navigiert: kein Ziel setzen, keine
+                // Route zeichnen. Und die Karte bleibt stehen, wo man sie hingeschoben
+                // hat – sonst zieht sie einem beim Betrachten unter der Hand weg.
+                onLongPress = if (weatherMode) null else { lat, lon -> askTarget = LatLon(lat, lon) },
+                navPath = if (weatherMode) emptyList() else navTarget?.path.orEmpty(),
+                navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
+                obstacles = if (weatherMode) emptyList() else navTarget?.obstacles.orEmpty(),
                 courseDeg = course?.deg,
                 // Nur in Fahrt weich nachziehen – „stale" heißt: das GPS liefert
                 // gerade keinen brauchbaren Kurs, also steht das Boot.
-                smoothFollow = course?.stale == false,
+                smoothFollow = course?.stale == false && !weatherMode,
                 modifier = Modifier.fillMaxSize(),
             )
 
             // Entfernung und geschätzter Verbrauch bis zum Ziel.
-            navTarget?.let { t ->
+            navTarget?.takeIf { !weatherMode }?.let { t ->
                 Surface(
                     modifier = Modifier.align(Alignment.TopCenter).padding(8.dp),
                     shape = RoundedCornerShape(20.dp),

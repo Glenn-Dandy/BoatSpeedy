@@ -63,16 +63,33 @@ class RouteMathTest {
     }
 
     @Test
-    fun `Zurueckgelegtes fällt vom Weg weg`() {
+    fun `im Stand bleibt die Route unveraendert`() {
         val weg = listOf(
             LatLon(53.2000, 7.5000), LatLon(53.2100, 7.5000),
             LatLon(53.2200, 7.5000), LatLon(53.2300, 7.5000),
         )
-        // Auf Höhe des zweiten Punktes bleibt nur der Rest dahinter.
-        val rest = trimBehind(weg, LatLon(53.2105, 7.5000))
-        assertEquals(listOf(weg[2], weg[3]), rest)
-        // Am Ende bleibt der letzte Punkt stehen, damit der Weg nicht leer wird.
-        assertEquals(listOf(weg.last()), trimBehind(weg, LatLon(53.2300, 7.5000)))
+        val ziel = weg.last()
+        NavRepository.set(NavTarget(ziel, NavMode.ROUTE, weg, pathLengthM(weg), weg))
+
+        val stand = LatLon(53.2000, 7.5000)
+        repeat(10) { NavRepository.onLocation(stand.lat, stand.lon) }
+
+        // Früher wurde je Meldung ein Punkt abgeschnitten – nach zehn war nichts mehr da.
+        assertEquals(weg, NavRepository.target.value!!.path)
+        assertEquals(pathLengthM(weg), NavRepository.target.value!!.distanceM, 1.0)
+        NavRepository.clear()
+    }
+
+    @Test
+    fun `entlang der Route wird die Reststrecke kuerzer`() {
+        val weg = listOf(
+            LatLon(53.2000, 7.5000), LatLon(53.2100, 7.5000),
+            LatLon(53.2200, 7.5000), LatLon(53.2300, 7.5000),
+        )
+        val ganz = remainingAlong(weg, weg.first())
+        val halb = remainingAlong(weg, weg[2])
+        assert(halb < ganz) { "Reststrecke muss beim Folgen kleiner werden" }
+        assertEquals(0.0, remainingAlong(weg, weg.last()), 1.0)
     }
 
     @Test
