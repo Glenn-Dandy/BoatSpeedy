@@ -25,6 +25,21 @@ class MeterParserTest {
         assertEquals(13.3f, d!!.voltage, 0.01f)
         assertEquals(0.0f, d.currentA, 0.01f)
         assertEquals(0.120f, d.energyKWh!!, 0.0001f)
+        // SoC und Rest wurden nachträglich gefunden. Beleg: 90,9 Ah von 100 Ah sind
+        // 90,9 % — und genau 90 % meldet das Gerät auf Byte 4. Das passt nicht zufällig.
+        assertEquals(90, d.soc)
+        assertEquals(90.9f, d.remainingAh, 0.01f)
+    }
+
+    @Test
+    fun `Entladen wird negativ gemeldet`() {
+        // Betrag 9,5 A im Frame → −9,5 A in der App (BoatSpeedy: negativ = Entladen).
+        val f = bytes("B5 5B 01 01 5B 03 91 00 84 00 5F 00 00 00 00 00 79 00 00 00 00")
+        val d = MeterProtocol().onChunk(f, BatteryData())!!
+        assertEquals(-9.5f, d.currentA, 0.01f)
+        assertEquals(91, d.soc)
+        assertEquals(91.3f, d.remainingAh, 0.01f)
+        assertEquals(13.2f, d.voltage, 0.01f)
     }
 
     @Test

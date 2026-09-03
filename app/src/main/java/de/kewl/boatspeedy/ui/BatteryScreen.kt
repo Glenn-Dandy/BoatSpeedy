@@ -373,12 +373,13 @@ private fun BatteryDetailCard(
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
-                return@Column
             }
-            ValueRow(stringResource(R.string.bat_power), fmt0(kotlin.math.abs(d.powerW), "W"))
-            ValueRow(stringResource(R.string.bat_voltage), fmt(d.voltage, "V"))
-            ValueRow(stringResource(R.string.bat_current), fmt(d.currentA, "A"))
-            ValueRow(stringResource(R.string.bat_soc), "${d.soc} %")
+            // Auch ohne Verbindung werden alle Zeilen gezeigt, nur eben mit „--". Sonst
+            // sieht man gar nicht, was das Gerät überhaupt liefern kann.
+            ValueRow(stringResource(R.string.bat_power), d?.let { fmt0(kotlin.math.abs(it.powerW), "W") } ?: "--")
+            ValueRow(stringResource(R.string.bat_voltage), d?.let { fmt(it.voltage, "V") } ?: "--")
+            ValueRow(stringResource(R.string.bat_current), d?.let { fmt(it.currentA, "A") } ?: "--")
+            ValueRow(stringResource(R.string.bat_soc), d?.let { "${it.soc} %" } ?: "--")
             // Rest und Temperatur immer zeigen – „--", solange das BMS nichts liefert.
             // Die Nennkapazität nur als Bezug zeigen, solange sie einer sein kann.
             // Manche BMS (Redodo) haben eine zu klein hinterlegte Kapazität, dann steht
@@ -386,7 +387,7 @@ private fun BatteryDetailCard(
             ValueRow(
                 stringResource(R.string.bat_remaining),
                 when {
-                    d.remainingAh <= 0f && d.nominalAh <= 0f -> "--"
+                    d == null || (d.remainingAh <= 0f && d.nominalAh <= 0f) -> "--"
                     d.nominalAh >= d.remainingAh && d.nominalAh > 0f ->
                         fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah")
                     else -> fmt(d.remainingAh, "Ah")
@@ -394,29 +395,34 @@ private fun BatteryDetailCard(
             )
             ValueRow(
                 stringResource(R.string.bat_temp),
-                d.tempC?.let { fmt(it, "°C") } ?: "--",
+                d?.tempC?.let { fmt(it, "°C") } ?: "--",
             )
-            d.energyKWh?.let {
-                ValueRow(stringResource(R.string.bat_energy_total), fmt(it, "kWh"))
+            if (saved.bms == BmsType.METER) {
+                ValueRow(
+                    stringResource(R.string.bat_energy_total),
+                    d?.energyKWh?.let { fmt(it, "kWh") } ?: "--",
+                )
             }
             if (saved.bms == BmsType.METER) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 // Die Befehle verstellen den Zähler im Gerät und lassen sich nicht
                 // zurücknehmen – deshalb wird vorher gefragt, wie beim Löschen von Fahrten.
                 Text(stringResource(R.string.meter_actions), style = MaterialTheme.typography.titleSmall)
+                // Ohne Verbindung sichtbar, aber ausgegraut – man sieht, was es gibt,
+                // und dass es gerade nicht geht.
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { confirmCmd = MeterCmd.ZERO }) {
+                    TextButton(enabled = d != null, onClick = { confirmCmd = MeterCmd.ZERO }) {
                         Text(stringResource(R.string.meter_zero))
                     }
-                    TextButton(onClick = { confirmCmd = MeterCmd.FULL }) {
+                    TextButton(enabled = d != null, onClick = { confirmCmd = MeterCmd.FULL }) {
                         Text(stringResource(R.string.meter_full))
                     }
-                    TextButton(onClick = { confirmCmd = MeterCmd.CLEAR }) {
+                    TextButton(enabled = d != null, onClick = { confirmCmd = MeterCmd.CLEAR }) {
                         Text(stringResource(R.string.meter_clear))
                     }
                 }
             }
-            if (d.cycles != null || d.dischargedAhTotal != null) {
+            if (d != null && (d.cycles != null || d.dischargedAhTotal != null)) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text(stringResource(R.string.bat_history), style = MaterialTheme.typography.titleSmall)
                 d.cycles?.let { ValueRow(stringResource(R.string.bat_cycles), "$it") }
@@ -424,7 +430,7 @@ private fun BatteryDetailCard(
                     ValueRow(stringResource(R.string.bat_discharged_total), fmt0(it, "Ah"))
                 }
             }
-            if (d.cells.isNotEmpty()) {
+            if (d != null && d.cells.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text(stringResource(R.string.bat_cells), style = MaterialTheme.typography.titleSmall)
                 d.cells.forEachIndexed { i, v ->

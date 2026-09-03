@@ -44,8 +44,17 @@ class MeterProtocol : BmsProtocol() {
     }
 
     private fun parse(f: ByteArray, current: BatteryData): BatteryData = current.copy(
+        soc = f[4].toInt() and 0xFF,
+        remainingAh = be(f, 5) / 10f,
         voltage = be(f, 7) / 10f,
-        currentA = be(f, 9) / 10f,
+        // VORLÄUFIG NEGATIV. Das Gerät meldet nur den Betrag; die Richtung steht in der
+        // Hersteller-App als „Chg/Dchg", im Frame haben wir sie noch nicht gefunden —
+        // der einzige Mitschnitt bisher lag bei 0,0 A.
+        //
+        // Bis das geklärt ist, wird als Entladen gemeldet. Nicht aus Bequemlichkeit,
+        // sondern weil der umgekehrte Fehler teurer ist: als „Laden" gelesen schaltet die
+        // App in den Lademodus und stellt das GPS ab — mitten in der Fahrt.
+        currentA = -be(f, 9) / 10f,
         energyKWh = be(f, 15) / 1000f,
     )
 

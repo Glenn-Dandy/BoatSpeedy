@@ -6,7 +6,8 @@ cycle is not a change and does not appear here.
 ### Added
 
 - **Coulometers are supported** — the Hall-sensor kind that reports as `WBMS` over a CH9141 radio.
-  It is not a BMS: it gives voltage, current and the energy it has counted, nothing else,
+  It reports state of charge, remaining amp hours, voltage, current and the energy it has
+  counted — but no cell voltages, no temperature and no capacity of its own,
   and it sends by itself every few seconds rather than answering questions. Its three
   settings — zero the current, mark the battery full, clear the counted energy — sit in
   the battery card and ask before they are sent, since none of them can be undone.
