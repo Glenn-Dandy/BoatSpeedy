@@ -317,4 +317,7 @@
     <string name="meter_zero_confirm">Take the present reading as zero current? Do this only with nothing flowing, or every later reading will be off.</string>
     <string name="meter_full_confirm">Tell the meter the battery is full right now?</string>
     <string name="meter_clear_confirm">Reset the counted energy to zero? The previous total is gone.</string>
+    <string name="nav_locks">%1$d locks</string>
+    <string name="nav_weirs">%1$d weirs on the way</string>
+    <string name="nav_weather">Weather</string>
 </resources>

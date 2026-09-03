@@ -62,6 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kewl.boatspeedy.nav.NavMode
 import de.kewl.boatspeedy.nav.NavRepository
 import de.kewl.boatspeedy.nav.NavTarget
+import de.kewl.boatspeedy.nav.ObstacleKind
 import de.kewl.boatspeedy.nav.RouteError
 import de.kewl.boatspeedy.nav.RouteResult
 import de.kewl.boatspeedy.nav.WaterRouter
@@ -84,11 +85,16 @@ fun LiveMapScreen(
     /** Verbrauch der laufenden Fahrt, um den Bedarf bis zum Ziel zu schätzen. */
     tripDistanceM: Double = 0.0,
     tripChargeAh: Float = 0f,
+    /**
+     * Wetteransicht: dieselbe Karte, aber das Radar ist von vornherein an und lässt sich
+     * nicht abschalten. So gibt es die Karte einmal und nicht zweimal fast gleich.
+     */
+    weatherMode: Boolean = false,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     var follow by remember { mutableStateOf(true) }
-    var showWeather by remember { mutableStateOf(false) }
+    var showWeather by remember { mutableStateOf(weatherMode) }
     var showLightning by remember { mutableStateOf(false) }
     // Start pausiert auf „Jetzt": während der Pause lädt der Preload alle Frames im
     // Hintergrund; „Play" läuft dann sofort flüssig.
@@ -142,7 +148,10 @@ fun LiveMapScreen(
             routing = false
             when (result) {
                 is RouteResult.Ok -> NavRepository.set(
-                    NavTarget(at, mode, result.path, pathLengthM(result.path), result.water),
+                    NavTarget(
+                        at, mode, result.path, pathLengthM(result.path),
+                        result.water, result.obstacles,
+                    ),
                 )
                 is RouteResult.Failed -> routeError = result.reason
             }
@@ -162,15 +171,19 @@ fun LiveMapScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.live_map)) },
+                title = { Text(stringResource(if (weatherMode) R.string.nav_weather else R.string.live_map)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
-                    IconToggleButton(checked = showWeather, onCheckedChange = { showWeather = it }) {
-                        Icon(Icons.Filled.Cloud, contentDescription = stringResource(R.string.weather_show))
+                    // In der Wetteransicht ist das Radar der Zweck – da braucht es keinen
+                    // Schalter, der es abstellt.
+                    if (!weatherMode) {
+                        IconToggleButton(checked = showWeather, onCheckedChange = { showWeather = it }) {
+                            Icon(Icons.Filled.Cloud, contentDescription = stringResource(R.string.weather_show))
+                        }
                     }
                 },
             )
@@ -199,7 +212,11 @@ fun LiveMapScreen(
                 onLongPress = { lat, lon -> askTarget = LatLon(lat, lon) },
                 navPath = navTarget?.path.orEmpty(),
                 navWaterPath = navTarget?.water.orEmpty(),
+                obstacles = navTarget?.obstacles.orEmpty(),
                 courseDeg = course?.deg,
+                // Nur in Fahrt weich nachziehen – „stale" heißt: das GPS liefert
+                // gerade keinen brauchbaren Kurs, also steht das Boot.
+                smoothFollow = course?.stale == false,
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -240,10 +257,17 @@ fun LiveMapScreen(
                             fontWeight = FontWeight.SemiBold,
                         )
                         if (t.mode == NavMode.ROUTE) {
+                            val locks = t.obstacles.count { it.kind == ObstacleKind.LOCK || it.kind == ObstacleKind.SLUICE }
+                            val weirs = t.obstacles.count { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
                             Text(
-                                "  " + stringResource(R.string.nav_route),
+                                "  " + when {
+                                    weirs > 0 -> stringResource(R.string.nav_weirs, weirs)
+                                    locks > 0 -> stringResource(R.string.nav_locks, locks)
+                                    else -> stringResource(R.string.nav_route)
+                                },
                                 fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                color = if (weirs > 0) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                             )
                         }
                         IconButton(onClick = { NavRepository.clear() }) {

@@ -314,4 +314,7 @@
     <string name="meter_zero_confirm">Den aktuellen Messwert als Nullpunkt übernehmen? Nur machen, wenn gerade kein Strom fließt — sonst sind alle späteren Werte verschoben.</string>
     <string name="meter_full_confirm">Dem Messgerät sagen, dass die Batterie jetzt voll ist?</string>
     <string name="meter_clear_confirm">Die gezählte Energie auf null zurücksetzen? Der bisherige Stand ist damit weg.</string>
+    <string name="nav_locks">%1$d Schleusen</string>
+    <string name="nav_weirs">%1$d Wehre im Weg</string>
+    <string name="nav_weather">Wetter</string>
 </resources>

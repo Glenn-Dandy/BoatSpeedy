@@ -46,6 +46,10 @@ cycle is not a change and does not appear here.
   metres in practice, does not leave the route standing while you are already there. It
   says "destination reached" when it goes, so its disappearance is never a mystery.
 
+- **A Weather entry in the menu** showing the map with the rain radar already running. The
+  radar moved out of the live map, which is for getting somewhere.
+- **The map glides instead of jumping** while under way. Below walking pace it still snaps:
+  GPS wanders a few metres when you are stopped, and animating that looks like drifting.
 - **A course arrow.** The position marker turns the way you are travelling, and next to
   the destination an arrow shows how far to turn to head straight at it — upright means the
   course is right, to the right means starboard. It is the difference from your course, not
@@ -54,6 +58,12 @@ cycle is not a change and does not appear here.
 
   On the dashboard the destination gets its own line under the speed, showing the arrow,
   the distance and the estimated amp hours. It appears only while a destination is set.
+
+  A route also reports the **locks and weirs** it passes, fetched in the same request that
+  builds it. Locks cost time; a weir usually means the way is closed, so it is called out
+  in red. Around Leer alone the map knows 57 lock gates and 44 weirs, many of them named,
+  so this is not a theoretical feature — but it reports what the map knows, and a weir
+  missing from the data cannot be reported at all.
 
   It is a suggestion, not a fairway: the map data knows nothing about depth, clearance or
   locks, and how complete it is varies from place to place.

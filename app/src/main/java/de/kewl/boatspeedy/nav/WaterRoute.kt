@@ -9,6 +9,12 @@ import java.util.PriorityQueue
 /** Ein Punkt auf der Karte – bewusst ohne osmdroid-Typen, damit das hier testbar bleibt. */
 data class LatLon(val lat: Double, val lon: Double)
 
+/** Was auf dem Weg liegen kann. Ein Wehr heißt in aller Regel: hier ist Schluss. */
+enum class ObstacleKind { LOCK, WEIR, SLUICE, DAM }
+
+/** Eine Schleuse, ein Wehr oder Ähnliches auf der Route. */
+data class Obstacle(val lat: Double, val lon: Double, val kind: ObstacleKind, val name: String?)
+
 /** Wie zum Ziel gerechnet wird. */
 enum class NavMode { LINE, ROUTE }
 
@@ -24,6 +30,8 @@ data class NavTarget(
     val distanceM: Double,
     /** Der Teil entlang des Fahrwassers; der Rest davor und danach ist Luftlinie. */
     val water: List<LatLon> = emptyList(),
+    /** Schleusen und Wehre, die auf dem Weg liegen. */
+    val obstacles: List<Obstacle> = emptyList(),
 )
 
 /**
@@ -95,7 +103,11 @@ fun pathLengthM(path: List<LatLon>): Double =
 enum class RouteError { TOO_FAR, NO_NETWORK, NO_WATERWAYS, NOT_ON_WATER, NO_CONNECTION }
 
 sealed interface RouteResult {
-    data class Ok(val path: List<LatLon>, val water: List<LatLon>) : RouteResult
+    data class Ok(
+        val path: List<LatLon>,
+        val water: List<LatLon>,
+        val obstacles: List<Obstacle>,
+    ) : RouteResult
     data class Failed(val reason: RouteError) : RouteResult
 }
 
@@ -130,6 +142,15 @@ object WaterRouter {
      * hinzuzufügen.
      */
     private val WATERWAYS = "river|canal|fairway"
+
+    /**
+     * Was den Weg versperren oder aufhalten kann. Schleusen kosten Zeit, ein Wehr ist in
+     * aller Regel das Ende der Fahrt — und die Route allein würde beides verschweigen.
+     */
+    private val OBSTACLES = "lock_gate|weir|dam|sluice_gate"
+
+    /** Bis zu dieser Entfernung vom Weg zählt ein Hindernis als „liegt darauf". */
+    private const val OBSTACLE_NEAR_M = 40.0
 
     /**
      * Wie weit Start und Ziel vom verzeichneten Wasserweg entfernt liegen dürfen. Diese
@@ -172,7 +193,12 @@ object WaterRouter {
             ?: return RouteResult.Failed(RouteError.NO_CONNECTION)
         // Anfahrt und Auslauf sind Luftlinie – sie werden getrennt zurückgegeben, damit die
         // Karte sie anders zeichnen kann: dort fährt man auf eigene Rechnung.
-        return RouteResult.Ok(path = listOf(from) + water + listOf(to), water = water)
+        val full = listOf(from) + water + listOf(to)
+        return RouteResult.Ok(
+            path = full,
+            water = water,
+            obstacles = onPath(parseObstacles(json), water),
+        )
     }
 
     /* ------------------------------ Daten holen ------------------------------ */
@@ -182,9 +208,15 @@ object WaterRouter {
         val north = maxOf(from.lat, to.lat) + BBOX_PADDING_DEG
         val west = minOf(from.lon, to.lon) - BBOX_PADDING_DEG
         val east = maxOf(from.lon, to.lon) + BBOX_PADDING_DEG
+        // Wasserwege und Hindernisse in **einer** Anfrage – eine zweite würde noch einmal
+        // zwei bis vier Sekunden kosten.
         val query = """
             [out:json][timeout:30];
-            way["waterway"~"^($WATERWAYS)${'$'}"]($south,$west,$north,$east);
+            (
+              way["waterway"~"^($WATERWAYS)${'$'}"]($south,$west,$north,$east);
+              node["waterway"~"^($OBSTACLES)${'$'}"]($south,$west,$north,$east);
+              way["waterway"~"^($OBSTACLES)${'$'}"]($south,$west,$north,$east);
+            );
             out geom;
         """.trimIndent()
         return runCatching {
@@ -209,13 +241,51 @@ object WaterRouter {
     private fun parseWays(json: String): List<List<Node>> = runCatching {
         val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptyList()
         (0 until elements.length()).mapNotNull { i ->
-            val geom = elements.getJSONObject(i).optJSONArray("geometry") ?: return@mapNotNull null
+            val el = elements.getJSONObject(i)
+            if (el.optJSONObject("tags")?.optString("waterway") !in NAVIGABLE) return@mapNotNull null
+            val geom = el.optJSONArray("geometry") ?: return@mapNotNull null
             (0 until geom.length()).map { g ->
                 val p = geom.getJSONObject(g)
                 Node.of(p.getDouble("lat"), p.getDouble("lon"))
             }.takeIf { it.size >= 2 }
         }
     }.getOrDefault(emptyList())
+
+    private val NAVIGABLE = setOf("river", "canal", "fairway")
+
+    /** Hindernisse aus derselben Antwort lesen; Wege werden auf ihren Mittelpunkt reduziert. */
+    private fun parseObstacles(json: String): List<Obstacle> = runCatching {
+        val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptyList()
+        (0 until elements.length()).mapNotNull { i ->
+            val el = elements.getJSONObject(i)
+            val tags = el.optJSONObject("tags") ?: return@mapNotNull null
+            val kind = when (tags.optString("waterway")) {
+                "lock_gate" -> ObstacleKind.LOCK
+                "weir" -> ObstacleKind.WEIR
+                "sluice_gate" -> ObstacleKind.SLUICE
+                "dam" -> ObstacleKind.DAM
+                else -> return@mapNotNull null
+            }
+            val lat: Double
+            val lon: Double
+            if (el.has("lat")) {
+                lat = el.getDouble("lat"); lon = el.getDouble("lon")
+            } else {
+                val geom = el.optJSONArray("geometry") ?: return@mapNotNull null
+                if (geom.length() == 0) return@mapNotNull null
+                val mid = geom.getJSONObject(geom.length() / 2)
+                lat = mid.getDouble("lat"); lon = mid.getDouble("lon")
+            }
+            Obstacle(lat, lon, kind, tags.optString("name").takeIf { it.isNotBlank() })
+        }
+    }.getOrDefault(emptyList())
+
+    /** Welche Hindernisse dicht genug am Weg liegen, um ihn zu betreffen. */
+    private fun onPath(all: List<Obstacle>, path: List<LatLon>): List<Obstacle> =
+        all.filter { o ->
+            val p = LatLon(o.lat, o.lon)
+            path.any { distanceM(it, p) <= OBSTACLE_NEAR_M }
+        }.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) }
 
     /* ------------------------------ Wegenetz ------------------------------ */
 

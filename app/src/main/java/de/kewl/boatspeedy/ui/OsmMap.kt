@@ -63,6 +63,10 @@ fun OsmMap(
     navWaterPath: List<LatLon> = emptyList(),
     /** Kurs über Grund in Grad; dreht den Positionsmarker in Fahrtrichtung. */
     courseDeg: Float? = null,
+    /** Schleusen und Wehre auf der Route. */
+    obstacles: List<de.kewl.boatspeedy.nav.Obstacle> = emptyList(),
+    /** In Fahrt weich nachziehen statt springen. */
+    smoothFollow: Boolean = false,
 ) {
     val context = LocalContext.current
     val pointsState = rememberUpdatedState(points)
@@ -305,6 +309,29 @@ fun OsmMap(
         mapView.invalidate()
     }
 
+    // Schleusen und Wehre als eigene Marker; Wehre in Rot, weil sie meist das Ende sind.
+    val obstacleMarkers = remember(mapView) { mutableListOf<Marker>() }
+    LaunchedEffect(obstacles) {
+        obstacleMarkers.forEach { mapView.overlays.remove(it) }
+        obstacleMarkers.clear()
+        obstacles.forEach { o ->
+            val m = Marker(mapView).apply {
+                position = GeoPoint(o.lat, o.lon)
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                icon = ContextCompat.getDrawable(
+                    context,
+                    if (o.kind == de.kewl.boatspeedy.nav.ObstacleKind.WEIR ||
+                        o.kind == de.kewl.boatspeedy.nav.ObstacleKind.DAM
+                    ) R.drawable.ic_obstacle_weir else R.drawable.ic_obstacle_lock,
+                )
+                title = o.name
+            }
+            obstacleMarkers.add(m)
+            mapView.overlays.add(m)
+        }
+        mapView.invalidate()
+    }
+
     // Langer Druck auf die Karte → Ziel setzen.
     DisposableEffect(onLongPress) {
         val overlay = onLongPress?.let { cb ->
@@ -402,7 +429,15 @@ fun OsmMap(
                 mapView.controller.setCenter(target)
                 centered = true
             } else if (follow) {
-                mapView.controller.setCenter(target) // ohne Animation → kein Dauer-„Gleiten"
+                // In Fahrt weich nachziehen, im Stand hart setzen. Der Grund fürs
+                // Umschalten: unter Schrittgeschwindigkeit springt die GPS-Position um
+                // wenige Meter, und animiertes Zittern sieht aus wie Driften. Die Dauer
+                // liegt knapp unter dem GPS-Takt, sonst überholen sich die Animationen.
+                if (smoothFollow) {
+                    mapView.controller.animateTo(target, mapView.zoomLevelDouble, 900L)
+                } else {
+                    mapView.controller.setCenter(target)
+                }
             }
         }
         mapView.invalidate()

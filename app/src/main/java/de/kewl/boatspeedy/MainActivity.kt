@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Anchor
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Route
@@ -83,7 +84,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_APPEARANCE, SETTINGS_DEV, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_APPEARANCE, SETTINGS_DEV, WEATHER, ABOUT }
 
 class MainActivity : ComponentActivity() {
     // Von außen zum Import übergebene GPX-Datei (Öffnen-mit / Teilen an BoatSpeedy).
@@ -304,6 +305,7 @@ private fun BoatSpeedyApp(
                         DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen.name.startsWith("TRIP")) { goTo(Screen.TRIPS) }
                         DrawerItem(R.string.nav_battery, Icons.Filled.BatteryFull, screen == Screen.BATTERY) { goTo(Screen.BATTERY) }
                         DrawerItem(R.string.nav_anchor, Icons.Filled.Anchor, screen == Screen.ANCHOR) { goTo(Screen.ANCHOR) }
+                        DrawerItem(R.string.nav_weather, Icons.Filled.Cloud, screen == Screen.WEATHER) { goTo(Screen.WEATHER) }
                         HorizontalDivider()
                         DrawerItem(R.string.settings, Icons.Filled.Settings, screen.name.startsWith("SETTINGS")) { goTo(Screen.SETTINGS) }
                         DrawerItem(R.string.about, Icons.Filled.Info, screen == Screen.ABOUT) { goTo(Screen.ABOUT) }
@@ -446,6 +448,17 @@ private fun BoatSpeedyApp(
                         onOpenMenu = { openDrawer() },
                         devMode = settings.devMode,
                         onDevMode = vm::setDevMode,
+                    )
+
+                    Screen.WEATHER -> LiveMapScreen(
+                        currentLat = gps.latitude,
+                        currentLon = gps.longitude,
+                        points = livePoints,
+                        settings = settings,
+                        tripDistanceM = tripStats.distanceM,
+                        tripChargeAh = tripStats.chargeAh,
+                        weatherMode = true,
+                        onBack = { screen = Screen.SPEED },
                     )
 
                     Screen.LIVE_MAP -> LiveMapScreen(
