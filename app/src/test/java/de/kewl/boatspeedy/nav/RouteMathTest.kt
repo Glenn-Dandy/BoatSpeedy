@@ -41,6 +41,41 @@ class RouteMathTest {
     }
 
     @Test
+    fun `Weg beginnt an der Position und wird kuerzer`() {
+        val ziel = LatLon(53.2500, 7.5000)
+        NavRepository.set(NavTarget(ziel, NavMode.LINE, listOf(LatLon(53.2000, 7.5000), ziel), 0.0))
+
+        NavRepository.onLocation(53.2000, 7.5000)
+        val weit = NavRepository.target.value!!.distanceM
+
+        NavRepository.onLocation(53.2200, 7.5000)   // ein Stück näher
+        val naeher = NavRepository.target.value!!.distanceM
+        assert(naeher < weit) { "Entfernung muss beim Näherkommen kleiner werden" }
+
+        NavRepository.onLocation(53.1900, 7.5000)   // wieder weiter weg
+        assert(NavRepository.target.value!!.distanceM > weit) { "und beim Entfernen größer" }
+
+        // Die Linie hängt am Boot, nicht am ursprünglichen Startpunkt.
+        val p = NavRepository.target.value!!.path
+        assertEquals(53.1900, p.first().lat, 0.0001)
+        assertEquals(ziel, p.last())
+        NavRepository.clear()
+    }
+
+    @Test
+    fun `Zurueckgelegtes fällt vom Weg weg`() {
+        val weg = listOf(
+            LatLon(53.2000, 7.5000), LatLon(53.2100, 7.5000),
+            LatLon(53.2200, 7.5000), LatLon(53.2300, 7.5000),
+        )
+        // Auf Höhe des zweiten Punktes bleibt nur der Rest dahinter.
+        val rest = trimBehind(weg, LatLon(53.2105, 7.5000))
+        assertEquals(listOf(weg[2], weg[3]), rest)
+        // Am Ende bleibt der letzte Punkt stehen, damit der Weg nicht leer wird.
+        assertEquals(listOf(weg.last()), trimBehind(weg, LatLon(53.2300, 7.5000)))
+    }
+
+    @Test
     fun `ein einzelner Punkt hat keine Laenge`() {
         assertEquals(0.0, pathLengthM(listOf(LatLon(53.0, 7.0))), 0.0)
         assertEquals(0.0, pathLengthM(emptyList()), 0.0)

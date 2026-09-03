@@ -71,6 +71,23 @@ fun relativeBearing(courseDeg: Float, targetBearingDeg: Float): Float {
     return d
 }
 
+/**
+ * Schneidet vom Weg ab, was hinter uns liegt: gesucht wird der nächstgelegene Punkt, alles
+ * davor entfällt. Ohne das bliebe der gezeichnete Weg unverändert stehen und die Entfernung
+ * gleich, während man sich dem Ziel längst nähert.
+ */
+fun trimBehind(path: List<LatLon>, from: LatLon): List<LatLon> {
+    if (path.size <= 1) return path
+    var best = 0
+    var bestD = Double.MAX_VALUE
+    path.forEachIndexed { i, p ->
+        val d = distanceM(p, from)
+        if (d < bestD) { bestD = d; best = i }
+    }
+    // Den erreichten Punkt selbst weglassen – sonst zeigt die Linie kurz zurück.
+    return if (best + 1 <= path.lastIndex) path.subList(best + 1, path.size) else listOf(path.last())
+}
+
 fun pathLengthM(path: List<LatLon>): Double =
     path.zipWithNext().sumOf { (a, b) -> distanceM(a, b) }
 

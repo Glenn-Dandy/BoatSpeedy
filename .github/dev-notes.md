@@ -36,6 +36,10 @@ cycle is not a change and does not appear here.
   The position marker is an arrow that turns the way you are travelling, on the dashboard
   tile as well as the full map, and the destination is a flag rather than another pin.
 
+  The line is tied to the boat, not to where you set out from: it starts at the arrow and
+  the distance follows you, shrinking as you close in and growing if you turn away. On a
+  route the part already behind you drops off, so what is drawn is what is left.
+
   The destination belongs to the trip, not to the screen: it survives switching between
   dashboard and map, shows up on the small map tile too, and stays until you remove it or
   come within ten metres of it — close enough that GPS accuracy, which is three to ten

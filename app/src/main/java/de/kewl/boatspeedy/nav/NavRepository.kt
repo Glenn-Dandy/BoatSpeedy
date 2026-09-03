@@ -60,11 +60,29 @@ object NavRepository {
      * Aktuelle Position einspeisen. Räumt das Ziel ab, sobald es erreicht ist, und gibt
      * dann true zurück.
      */
+    /**
+     * Aktuelle Position einspeisen. Räumt das Ziel ab, sobald es erreicht ist, und gibt
+     * dann true zurück.
+     *
+     * Nebenbei wird der Weg **nachgeführt**: er beginnt immer an der aktuellen Position,
+     * Zurückgelegtes fällt weg, und die Entfernung schrumpft entsprechend — beim Näherkommen
+     * wie beim Entfernen. Vorher stand beides starr, wie es einmal berechnet worden war.
+     */
     fun onLocation(lat: Double, lon: Double): Boolean {
         val t = _target.value ?: return false
-        if (distanceM(LatLon(lat, lon), t.target) > ARRIVE_M) return false
-        _target.value = null
-        _arrived.value = _arrived.value + 1
-        return true
+        val here = LatLon(lat, lon)
+        if (distanceM(here, t.target) <= ARRIVE_M) {
+            _target.value = null
+            _arrived.value = _arrived.value + 1
+            return true
+        }
+        val water = if (t.mode == NavMode.ROUTE && t.water.size >= 2) {
+            trimBehind(t.water, here)
+        } else {
+            emptyList()
+        }
+        val path = listOf(here) + water + listOf(t.target)
+        _target.value = t.copy(path = path, water = water, distanceM = pathLengthM(path))
+        return false
     }
 }
