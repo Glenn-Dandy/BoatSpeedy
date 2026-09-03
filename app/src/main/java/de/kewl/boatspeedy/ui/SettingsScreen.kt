@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DirectionsBoat
 import androidx.compose.material.icons.filled.DeveloperMode
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GpsFixed
@@ -53,6 +54,7 @@ import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.data.AlarmSound
 import de.kewl.boatspeedy.data.NotifField
 import de.kewl.boatspeedy.data.RangeSmoothing
+import de.kewl.boatspeedy.data.Craft
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.SpeedUnit
@@ -74,6 +76,7 @@ fun SettingsHomeScreen(
     onAppearance: () -> Unit,
     onTracks: () -> Unit,
     onGps: () -> Unit,
+    onNavigation: () -> Unit,
     onOpenMenu: () -> Unit,
     showDeveloper: Boolean = false,
     onDeveloper: () -> Unit = {},
@@ -116,6 +119,13 @@ fun SettingsHomeScreen(
             stringResource(R.string.group_tracks),
             stringResource(R.string.cat_tracks_desc),
             onTracks,
+        )
+        HorizontalDivider()
+        CategoryRow(
+            Icons.Filled.DirectionsBoat,
+            stringResource(R.string.group_navigation),
+            stringResource(R.string.cat_navigation_desc),
+            onNavigation,
         )
         HorizontalDivider()
         CategoryRow(
@@ -389,6 +399,49 @@ fun TracksSettingsScreen(
 }
 
 /* ---------------------------- Appearance ----------------------------- */
+
+/* ----------------------------- Navigation ----------------------------- */
+
+@Composable
+fun NavigationSettingsScreen(
+    settings: Settings,
+    onCraft: (Craft) -> Unit,
+    onSeamarks: (Boolean) -> Unit,
+    onBack: () -> Unit,
+) {
+    SettingsScaffold(stringResource(R.string.group_navigation), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
+        SegmentedRow(
+            label = stringResource(R.string.nav_craft),
+            options = listOf(Craft.MOTORBOAT, Craft.CANOE),
+            selected = settings.craft,
+            labelOf = {
+                when (it) {
+                    Craft.MOTORBOAT -> stringResource(R.string.craft_motorboat)
+                    Craft.CANOE -> stringResource(R.string.craft_canoe)
+                }
+            },
+            onSelect = onCraft,
+        )
+        HintText(stringResource(R.string.nav_craft_hint))
+        HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+        SwitchRow(stringResource(R.string.nav_seamarks), settings.seamarks, onSeamarks)
+        HintText(stringResource(R.string.nav_seamarks_hint))
+        // Der Hinweis stammt von OpenSeaMap selbst und gehört sichtbar in die App.
+        HintText(stringResource(R.string.nav_seamarks_disclaimer))
+    }
+}
+
+@Composable
+private fun HintText(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        modifier = Modifier.padding(bottom = 8.dp),
+    )
+}
+
+/* ----------------------------- Darstellung ----------------------------- */
 
 @Composable
 fun AppearanceSettingsScreen(

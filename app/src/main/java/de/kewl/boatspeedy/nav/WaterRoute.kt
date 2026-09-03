@@ -1,5 +1,6 @@
 package de.kewl.boatspeedy.nav
 
+import de.kewl.boatspeedy.data.Craft
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -148,6 +149,18 @@ object WaterRouter {
     private val WATERWAYS = "river|canal|fairway"
 
     /**
+     * Für ein Kanu zählt zusätzlich der Bach: schmal, oft nur zeitweise befahrbar, für ein
+     * Motorboot aber wertlos. Nur deshalb hängt die Abfrage überhaupt am Fahrzeug.
+     */
+    private val WATERWAYS_CANOE = "river|canal|fairway|stream"
+
+    private fun waterwaysFor(craft: Craft) =
+        if (craft == Craft.CANOE) WATERWAYS_CANOE else WATERWAYS
+
+    private fun navigableFor(craft: Craft) =
+        if (craft == Craft.CANOE) NAVIGABLE + "stream" else NAVIGABLE
+
+    /**
      * Was den Weg versperren oder aufhalten kann. Schleusen kosten Zeit, ein Wehr ist in
      * aller Regel das Ende der Fahrt — und die Route allein würde beides verschweigen.
      */
@@ -162,16 +175,21 @@ object WaterRouter {
      * gesperrte Abschnitte — im Testgebiet trugen von 307 befahrbar getaggten Wegen 65 ein
      * `tunnel=culvert`, 43 ein `boat=no` und 29 ein `motorboat=no`. Genau so kommt eine
      * Route zustande, die an der Schleuse vorbeiführt statt hindurch.
+     *
+     * Die Verbote hängen am Fahrzeug: `motorboat=no` sperrt 45 Wege im Testgebiet, `canoe=no`
+     * andere 26 — beide pauschal zu verwerfen nähme jedem Fahrzeug Strecken weg, die ihm
+     * ausdrücklich offenstehen.
      */
-    private fun isForbidden(tags: JSONObject?): Boolean {
+    private fun isForbidden(tags: JSONObject?, craft: Craft): Boolean {
         if (tags == null) return false
         if (tags.optString("boat") == "no") return true
-        if (tags.optString("motorboat") == "no") return true
-        if (tags.optString("ship") == "no") return true
         if (tags.optString("access") in setOf("no", "private")) return true
         // Ein Rohr unter einer Straße ist kein Fahrwasser.
         if (tags.optString("tunnel") in setOf("culvert", "pipe", "building_passage")) return true
-        return false
+        return when (craft) {
+            Craft.MOTORBOAT -> tags.optString("motorboat") == "no" || tags.optString("ship") == "no"
+            Craft.CANOE -> tags.optString("canoe") == "no"
+        }
     }
 
     /**
@@ -187,13 +205,13 @@ object WaterRouter {
      */
     private fun maxSnapM(directM: Double) = (directM * 0.35).coerceIn(800.0, 5_000.0)
 
-    fun route(from: LatLon, to: LatLon): RouteResult {
+    fun route(from: LatLon, to: LatLon, craft: Craft = Craft.MOTORBOAT): RouteResult {
         val direct = distanceM(from, to)
         if (direct > MAX_DISTANCE_M) return RouteResult.Failed(RouteError.TOO_FAR)
         val maxSnap = maxSnapM(direct)
 
-        val json = fetch(from, to) ?: return RouteResult.Failed(RouteError.NO_NETWORK)
-        val ways = parseWays(json)
+        val json = fetch(from, to, craft) ?: return RouteResult.Failed(RouteError.NO_NETWORK)
+        val ways = parseWays(json, craft)
         if (ways.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
         val graph = buildGraph(ways, barrierNodes(json))
@@ -225,7 +243,7 @@ object WaterRouter {
 
     /* ------------------------------ Daten holen ------------------------------ */
 
-    private fun fetch(from: LatLon, to: LatLon): String? {
+    private fun fetch(from: LatLon, to: LatLon, craft: Craft): String? {
         val south = minOf(from.lat, to.lat) - BBOX_PADDING_DEG
         val north = maxOf(from.lat, to.lat) + BBOX_PADDING_DEG
         val west = minOf(from.lon, to.lon) - BBOX_PADDING_DEG
@@ -235,7 +253,7 @@ object WaterRouter {
         val query = """
             [out:json][timeout:30];
             (
-              way["waterway"~"^($WATERWAYS)${'$'}"]($south,$west,$north,$east);
+              way["waterway"~"^(${waterwaysFor(craft)})${'$'}"]($south,$west,$north,$east);
               node["waterway"~"^($OBSTACLES)${'$'}"]($south,$west,$north,$east);
               way["waterway"~"^($OBSTACLES)${'$'}"]($south,$west,$north,$east);
               node["seamark:notice:category"="no_entry"]($south,$west,$north,$east);
@@ -262,13 +280,13 @@ object WaterRouter {
         }.getOrNull()
     }
 
-    private fun parseWays(json: String): List<List<Node>> = runCatching {
+    private fun parseWays(json: String, craft: Craft): List<List<Node>> = runCatching {
         val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptyList()
         (0 until elements.length()).mapNotNull { i ->
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags")
-            if (tags?.optString("waterway") !in NAVIGABLE) return@mapNotNull null
-            if (isForbidden(tags)) return@mapNotNull null
+            if (tags?.optString("waterway") !in navigableFor(craft)) return@mapNotNull null
+            if (isForbidden(tags, craft)) return@mapNotNull null
             val geom = el.optJSONArray("geometry") ?: return@mapNotNull null
             (0 until geom.length()).map { g ->
                 val p = geom.getJSONObject(g)

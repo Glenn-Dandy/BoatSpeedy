@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -158,7 +159,7 @@ fun LiveMapScreen(
         }
         routing = true
         scope.launch {
-            val result = withContext(Dispatchers.IO) { WaterRouter.route(from, at) }
+            val result = withContext(Dispatchers.IO) { WaterRouter.route(from, at, settings.craft) }
             routing = false
             when (result) {
                 is RouteResult.Ok -> NavRepository.set(
@@ -239,6 +240,7 @@ fun LiveMapScreen(
                 // Nur in Fahrt weich nachziehen – „stale" heißt: das GPS liefert
                 // gerade keinen brauchbaren Kurs, also steht das Boot.
                 smoothFollow = course?.stale == false && !weatherMode,
+                showSeamarks = settings.seamarks && !weatherMode,
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -278,22 +280,45 @@ fun LiveMapScreen(
                             },
                             fontWeight = FontWeight.SemiBold,
                         )
-                        if (t.mode == NavMode.ROUTE) {
-                            val locks = t.obstacles.count { it.kind == ObstacleKind.LOCK || it.kind == ObstacleKind.SLUICE }
-                            val weirs = t.obstacles.count { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
-                            Text(
-                                "  " + when {
-                                    weirs > 0 -> stringResource(R.string.nav_weirs, weirs)
-                                    locks > 0 -> stringResource(R.string.nav_locks, locks)
-                                    else -> stringResource(R.string.nav_route)
-                                },
-                                fontSize = 12.sp,
-                                color = if (weirs > 0) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            )
-                        }
                         IconButton(onClick = { NavRepository.clear() }) {
                             Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.nav_clear))
+                        }
+                    }
+                }
+            }
+
+            // Schleusen und Wehre stehen für sich, nicht neben den Kilometern: dort war
+            // nur Platz für eine Zeile, und die zeigte das Wehr statt der Schleuse, durch
+            // die man tatsächlich fährt. Seit die Route an Wehren getrennt wird, kann ein
+            // Wehr gar nicht mehr auf ihr liegen – es steht daneben, meist neben der
+            // Schleuse. Deshalb zwei getrennte Angaben mit unterschiedlichem Gewicht.
+            navTarget?.takeIf { !weatherMode && it.mode == NavMode.ROUTE }?.let { t ->
+                val locks = t.obstacles.count { it.kind == ObstacleKind.LOCK || it.kind == ObstacleKind.SLUICE }
+                val weirs = t.obstacles.count { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
+                if (locks > 0 || weirs > 0) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        tonalElevation = 3.dp,
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                            if (locks > 0) {
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_obstacle_lock,
+                                    text = if (locks == 1) stringResource(R.string.nav_obstacles_lock_one)
+                                    else stringResource(R.string.nav_obstacles_locks, locks),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                            if (weirs > 0) {
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_obstacle_weir,
+                                    text = if (weirs == 1) stringResource(R.string.nav_obstacles_weir_one)
+                                    else stringResource(R.string.nav_obstacles_weirs, weirs),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
                     }
                 }
@@ -437,5 +462,20 @@ fun LiveMapScreen(
                 TextButton(onClick = { routeError = null }) { Text(stringResource(R.string.cancel)) }
             },
         )
+    }
+}
+
+/** Eine Zeile im Hinderniskasten: Symbol plus Anzahl. */
+@Composable
+private fun ObstacleLine(iconRes: Int, text: String, color: androidx.compose.ui.graphics.Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 1.dp)) {
+        Icon(
+            painterResource(iconRes),
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.size(6.dp))
+        Text(text, fontSize = 13.sp, color = color)
     }
 }

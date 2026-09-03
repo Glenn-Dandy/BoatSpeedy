@@ -45,6 +45,9 @@ enum class NotifField(val line: Int) {
 }
 
 /** Farbe der Track-Linie auf der Karte (ARGB). */
+/** Womit gefahren wird – bestimmt, welche Wasserwege für die Route in Frage kommen. */
+enum class Craft { MOTORBOAT, CANOE }
+
 enum class TrackColor(val argb: Int) {
     BLUE(0xFF1E88E5.toInt()),
     RED(0xFFE53935.toInt()),
@@ -152,4 +155,9 @@ data class Settings(
     val weatherSound: AlarmSound = AlarmSound.SIRENE,
     /** Versteckte Entwicklerwerkzeuge (BLE-Diagnose); über 7 Tipper in „Über" freigeschaltet. */
     val devMode: Boolean = false,
+    // Navigation
+    /** Fahrzeugart für die Routenberechnung. */
+    val craft: Craft = Craft.MOTORBOAT,
+    /** Seezeichen (OpenSeaMap) über der Karte einblenden. */
+    val seamarks: Boolean = true,
 )

@@ -24,7 +24,10 @@ import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.nav.LatLon
 import de.kewl.boatspeedy.trip.TrackPoint
 import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.MapTileProviderBasic
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.XYTileSource
+import org.osmdroid.views.overlay.TilesOverlay
 import org.osmdroid.util.GeoPoint
 import kotlinx.coroutines.delay
 import org.osmdroid.views.CustomZoomButtonsController
@@ -67,6 +70,8 @@ fun OsmMap(
     obstacles: List<de.kewl.boatspeedy.nav.Obstacle> = emptyList(),
     /** In Fahrt weich nachziehen statt springen. */
     smoothFollow: Boolean = false,
+    /** Tonnen, Baken und Hinweiszeichen von OpenSeaMap einblenden. */
+    showSeamarks: Boolean = false,
 ) {
     val context = LocalContext.current
     val pointsState = rememberUpdatedState(points)
@@ -91,6 +96,24 @@ fun OsmMap(
             )
         }
     }
+    /**
+     * OpenSeaMap liefert die Seezeichen als fertige, durchsichtige Kachelebene — eigene
+     * Symbole zu zeichnen wäre viel Arbeit für ein schlechteres Ergebnis. Die Kacheln
+     * stehen unter CC-BY-SA, der Hinweis dazu steht in den Einstellungen.
+     */
+    val seamarkOverlay = remember(mapView) {
+        val source = XYTileSource(
+            "OpenSeaMap", 3, 18, 256, ".png",
+            arrayOf("https://tiles.openseamap.org/seamark/"),
+            "© OpenSeaMap (CC-BY-SA)",
+        )
+        TilesOverlay(MapTileProviderBasic(context, source), context).apply {
+            // Ohne das legt osmdroid graue Platzhalter über die Grundkarte.
+            loadingBackgroundColor = Color.TRANSPARENT
+            loadingLineColor = Color.TRANSPARENT
+        }
+    }
+
     var centered by remember { mutableStateOf(false) }
     val line = remember(mapView) {
         Polyline(mapView).apply {
@@ -170,6 +193,21 @@ fun OsmMap(
             mapView.overlays.remove(radarOverlay)
             radarOverlay.setImage(null, null)
             shownFrame = -1
+        }
+        mapView.invalidate()
+        onDispose { }
+    }
+
+    DisposableEffect(showSeamarks) {
+        if (showSeamarks) {
+            if (!mapView.overlays.contains(seamarkOverlay)) {
+                var at = 0
+                if (mapView.overlays.contains(radarOverlay)) at++
+                if (mapView.overlays.contains(lightningOverlay)) at++
+                mapView.overlays.add(at.coerceAtMost(mapView.overlays.size), seamarkOverlay)
+            }
+        } else {
+            mapView.overlays.remove(seamarkOverlay)
         }
         mapView.invalidate()
         onDispose { }

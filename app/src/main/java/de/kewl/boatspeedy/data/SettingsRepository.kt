@@ -55,6 +55,8 @@ class SettingsRepository(private val context: Context) {
         val WEATHER_ALARM_ON = booleanPreferencesKey("weather_alarm_on")
         val WEATHER_SOUND = stringPreferencesKey("weather_sound")
         val DEV_MODE = booleanPreferencesKey("dev_mode")
+        val CRAFT = stringPreferencesKey("craft")
+        val SEAMARKS = booleanPreferencesKey("seamarks")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -94,6 +96,8 @@ class SettingsRepository(private val context: Context) {
             weatherAlarmOn = p[Keys.WEATHER_ALARM_ON] ?: true,
             weatherSound = p[Keys.WEATHER_SOUND]?.let { enumOrNull<AlarmSound>(it) } ?: AlarmSound.SIRENE,
             devMode = p[Keys.DEV_MODE] ?: false,
+            craft = p[Keys.CRAFT]?.let { enumOrNull<Craft>(it) } ?: Craft.MOTORBOAT,
+            seamarks = p[Keys.SEAMARKS] ?: true,
         )
     }
 
@@ -132,6 +136,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setWeatherEnabled(value: Boolean) = edit { it[Keys.WEATHER_ENABLED] = value }
     suspend fun setWeatherAlarmOn(value: Boolean) = edit { it[Keys.WEATHER_ALARM_ON] = value }
     suspend fun setDevMode(value: Boolean) = edit { it[Keys.DEV_MODE] = value }
+    suspend fun setCraft(value: Craft) = edit { it[Keys.CRAFT] = value.name }
+    suspend fun setSeamarks(value: Boolean) = edit { it[Keys.SEAMARKS] = value }
     suspend fun setWeatherSound(value: AlarmSound) = edit { it[Keys.WEATHER_SOUND] = value.name }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {

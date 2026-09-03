@@ -5,6 +5,16 @@ cycle is not a change and does not appear here.
 
 ### Added
 
+- **Seamarks can be shown on the live map** — buoys, beacons and notice marks, from
+  OpenSeaMap's ready-made transparent tile layer rather than symbols of our own. It is on
+  by default and switches off under Settings → Navigation. It needs a connection, and the
+  tiles are only fetched while it is on. The layer also brings the notice boards along,
+  including the speed signs at Saalburg on the Bleiloch reservoir, which are mapped as
+  seamarks. Tiles are CC-BY-SA and the data ODbL, so the attribution and OpenSeaMap's own
+  warning — that this is no substitute for official charts — are shown in the settings.
+  It is a picture layer, so the marks cannot be tapped for detail. The weather map leaves
+  it off; that view is for the rain radar.
+
 - **Coulometers are supported** — the Hall-sensor kind that reports as `WBMS` over a CH9141 radio.
   It reports state of charge, remaining amp hours, voltage, current and the energy it has
   counted — but no cell voltages, no temperature and no capacity of its own,
@@ -62,17 +72,26 @@ cycle is not a change and does not appear here.
   On the dashboard the destination gets its own line under the speed, showing the arrow,
   the distance and the estimated amp hours. It appears only while a destination is set.
 
-  Ways that may not be used are left out of the route: `boat=no`, `motorboat=no`,
-  `ship=no`, private water, and culverts — a pipe under a road is tagged as a canal but is
-  not one. Weirs, dams and no-entry signs cut the network, so a route cannot lead through
-  them. In the test area that removes 96 of 307 ways and 23 crossings; without it, routes
-  went round locks through culverts they had no business in.
+  Ways that may not be used are left out of the route: `boat=no`, private water, and
+  culverts — a pipe under a road is tagged as a canal but is not one. Weirs, dams and
+  no-entry signs cut the network, so a route cannot lead through them. In the test area
+  that removes 96 of 307 ways and 23 crossings; without it, routes went round locks
+  through culverts they had no business in.
 
-  A route also reports the **locks and weirs** it passes, fetched in the same request that
-  builds it. Locks cost time; a weir usually means the way is closed, so it is called out
-  in red. Around Leer alone the map knows 57 lock gates and 44 weirs, many of them named,
-  so this is not a theoretical feature — but it reports what the map knows, and a weir
-  missing from the data cannot be reported at all.
+  Which further bans apply depends on the **craft** set under Settings → Navigation. A
+  motorboat is kept off `motorboat=no` and `ship=no`; a canoe off `canoe=no`, and it may
+  use streams as well as rivers, canals and fairways. Those are different sets of ways —
+  45 against 26 in the test area — so applying both would take from each craft water that
+  is expressly open to it.
+
+  A route also reports the **locks and weirs** near it, fetched in the same request that
+  builds it, in their own box at the bottom left. They are counted separately and worded
+  differently on purpose: since weirs now cut the network, a weir can no longer lie on the
+  route at all — it stands beside it, usually right next to the lock you actually pass
+  through. Reporting that as an obstacle in the way, in red, next to the kilometres, said
+  the opposite of what was happening. Around Leer alone the map knows 57 lock gates and
+  44 weirs, many of them named — but it reports what the map knows, and a weir missing
+  from the data cannot be reported at all.
 
   It is a suggestion, not a fairway: the map data knows nothing about depth, clearance or
   locks, and how complete it is varies from place to place.

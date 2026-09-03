@@ -314,8 +314,20 @@
     <string name="meter_zero_confirm">Den aktuellen Messwert als Nullpunkt übernehmen? Nur machen, wenn gerade kein Strom fließt — sonst sind alle späteren Werte verschoben.</string>
     <string name="meter_full_confirm">Dem Messgerät sagen, dass die Batterie jetzt voll ist?</string>
     <string name="meter_clear_confirm">Die gezählte Energie auf null zurücksetzen? Der bisherige Stand ist damit weg.</string>
-    <string name="nav_locks">%1$d Schleusen</string>
-    <string name="nav_weirs">%1$d Wehre im Weg</string>
     <string name="nav_weather">Wetter</string>
     <string name="weather_loading">wird geholt …</string>
+    <!-- Navigation -->
+    <string name="group_navigation">Navigation</string>
+    <string name="cat_navigation_desc">Fahrzeug, Seezeichen</string>
+    <string name="nav_craft">Fahrzeug</string>
+    <string name="craft_motorboat">Motorboot</string>
+    <string name="craft_canoe">Kanu</string>
+    <string name="nav_craft_hint">Bestimmt, welche Wasserwege die Route benutzen darf. Im Kanu-Modus zählen auch Bäche, dafür gelten Verbote für Kanus.</string>
+    <string name="nav_seamarks">Seezeichen</string>
+    <string name="nav_seamarks_hint">Blendet Tonnen, Baken und Hinweiszeichen von OpenSeaMap über die Karte ein. Benötigt Internet.</string>
+    <string name="nav_seamarks_disclaimer">Kein Ersatz für amtliche Seekarten. Kartenkacheln © OpenSeaMap (CC-BY-SA), Daten ODbL.</string>
+    <string name="nav_obstacles_locks">%d Schleusen</string>
+    <string name="nav_obstacles_lock_one">1 Schleuse</string>
+    <string name="nav_obstacles_weirs">%d Wehre in der Nähe</string>
+    <string name="nav_obstacles_weir_one">1 Wehr in der Nähe</string>
 </resources>

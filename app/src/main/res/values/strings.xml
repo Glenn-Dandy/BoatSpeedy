@@ -317,8 +317,20 @@
     <string name="meter_zero_confirm">Take the present reading as zero current? Do this only with nothing flowing, or every later reading will be off.</string>
     <string name="meter_full_confirm">Tell the meter the battery is full right now?</string>
     <string name="meter_clear_confirm">Reset the counted energy to zero? The previous total is gone.</string>
-    <string name="nav_locks">%1$d locks</string>
-    <string name="nav_weirs">%1$d weirs on the way</string>
     <string name="nav_weather">Weather</string>
     <string name="weather_loading">fetching…</string>
+    <!-- Navigation -->
+    <string name="group_navigation">Navigation</string>
+    <string name="cat_navigation_desc">Craft, seamarks</string>
+    <string name="nav_craft">Craft</string>
+    <string name="craft_motorboat">Motorboat</string>
+    <string name="craft_canoe">Canoe</string>
+    <string name="nav_craft_hint">Decides which waterways a route may use. Canoe mode also counts streams, but canoe restrictions apply.</string>
+    <string name="nav_seamarks">Seamarks</string>
+    <string name="nav_seamarks_hint">Shows buoys, beacons and notice marks from OpenSeaMap on top of the map. Needs internet.</string>
+    <string name="nav_seamarks_disclaimer">No substitute for official nautical charts. Map tiles © OpenSeaMap (CC-BY-SA), data ODbL.</string>
+    <string name="nav_obstacles_locks">%d locks</string>
+    <string name="nav_obstacles_lock_one">1 lock</string>
+    <string name="nav_obstacles_weirs">%d weirs nearby</string>
+    <string name="nav_obstacles_weir_one">1 weir nearby</string>
 </resources>

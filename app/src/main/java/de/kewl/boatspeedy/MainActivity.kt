@@ -71,6 +71,7 @@ import de.kewl.boatspeedy.ui.DiagnosticScreen
 import de.kewl.boatspeedy.ui.DashboardSettingsScreen
 import de.kewl.boatspeedy.ui.GeneralSettingsScreen
 import de.kewl.boatspeedy.ui.GpsSettingsScreen
+import de.kewl.boatspeedy.ui.NavigationSettingsScreen
 import de.kewl.boatspeedy.ui.NotificationSettingsScreen
 import de.kewl.boatspeedy.ui.LiveMapScreen
 import de.kewl.boatspeedy.ui.SettingsHomeScreen
@@ -84,7 +85,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_APPEARANCE, SETTINGS_DEV, WEATHER, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_NAV, SETTINGS_APPEARANCE, SETTINGS_DEV, WEATHER, ABOUT }
 
 class MainActivity : ComponentActivity() {
     // Von außen zum Import übergebene GPX-Datei (Öffnen-mit / Teilen an BoatSpeedy).
@@ -320,6 +321,7 @@ private fun BoatSpeedyApp(
                         onAppearance = { screen = Screen.SETTINGS_APPEARANCE },
                         onTracks = { screen = Screen.SETTINGS_TRACKS },
                         onGps = { screen = Screen.SETTINGS_GPS },
+                        onNavigation = { screen = Screen.SETTINGS_NAV },
                         onOpenMenu = { openDrawer() },
                         showDeveloper = settings.devMode,
                         onDeveloper = { screen = Screen.SETTINGS_DEV },
@@ -382,6 +384,13 @@ private fun BoatSpeedyApp(
 
                     Screen.SETTINGS_GPS -> GpsSettingsScreen(
                         gps = gps,
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_NAV -> NavigationSettingsScreen(
+                        settings = settings,
+                        onCraft = vm::setCraft,
+                        onSeamarks = vm::setSeamarks,
                         onBack = { screen = Screen.SETTINGS },
                     )
 
