@@ -320,4 +320,5 @@
     <string name="nav_locks">%1$d locks</string>
     <string name="nav_weirs">%1$d weirs on the way</string>
     <string name="nav_weather">Weather</string>
+    <string name="weather_loading">fetching…</string>
 </resources>

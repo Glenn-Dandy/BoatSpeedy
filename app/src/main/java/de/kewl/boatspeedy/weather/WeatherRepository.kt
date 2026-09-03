@@ -27,6 +27,27 @@ data class WeatherWarning(
 )
 
 /**
+ * Das aktuelle Wetter am Standort — Messwerte der nächstgelegenen DWD-Station.
+ *
+ * Wichtig zu wissen und in der Anzeige erwähnt: das ist **keine Vorhersage für den Punkt,
+ * an dem du stehst**, sondern was die nächste Station misst. An der Küste können das
+ * einige Kilometer sein, und dann regnet es über dir, während „trocken" gemeldet wird.
+ */
+data class CurrentWeather(
+    val temperatureC: Double?,
+    /** Kennung des DWD: clear-day, cloudy, rain, thunderstorm … */
+    val icon: String?,
+    val condition: String?,
+    /** Windgeschwindigkeit und Böen in km/h, Richtung in Grad (woher der Wind kommt). */
+    val windKmh: Double?,
+    val gustKmh: Double?,
+    val windDirDeg: Int?,
+    /** Entfernung zur Station in Metern – macht die Angabe einschätzbar. */
+    val stationDistanceM: Int?,
+    val stationName: String?,
+)
+
+/**
  * Fragt DWD-Warnungen für eine Position ab (über Bright Sky, `api.brightsky.dev/alerts`,
  * DWD-Datenbasis, kein API-Key) und benachrichtigt bei neuen Gewitter-/Sturmwarnungen.
  * Prozessweit, damit Dashboard-Prüfung und Fahrtdienst denselben „schon gemeldet"-Stand teilen.
@@ -37,6 +58,46 @@ object WeatherRepository {
     val active: StateFlow<List<WeatherWarning>> = _active.asStateFlow()
 
     private val notified = HashSet<String>()
+
+    private val _current = MutableStateFlow<CurrentWeather?>(null)
+    val current: StateFlow<CurrentWeather?> = _current.asStateFlow()
+
+    /** Aktuelle Lage holen. Schlägt es fehl, bleibt der letzte Stand stehen. */
+    suspend fun refreshCurrent(lat: Double, lon: Double) {
+        val fetched = withContext(Dispatchers.IO) { fetchCurrent(lat, lon) }
+        if (fetched != null) _current.value = fetched
+    }
+
+    private fun fetchCurrent(lat: Double, lon: Double): CurrentWeather? = runCatching {
+        val url = "https://api.brightsky.dev/current_weather?lat=$lat&lon=$lon"
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 8000
+            readTimeout = 8000
+            setRequestProperty("User-Agent", "BoatSpeedy")
+        }
+        val body = try {
+            if (conn.responseCode != HttpURLConnection.HTTP_OK) return@runCatching null
+            conn.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            conn.disconnect()
+        }
+        val root = JSONObject(body)
+        val w = root.optJSONObject("weather") ?: return@runCatching null
+        val src = root.optJSONArray("sources")?.optJSONObject(0)
+        fun num(key: String): Double? = if (w.isNull(key)) null else w.optDouble(key).takeIf { !it.isNaN() }
+        CurrentWeather(
+            temperatureC = num("temperature"),
+            icon = w.optString("icon").takeIf { it.isNotBlank() && it != "null" },
+            condition = w.optString("condition").takeIf { it.isNotBlank() && it != "null" },
+            // Der 10-Minuten-Mittelwert ist der aktuellste, den die Station liefert.
+            windKmh = num("wind_speed_10") ?: num("wind_speed_30"),
+            gustKmh = num("wind_gust_speed_10") ?: num("wind_gust_speed_30"),
+            windDirDeg = (num("wind_direction_10") ?: num("wind_direction_30"))?.toInt(),
+            stationDistanceM = src?.optDouble("distance")?.takeIf { !it.isNaN() }?.toInt(),
+            stationName = src?.optString("station_name")?.takeIf { it.isNotBlank() },
+        )
+    }.getOrNull()
 
     private const val CHANNEL = "weather"
     private const val NOTIF_ID = 4

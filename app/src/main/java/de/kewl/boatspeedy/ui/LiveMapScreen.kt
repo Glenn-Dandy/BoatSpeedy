@@ -122,6 +122,20 @@ fun LiveMapScreen(
     var navTargetFallback by remember { mutableStateOf<LatLon?>(null) }
     val navTarget by NavRepository.target.collectAsStateWithLifecycle()
     val course by NavRepository.course.collectAsStateWithLifecycle()
+    // Aktuelle Lage der nächsten DWD-Station; alle zehn Minuten frisch, das ist der Takt,
+    // in dem die Stationen selbst melden.
+    val currentWeather by de.kewl.boatspeedy.weather.WeatherRepository.current.collectAsStateWithLifecycle()
+    LaunchedEffect(weatherMode, currentLat != null) {
+        if (!weatherMode) return@LaunchedEffect
+        while (true) {
+            val la = currentLat
+            val lo = currentLon
+            if (la != null && lo != null) {
+                de.kewl.boatspeedy.weather.WeatherRepository.refreshCurrent(la, lo)
+            }
+            delay(10 * 60_000L)
+        }
+    }
     var routing by remember { mutableStateOf(false) }
     var routeError by remember { mutableStateOf<RouteError?>(null) }
     val scope = rememberCoroutineScope()
@@ -171,7 +185,16 @@ fun LiveMapScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(if (weatherMode) R.string.nav_weather else R.string.live_map)) },
+                title = {
+                    if (weatherMode) {
+                        Column {
+                            Text(stringResource(R.string.nav_weather))
+                            WeatherLine(currentWeather)
+                        }
+                    } else {
+                        Text(stringResource(R.string.live_map))
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))

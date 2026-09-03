@@ -46,7 +46,10 @@ cycle is not a change and does not appear here.
   metres in practice, does not leave the route standing while you are already there. It
   says "destination reached" when it goes, so its disappearance is never a mystery.
 
-- **A Weather entry in the menu** showing the map with the rain radar already running. The
+- **A Weather entry in the menu** showing the map with the rain radar already running, and
+  in its title bar what the nearest DWD station measures right now: temperature, a symbol
+  for the sky, and wind with gusts and the direction it blows from. It is a measurement
+  from a station some kilometres away, not a forecast for the spot you float on. The
   radar moved out of the live map, which is for getting somewhere.
 - **The map glides instead of jumping** while under way. Below walking pace it still snaps:
   GPS wanders a few metres when you are stopped, and animating that looks like drifting.

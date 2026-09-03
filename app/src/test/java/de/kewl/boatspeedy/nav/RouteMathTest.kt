@@ -107,3 +107,18 @@ class BearingTest {
         org.junit.Assert.assertEquals(0f, relativeBearing(123f, 123f), 0.01f)
     }
 }
+
+/** Windrichtung als Himmelsrichtung – acht Sektoren, jeder 45 Grad breit. */
+class WindDirectionTest {
+    @org.junit.Test
+    fun `Grad werden zur richtigen Himmelsrichtung`() {
+        fun f(d: Int) = de.kewl.boatspeedy.ui.windArrow(d)
+        org.junit.Assert.assertEquals("N", f(0))
+        org.junit.Assert.assertEquals("N", f(350))    // über den Nullpunkt hinweg
+        org.junit.Assert.assertEquals("NO", f(45))
+        org.junit.Assert.assertEquals("O", f(90))
+        org.junit.Assert.assertEquals("S", f(180))
+        org.junit.Assert.assertEquals("W", f(270))    // der Wind aus der Messung oben
+        org.junit.Assert.assertEquals("NW", f(315))
+    }
+}
