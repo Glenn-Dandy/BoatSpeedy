@@ -7,7 +7,7 @@
 - Settings → Navigation: **craft** (motorboat or canoe) decides which bans apply; **seamarks** from OpenSeaMap, on by default.
 - **Speed limit signs show their value** — OpenSeaMap draws the sign but leaves it empty. Tap one for the original text.
 
-- The position marker is dragged along with the map instead of jumping to each new fix, on the dashboard's small map as well as the full one.
+- **The position marker glides**, the way a navigation device does: instead of interpolating towards the last fix — a place you have already passed — it computes from speed and heading where the boat is now, and eases that estimate towards each new measurement. Display only; the recorded track, distance and consumption still use the raw fixes. It freezes after three seconds without a fix, and jumps rather than sliding when a fix lands far away. Both maps do this.
 - Turning off satellite details now hides the whole status line, dot and "Fix" included.
 
 **Weather**

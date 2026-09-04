@@ -83,6 +83,8 @@ import kotlin.math.roundToInt
 fun LiveMapScreen(
     currentLat: Double?,
     currentLon: Double?,
+    /** Fahrt über Grund; die Karte rechnet damit zwischen den GPS-Meldungen weiter. */
+    speedMs: Float?,
     points: List<TrackPoint>,
     settings: Settings,
     /** Verbrauch der laufenden Fahrt, um den Bedarf bis zum Ziel zu schätzen. */
@@ -272,9 +274,8 @@ fun LiveMapScreen(
                 navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
                 obstacles = if (weatherMode) emptyList() else navTarget?.obstacles.orEmpty(),
                 courseDeg = course?.deg,
-                // Nur in Fahrt weich nachziehen – „stale" heißt: das GPS liefert
-                // gerade keinen brauchbaren Kurs, also steht das Boot.
-                smoothFollow = course?.stale == false && !weatherMode,
+                // In der Wetteransicht wird nicht gefolgt, also auch nicht weitergerechnet.
+                speedMs = if (weatherMode) null else speedMs,
                 showSeamarks = settings.seamarks && !weatherMode,
                 speedSigns = speedSigns,
                 onViewport = { box, zoom -> mapBox = box; zoomLevel = zoom },

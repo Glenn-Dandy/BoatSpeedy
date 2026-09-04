@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import de.kewl.boatspeedy.nav.shortestTurn
 
 /**
  * Zeigt, wohin gedreht werden muss, um auf das Ziel zuzuhalten: senkrecht = Kurs stimmt,
@@ -49,17 +50,6 @@ fun CourseArrow(relativeDeg: Float, stale: Boolean, size: Dp = 26.dp) {
             MaterialTheme.colorScheme.primary
         },
     )
-}
-
-/**
- * Kürzester Drehwinkel von [from] nach [to], im Bereich −180…+180. Damit dreht der Pfeil
- * immer über die kurze Seite.
- */
-internal fun shortestTurn(from: Float, to: Float): Float {
-    var d = (to - from) % 360f
-    if (d > 180f) d -= 360f
-    if (d < -180f) d += 360f
-    return d
 }
 
 /** Knapp unter dem GPS-Takt, damit sich zwei Drehungen nicht überholen. */

@@ -1,6 +1,6 @@
 package de.kewl.boatspeedy
 
-import de.kewl.boatspeedy.ui.shortestTurn
+import de.kewl.boatspeedy.nav.shortestTurn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

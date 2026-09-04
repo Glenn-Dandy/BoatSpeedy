@@ -462,6 +462,7 @@ private fun BoatSpeedyApp(
                     Screen.WEATHER -> LiveMapScreen(
                         currentLat = gps.latitude,
                         currentLon = gps.longitude,
+                        speedMs = gps.speedMs,
                         points = livePoints,
                         settings = settings,
                         tripDistanceM = tripStats.distanceM,
@@ -473,6 +474,7 @@ private fun BoatSpeedyApp(
                     Screen.LIVE_MAP -> LiveMapScreen(
                         currentLat = gps.latitude,
                         currentLon = gps.longitude,
+                        speedMs = gps.speedMs,
                         points = livePoints,
                         settings = settings,
                         tripDistanceM = tripStats.distanceM,

@@ -164,7 +164,7 @@ fun DashboardScreen(
                     Spacer(Modifier.height(12.dp))
                 }
                 if (settings.showMapTile) {
-                    MapMiniTile(livePoints, gps.latitude, gps.longitude, onOpenMap)
+                    MapMiniTile(livePoints, gps.latitude, gps.longitude, gps.speedMs, onOpenMap)
                     Spacer(Modifier.height(12.dp))
                 }
 
@@ -191,7 +191,13 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun MapMiniTile(points: List<TrackPoint>, lat: Double?, lon: Double?, onOpenMap: () -> Unit) {
+private fun MapMiniTile(
+    points: List<TrackPoint>,
+    lat: Double?,
+    lon: Double?,
+    speedMs: Float?,
+    onOpenMap: () -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
             // Der Weg zum Ziel gehört auch auf die kleine Kachel – sonst müsste man für
@@ -206,9 +212,7 @@ private fun MapMiniTile(points: List<TrackPoint>, lat: Double?, lon: Double?, on
                 navPath = navTarget?.path.orEmpty(),
                 navWaterPath = navTarget?.water.orEmpty(),
                 courseDeg = mapCourse?.deg,
-                // Wie in der großen Karte: in Fahrt weich nachziehen, im Stand hart
-                // setzen. „stale" heißt, das GPS liefert gerade keinen brauchbaren Kurs.
-                smoothFollow = mapCourse?.stale == false,
+                speedMs = speedMs,
                 modifier = Modifier.matchParentSize(),
             )
             // Nicht-interaktive Vorschau: Overlay fängt den Tap (→ große Karte),
