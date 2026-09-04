@@ -182,6 +182,7 @@ fun LiveMapScreen(
     // Schnittstelle, und die Schilder wandern nicht.
     var speedSigns by remember { mutableStateOf<List<SpeedSign>>(emptyList()) }
     var signArea by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
+    var recenterKey by remember { mutableIntStateOf(0) }
     var mapBox by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
     var zoomLevel by remember { mutableStateOf(0.0) }
     LaunchedEffect(settings.seamarks, weatherMode, mapBox, zoomLevel) {
@@ -224,14 +225,9 @@ fun LiveMapScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    if (weatherMode) {
-                        Column {
-                            Text(stringResource(R.string.nav_weather))
-                            WeatherLine(currentWeather)
-                        }
-                    } else {
-                        Text(stringResource(R.string.live_map))
-                    }
+                    Text(
+                        stringResource(if (weatherMode) R.string.nav_weather else R.string.live_map),
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -244,208 +240,236 @@ fun LiveMapScreen(
             )
         },
         floatingActionButton = {
-            // In der Wetteransicht folgt die Karte nicht, also braucht es auch den
-            // Knopf zum Zurückspringen nicht.
-            if (!follow && !weatherMode) {
+            // In der Wetteransicht folgt die Karte nicht — gerade deshalb braucht es den
+            // Knopf: man schiebt beim Betrachten weit weg und fände sonst nicht zurück.
+            // Dort mittet er einmalig ein, in der Live-Karte schaltet er das Folgen an.
+            if (weatherMode) {
+                if (currentLat != null && currentLon != null) {
+                    FloatingActionButton(onClick = { recenterKey++ }) {
+                        Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.follow_position))
+                    }
+                }
+            } else if (!follow) {
                 FloatingActionButton(onClick = { follow = true }) {
                     Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.follow_position))
                 }
             }
         },
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            OsmMap(
-                points = points,
-                currentLat = currentLat,
-                currentLon = currentLon,
-                interactive = true,
-                follow = follow && !weatherMode,
-                onUserPan = { follow = false },
-                bubbleText = bubble,
-                showRadar = showWeather,
-                radarTimes = radarTimes,
-                radarFrameIndex = frameIndex.coerceIn(0, frames.lastIndex),
-                showLightning = showWeather && showLightning,
-                // In der Wetteransicht wird nicht navigiert: kein Ziel setzen, keine
-                // Route zeichnen. Und die Karte bleibt stehen, wo man sie hingeschoben
-                // hat – sonst zieht sie einem beim Betrachten unter der Hand weg.
-                onLongPress = if (weatherMode) null else { lat, lon -> askTarget = LatLon(lat, lon) },
-                navPath = if (weatherMode) emptyList() else navTarget?.path.orEmpty(),
-                navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
-                obstacles = if (weatherMode) emptyList() else navTarget?.obstacles.orEmpty(),
-                courseDeg = course?.deg,
-                // In der Wetteransicht wird nicht gefolgt, also auch nicht weitergerechnet.
-                speedMs = if (weatherMode) null else speedMs,
-                showSeamarks = settings.seamarks && !weatherMode,
-                speedSigns = speedSigns,
-                onViewport = { box, zoom -> mapBox = box; zoomLevel = zoom },
-                modifier = Modifier.fillMaxSize(),
-            )
-
-            // Entfernung und geschätzter Verbrauch bis zum Ziel.
-            navTarget?.takeIf { !weatherMode }?.let { t ->
+        Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            // Eigener Streifen statt einer zweiten Zeile in der Titelleiste: dort war die
+            // Schrift klein und der Titel wurde zweizeilig.
+            if (weatherMode) {
                 Surface(
-                    modifier = Modifier.align(Alignment.TopCenter).padding(8.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                    tonalElevation = 3.dp,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Row(
-                        modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        // Pfeil nur, wenn überhaupt einmal ein Kurs bekannt war.
-                        if (currentLat != null && currentLon != null) {
-                            course?.let { c ->
-                                CourseArrow(
-                                    relativeDeg = relativeBearing(
-                                        c.deg,
-                                        bearingDeg(LatLon(currentLat, currentLon), t.target),
-                                    ),
-                                    stale = c.stale,
-                                )
-                                Spacer(Modifier.size(8.dp))
-                            }
-                        }
-                        Text(
-                            buildString {
-                                append(String.format(Locale.getDefault(), "%.2f km", t.distanceM / 1000.0))
-                                val ah = ahPerKm?.let { it * (t.distanceM / 1000.0) }
-                                if (ah != null) {
-                                    append(" · ~")
-                                    append(String.format(Locale.getDefault(), "%.1f Ah", ah))
-                                }
-                            },
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        IconButton(onClick = { NavRepository.clear() }) {
-                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.nav_clear))
-                        }
-                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    ) { WeatherLine(currentWeather) }
                 }
             }
+            Box(modifier = Modifier.fillMaxSize()) {
+                OsmMap(
+                    points = points,
+                    currentLat = currentLat,
+                    currentLon = currentLon,
+                    interactive = true,
+                    follow = follow && !weatherMode,
+                    onUserPan = { follow = false },
+                    bubbleText = bubble,
+                    showRadar = showWeather,
+                    radarTimes = radarTimes,
+                    radarFrameIndex = frameIndex.coerceIn(0, frames.lastIndex),
+                    showLightning = showWeather && showLightning,
+                    // In der Wetteransicht wird nicht navigiert: kein Ziel setzen, keine
+                    // Route zeichnen. Und die Karte bleibt stehen, wo man sie hingeschoben
+                    // hat – sonst zieht sie einem beim Betrachten unter der Hand weg.
+                    onLongPress = if (weatherMode) null else { lat, lon -> askTarget = LatLon(lat, lon) },
+                    navPath = if (weatherMode) emptyList() else navTarget?.path.orEmpty(),
+                    navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
+                    obstacles = if (weatherMode) emptyList() else navTarget?.obstacles.orEmpty(),
+                    courseDeg = course?.deg,
+                    // In der Wetteransicht wird nicht gefolgt, also auch nicht weitergerechnet.
+                    speedMs = if (weatherMode) null else speedMs,
+                    showSeamarks = settings.seamarks && !weatherMode,
+                    speedSigns = speedSigns,
+                    onViewport = { box, zoom -> mapBox = box; zoomLevel = zoom },
+                    recenterKey = recenterKey,
+                    modifier = Modifier.fillMaxSize(),
+                )
 
-            // Schleusen und Wehre stehen für sich, nicht neben den Kilometern: dort war
-            // nur Platz für eine Zeile, und die zeigte das Wehr statt der Schleuse, durch
-            // die man tatsächlich fährt. Seit die Route an Wehren getrennt wird, kann ein
-            // Wehr gar nicht mehr auf ihr liegen – es steht daneben, meist neben der
-            // Schleuse. Deshalb zwei getrennte Angaben mit unterschiedlichem Gewicht.
-            navTarget?.takeIf { !weatherMode && it.mode == NavMode.ROUTE }?.let { t ->
-                val locks = t.obstacles.count { it.kind == ObstacleKind.LOCK || it.kind == ObstacleKind.SLUICE }
-                val weirs = t.obstacles.count { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
-                if (locks > 0 || weirs > 0) {
+                // Entfernung und geschätzter Verbrauch bis zum Ziel.
+                navTarget?.takeIf { !weatherMode }?.let { t ->
                     Surface(
-                        modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 16.dp),
-                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.align(Alignment.TopCenter).padding(8.dp),
+                        shape = RoundedCornerShape(20.dp),
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                         tonalElevation = 3.dp,
                     ) {
-                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            if (locks > 0) {
-                                ObstacleLine(
-                                    iconRes = R.drawable.ic_obstacle_lock,
-                                    text = if (locks == 1) stringResource(R.string.nav_obstacles_lock_one)
-                                    else stringResource(R.string.nav_obstacles_locks, locks),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                            if (weirs > 0) {
-                                ObstacleLine(
-                                    iconRes = R.drawable.ic_obstacle_weir,
-                                    text = if (weirs == 1) stringResource(R.string.nav_obstacles_weir_one)
-                                    else stringResource(R.string.nav_obstacles_weirs, weirs),
-                                    color = MaterialTheme.colorScheme.error,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (routing) {
-                Surface(
-                    modifier = Modifier.align(Alignment.Center).padding(16.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                    tonalElevation = 3.dp,
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.size(12.dp))
-                        Text(stringResource(R.string.nav_routing))
-                    }
-                }
-            }
-
-            if (showWeather) {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        // höher, damit der GPS-Folgen-Knopf den Regler nicht verdeckt
-                        .padding(start = 12.dp, end = 12.dp, bottom = 84.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                RoundedCornerShape(24.dp),
-                            )
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        IconButton(onClick = { playing = !playing }) {
-                            Icon(
-                                if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                contentDescription = stringResource(R.string.weather_play),
-                            )
-                        }
-                        val frame = frames[frameIndex.coerceIn(0, frames.lastIndex)]
-                        // feste Breite → der Regler bleibt immer gleich lang
-                        Column(
-                            modifier = Modifier.width(64.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                        Row(
+                            modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            // Pfeil nur, wenn überhaupt einmal ein Kurs bekannt war.
+                            if (currentLat != null && currentLon != null) {
+                                course?.let { c ->
+                                    CourseArrow(
+                                        relativeDeg = relativeBearing(
+                                            c.deg,
+                                            bearingDeg(LatLon(currentLat, currentLon), t.target),
+                                        ),
+                                        stale = c.stale,
+                                    )
+                                    Spacer(Modifier.size(8.dp))
+                                }
+                            }
                             Text(
-                                frame.clock,
+                                buildString {
+                                    append(String.format(Locale.getDefault(), "%.2f km", t.distanceM / 1000.0))
+                                    val ah = ahPerKm?.let { it * (t.distanceM / 1000.0) }
+                                    if (ah != null) {
+                                        append(" · ~")
+                                        append(String.format(Locale.getDefault(), "%.1f Ah", ah))
+                                    }
+                                },
                                 fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
                             )
-                            Text(
-                                frame.label.ifBlank { stringResource(R.string.radar_now) },
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                        Slider(
-                            value = frameIndex.toFloat(),
-                            onValueChange = { playing = false; frameIndex = it.roundToInt().coerceIn(0, frames.lastIndex) },
-                            valueRange = 0f..frames.lastIndex.toFloat(),
-                            steps = (frames.size - 2).coerceAtLeast(0),
-                            modifier = Modifier.weight(1f),
-                        )
-                        FilledIconToggleButton(checked = showLightning, onCheckedChange = { showLightning = it }) {
-                            Icon(Icons.Filled.FlashOn, contentDescription = stringResource(R.string.lightning_toggle))
+                            IconButton(onClick = { NavRepository.clear() }) {
+                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.nav_clear))
+                            }
                         }
                     }
-                    Text(
-                        stringResource(R.string.weather_radar_source),
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                }
+
+                // Schleusen und Wehre stehen für sich, nicht neben den Kilometern: dort war
+                // nur Platz für eine Zeile, und die zeigte das Wehr statt der Schleuse, durch
+                // die man tatsächlich fährt. Seit die Route an Wehren getrennt wird, kann ein
+                // Wehr gar nicht mehr auf ihr liegen – es steht daneben, meist neben der
+                // Schleuse. Deshalb zwei getrennte Angaben mit unterschiedlichem Gewicht.
+                navTarget?.takeIf { !weatherMode && it.mode == NavMode.ROUTE }?.let { t ->
+                    val locks = t.obstacles.count { it.kind == ObstacleKind.LOCK || it.kind == ObstacleKind.SLUICE }
+                    val weirs = t.obstacles.count { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
+                    if (locks > 0 || weirs > 0) {
+                        Surface(
+                            modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 16.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                            tonalElevation = 3.dp,
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                if (locks > 0) {
+                                    ObstacleLine(
+                                        iconRes = R.drawable.ic_obstacle_lock,
+                                        text = if (locks == 1) stringResource(R.string.nav_obstacles_lock_one)
+                                        else stringResource(R.string.nav_obstacles_locks, locks),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                if (weirs > 0) {
+                                    ObstacleLine(
+                                        iconRes = R.drawable.ic_obstacle_weir,
+                                        text = if (weirs == 1) stringResource(R.string.nav_obstacles_weir_one)
+                                        else stringResource(R.string.nav_obstacles_weirs, weirs),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (routing) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                        tonalElevation = 3.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.size(12.dp))
+                            Text(stringResource(R.string.nav_routing))
+                        }
+                    }
+                }
+
+                if (showWeather) {
+                    Column(
                         modifier = Modifier
-                            .background(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                                RoundedCornerShape(6.dp),
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            // höher, damit der GPS-Folgen-Knopf den Regler nicht verdeckt
+                            .padding(start = 12.dp, end = 12.dp, bottom = 84.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                    RoundedCornerShape(24.dp),
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
+                            IconButton(onClick = { playing = !playing }) {
+                                Icon(
+                                    if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                    contentDescription = stringResource(R.string.weather_play),
+                                )
+                            }
+                            val frame = frames[frameIndex.coerceIn(0, frames.lastIndex)]
+                            // feste Breite → der Regler bleibt immer gleich lang
+                            // Feste Breite hält den Regler gleich lang. 64 dp reichten für
+                            // „+100 min" nicht – die Beschriftung brach um.
+                            Column(
+                                modifier = Modifier.width(78.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    frame.clock,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.Center,
+                                )
+                                Text(
+                                    frame.label.ifBlank { stringResource(R.string.radar_now) },
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                            Slider(
+                                value = frameIndex.toFloat(),
+                                onValueChange = { playing = false; frameIndex = it.roundToInt().coerceIn(0, frames.lastIndex) },
+                                valueRange = 0f..frames.lastIndex.toFloat(),
+                                steps = (frames.size - 2).coerceAtLeast(0),
+                                modifier = Modifier.weight(1f),
                             )
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
+                            FilledIconToggleButton(checked = showLightning, onCheckedChange = { showLightning = it }) {
+                                Icon(Icons.Filled.FlashOn, contentDescription = stringResource(R.string.lightning_toggle))
+                            }
+                        }
+                        Text(
+                            stringResource(R.string.weather_radar_source),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                    RoundedCornerShape(6.dp),
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
                 }
             }
         }

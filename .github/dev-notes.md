@@ -11,7 +11,7 @@
 - Turning off satellite details now hides the whole status line, dot and "Fix" included.
 
 **Weather**
-- A Weather entry in the menu: rain radar, plus what the nearest DWD station measures now.
+- A Weather entry in the menu: rain radar, plus what the nearest DWD station measures now — in its own strip under the title bar, large enough to read, with a button to get back to your position after panning around.
 - The radar no longer reloads when you zoom, and no longer draws the raw grid as squares.
 
 **Battery**

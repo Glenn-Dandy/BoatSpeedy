@@ -70,6 +70,12 @@ fun OsmMap(
     courseDeg: Float? = null,
     /** Fahrt über Grund in m/s – damit rechnet die Koppelnavigation zwischen den Fixes. */
     speedMs: Float? = null,
+    /**
+     * Zähler zum einmaligen Zurückspringen auf die eigene Position. Gedacht für Karten,
+     * die der Position **nicht** folgen: dort schiebt man weit weg und findet sonst nicht
+     * zurück. Jede Erhöhung mittet einmal ein, ohne das Folgen einzuschalten.
+     */
+    recenterKey: Int = 0,
     /** Schleusen und Wehre auf der Route. */
     obstacles: List<de.kewl.boatspeedy.nav.Obstacle> = emptyList(),
     /** Tonnen, Baken und Hinweiszeichen von OpenSeaMap einblenden. */
@@ -507,6 +513,13 @@ fun OsmMap(
      * Gezeichnet wird im Takt des Bildschirms, nicht in einer festen 16-ms-Schleife.
      */
     val reckoner = remember(mapView) { DeadReckoner() }
+
+    LaunchedEffect(recenterKey) {
+        if (recenterKey <= 0) return@LaunchedEffect
+        val la = reckoner.lat ?: currentLat ?: return@LaunchedEffect
+        val lo = reckoner.lon ?: currentLon ?: return@LaunchedEffect
+        mapView.controller.animateTo(GeoPoint(la, lo), mapView.zoomLevelDouble, 600L)
+    }
     LaunchedEffect(currentLat, currentLon, courseDeg, speedMs) {
         if (currentLat == null || currentLon == null) return@LaunchedEffect
         reckoner.onFix(currentLat, currentLon, courseDeg, speedMs, System.currentTimeMillis())

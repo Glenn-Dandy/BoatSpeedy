@@ -33,12 +33,13 @@ fun weatherIcon(icon: String?): String = when (icon) {
 
 /**
  * Eine Zeile mit dem, was die nächste DWD-Station gerade misst: Temperatur, Zustand, Wind
- * mit Böen. Absichtlich knapp — sie sitzt in der Titelleiste.
+ * mit Böen. Steht in einem eigenen Streifen unter der Titelleiste, nicht darin — dort war
+ * sie klein und drängte den Titel in eine zweite Zeile.
  */
 @Composable
-fun WeatherLine(w: CurrentWeather?) {
+fun WeatherLine(w: CurrentWeather?, fontSize: androidx.compose.ui.unit.TextUnit = 16.sp) {
     if (w == null) {
-        Text(stringResource(R.string.weather_loading), fontSize = 12.sp)
+        Text(stringResource(R.string.weather_loading), fontSize = fontSize)
         return
     }
     val text = buildString {
@@ -56,9 +57,9 @@ fun WeatherLine(w: CurrentWeather?) {
     }
     Text(
         text,
-        fontSize = 13.sp,
+        fontSize = fontSize,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+        color = MaterialTheme.colorScheme.onSurface,
     )
 }
