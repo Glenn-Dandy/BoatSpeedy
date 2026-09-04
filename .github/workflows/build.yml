@@ -78,11 +78,14 @@ jobs:
 
       # --- Rolling DEV-Build: bei Push auf den dev-Branch ---
       # Aktualisiert das eine „dev-build"-Pre-Release → immer nur der aktuelle Dev-Build.
-      - name: Build DEV APK (signed with release key)
+      - name: Build DEV APK (release build, dev version name)
         if: ${{ env.IS_DEV == 'true' }}
-        # Laufnummer als Versionssuffix: die App zeigt dann z. B. "1.3.3-dev142",
-        # damit Rückmeldungen einem konkreten Build zuzuordnen sind.
-        run: ./gradlew assembleDebug --no-daemon -PdevBuild=${{ github.run_number }}
+        # Der "dev"-Typ ist ein Release-Build mit R8 und dem Release-Keystore; nur die
+        # Versionsnummer trägt die Laufnummer ("1.4.0-dev244"), damit Rückmeldungen einem
+        # konkreten Build zuzuordnen sind. Als Debug-Build gebaut war die APK 57 MB statt
+        # 4 MB, weil ohne R8 alle zehntausend Symbole von material-icons-extended drin
+        # bleiben.
+        run: ./gradlew assembleDev --no-daemon -PdevBuild=${{ github.run_number }}
 
       - name: Rename DEV APK
         if: ${{ env.IS_DEV == 'true' }}
@@ -90,7 +93,7 @@ jobs:
         # Build im Download-Ordner liegt (statt BoatSpeedy-dev(1).apk, (2), …).
         run: |
           V=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
-          cp app/build/outputs/apk/debug/app-debug.apk "BoatSpeedy-$V-dev${{ github.run_number }}.apk"
+          cp app/build/outputs/apk/dev/app-dev.apk "BoatSpeedy-$V-dev${{ github.run_number }}.apk"
 
       - name: Remove the old dev pre-release
         if: ${{ env.IS_DEV == 'true' }}
@@ -111,7 +114,7 @@ jobs:
         run: |
           {
             cat <<'HEAD'
-          Development build — **replaces** the installed BoatSpeedy, shown as “BoatSpeedy DEV”.
+          Development build — a release build with a dev version name. Installs over BoatSpeedy.
           HEAD
             echo
             echo "Build ${{ github.run_number }} · \`${{ github.ref_name }}\` · ${{ github.sha }}"

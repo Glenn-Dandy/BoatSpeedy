@@ -62,15 +62,13 @@ android {
     }
 
     buildTypes {
-        // DEV benutzt **dasselbe Paket** wie die echte App und ersetzt sie beim
-        // Installieren. Auch der Name bleibt gleich — erkennbar ist der Dev-Build an der
-        // Versionsnummer („1.4.0-dev243"), nicht am Startbildschirm. Signiert mit dem
-        // Release-Keystore, sonst würde Android die Installation darüber verweigern.
+        // Der Debug-Typ ist nur noch für Android Studio da: eigenes Paket, damit er die
+        // echte App auf dem Gerät nicht ersetzt. Die veröffentlichten DEV-Builds sind
+        // seit jeher etwas anderes — siehe den „dev"-Typ unten.
         debug {
-            // Fortlaufende Nummer je CI-Lauf: -PdevBuild=<n> → "1.3.3-dev142".
-            // Lokal ohne Eigenschaft bleibt es schlicht "-dev". Betrifft nur den
-            // Debug-Build; das versionName oben, das F-Droid ausliest, bleibt unberührt.
-            versionNameSuffix = "-dev" + (project.findProperty("devBuild") ?: "")
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            resValue("string", "app_name", "BoatSpeedy Debug")
             if (hasKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -90,6 +88,16 @@ android {
             if (hasKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             }
+        }
+        // DEV ist ein **richtiger Release-Build** — gleicher Keystore, gleiches R8,
+        // gleiches Paket —, nur die Versionsnummer trägt „-devN". Deshalb installiert er
+        // sich über die normale App und ist nicht fünfzigmal so groß wie sie: der
+        // Debug-Typ schrumpft nichts, und material-icons-extended bringt rund zehntausend
+        // Symbole mit, von denen wir zweiundvierzig benutzen.
+        // Bauen: ./gradlew assembleDev -PdevBuild=<n>
+        create("dev") {
+            initWith(getByName("release"))
+            versionNameSuffix = "-dev" + (project.findProperty("devBuild") ?: "")
         }
     }
 
