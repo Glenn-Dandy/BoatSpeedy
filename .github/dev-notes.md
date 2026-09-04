@@ -14,6 +14,13 @@ Net changes only. Anything tried and taken back during the dev cycle is not list
 - **Routes avoid what the map forbids** — `boat=no`, private water, culverts, and anything
   cut off by a weir, dam or no-entry sign. **Locks and weirs** near the route are listed
   bottom left, counted separately.
+- **Speed limits are shown with their value.** OpenSeaMap draws the sign — a red-bordered
+  square — but leaves it empty, so you could see that a limit applied without seeing which.
+  The signs are now read from OpenStreetMap directly and drawn with the number in them,
+  on top of the empty symbol. Tapping one shows the original text. The data is uneven:
+  some signs say "5 km/h", some just "8", some carry the value under a different key, and
+  some have no value at all — those are left out. Knots are converted. Shown from zoom 12
+  up, with the seamarks, and not used for routing.
 - **Settings → Navigation**: pick your **craft** (motorboat or canoe — it decides which
   bans apply and whether streams count), and switch **seamarks** on or off. Seamarks come
   from OpenSeaMap (tiles CC-BY-SA, data ODbL) and are on by default; the attribution

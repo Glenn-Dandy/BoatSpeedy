@@ -72,6 +72,14 @@ fun OsmMap(
     smoothFollow: Boolean = false,
     /** Tonnen, Baken und Hinweiszeichen von OpenSeaMap einblenden. */
     showSeamarks: Boolean = false,
+    /** Geschwindigkeitszeichen mit ihrem Wert; die Kacheln zeigen nur das leere Schild. */
+    speedSigns: List<de.kewl.boatspeedy.nav.SpeedSign> = emptyList(),
+    /**
+     * Meldet den sichtbaren Ausschnitt samt Zoomstufe — aber nur, wenn er sich wirklich
+     * geändert hat. Bei jedem Durchlauf zu melden würde den ganzen Bildschirm im
+     * Sekundentakt neu zeichnen lassen, ohne dass sich etwas bewegt hat.
+     */
+    onViewport: ((org.osmdroid.util.BoundingBox, Double) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val pointsState = rememberUpdatedState(points)
@@ -235,6 +243,32 @@ fun OsmMap(
         onDispose { }
     }
 
+    val viewportListener = rememberUpdatedState(onViewport)
+    LaunchedEffect(mapView) {
+        while (!awaitMapReady(mapView) { centered }) delay(500)
+        var lastBox: org.osmdroid.util.BoundingBox? = null
+        var lastZoom = Double.NaN
+        while (true) {
+            val cb = viewportListener.value
+            if (cb != null) {
+                val box = runCatching { mapView.boundingBox }.getOrNull()
+                val zoom = mapView.zoomLevelDouble
+                if (box != null && box.latitudeSpan > 0) {
+                    val moved = lastBox == null ||
+                        kotlin.math.abs(zoom - lastZoom) >= 0.5 ||
+                        !lastBox!!.contains(box.latNorth, box.lonEast) ||
+                        !lastBox!!.contains(box.latSouth, box.lonWest)
+                    if (moved) {
+                        lastBox = box
+                        lastZoom = zoom
+                        cb(box, zoom)
+                    }
+                }
+            }
+            delay(700)
+        }
+    }
+
     // Merkt, wenn der Blick das gerechnete Fenster verlässt oder deutlich näher
     // herangeht → neu **rechnen**. Geholt wird dabei nichts: die Bilder decken ohnehin
     // das ganze Gebiet ab.
@@ -373,6 +407,28 @@ fun OsmMap(
             mapView.overlays.add(m)
         }
         mapView.invalidate()
+    }
+
+    // Geschwindigkeitszeichen: eigene Marker, weil die Kacheln zwar das Schild zeichnen,
+    // aber die Zahl darin frei lassen. Unsere liegen genau darauf und decken es ab.
+    val signMarkers = remember(mapView) { mutableListOf<Marker>() }
+    DisposableEffect(speedSigns, showSeamarks) {
+        signMarkers.forEach { mapView.overlays.remove(it) }
+        signMarkers.clear()
+        if (showSeamarks) {
+            speedSigns.forEach { sign ->
+                val m = Marker(mapView).apply {
+                    position = GeoPoint(sign.lat, sign.lon)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    icon = speedSignDrawable(context, sign.kmh)
+                    title = sign.raw
+                }
+                signMarkers.add(m)
+                mapView.overlays.add(m)
+            }
+        }
+        mapView.invalidate()
+        onDispose { }
     }
 
     // Langer Druck auf die Karte → Ziel setzen.

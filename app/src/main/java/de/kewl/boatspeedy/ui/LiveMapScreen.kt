@@ -64,6 +64,8 @@ import de.kewl.boatspeedy.nav.NavMode
 import de.kewl.boatspeedy.nav.NavRepository
 import de.kewl.boatspeedy.nav.NavTarget
 import de.kewl.boatspeedy.nav.ObstacleKind
+import de.kewl.boatspeedy.nav.SpeedSign
+import de.kewl.boatspeedy.nav.SpeedSignSource
 import de.kewl.boatspeedy.nav.RouteError
 import de.kewl.boatspeedy.nav.RouteResult
 import de.kewl.boatspeedy.nav.WaterRouter
@@ -173,6 +175,39 @@ fun LiveMapScreen(
         }
     }
 
+    // Geschwindigkeitszeichen für den sichtbaren Ausschnitt. Nachgeladen wird erst, wenn
+    // der Blick den geholten Bereich verlässt — Overpass ist eine gemeinsam genutzte
+    // Schnittstelle, und die Schilder wandern nicht.
+    var speedSigns by remember { mutableStateOf<List<SpeedSign>>(emptyList()) }
+    var signArea by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
+    var mapBox by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
+    var zoomLevel by remember { mutableStateOf(0.0) }
+    LaunchedEffect(settings.seamarks, weatherMode, mapBox, zoomLevel) {
+        if (!settings.seamarks || weatherMode) { speedSigns = emptyList(); signArea = null; return@LaunchedEffect }
+        val box = mapBox ?: return@LaunchedEffect
+        // Zu weit draußen stehen zu viele Schilder zu dicht beieinander, um lesbar zu sein.
+        if (zoomLevel < SpeedSignSource.MIN_ZOOM) { speedSigns = emptyList(); signArea = null; return@LaunchedEffect }
+        val have = signArea
+        val covered = have != null &&
+            have.latNorth >= box.latNorth && have.latSouth <= box.latSouth &&
+            have.lonEast >= box.lonEast && have.lonWest <= box.lonWest
+        if (covered) return@LaunchedEffect
+        // Deutlich größer holen als sichtbar: in Fahrt wandert der Ausschnitt ständig,
+        // und jede Bildschirmbreite eine Overpass-Anfrage wäre unhöflich. So ist erst
+        // nach zwei Bildschirmbreiten Fahrt wieder eine nötig.
+        val padLat = box.latitudeSpan
+        val padLon = box.longitudeSpanWithDateLine
+        val south = box.latSouth - padLat
+        val north = box.latNorth + padLat
+        val west = box.lonWest - padLon
+        val east = box.lonEast + padLon
+        val found = withContext(Dispatchers.IO) { SpeedSignSource.fetch(south, west, north, east) }
+        if (found != null) {
+            speedSigns = found
+            signArea = org.osmdroid.util.BoundingBox(north, east, south, west)
+        }
+    }
+
     // Vorhersage-Schleife (jetzt → +2 h), solange „Abspielen" aktiv.
     LaunchedEffect(showWeather, playing) {
         if (showWeather && playing) {
@@ -241,6 +276,8 @@ fun LiveMapScreen(
                 // gerade keinen brauchbaren Kurs, also steht das Boot.
                 smoothFollow = course?.stale == false && !weatherMode,
                 showSeamarks = settings.seamarks && !weatherMode,
+                speedSigns = speedSigns,
+                onViewport = { box, zoom -> mapBox = box; zoomLevel = zoom },
                 modifier = Modifier.fillMaxSize(),
             )
 
