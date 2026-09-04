@@ -111,13 +111,10 @@ jobs:
         run: |
           {
             cat <<'HEAD'
-          Rolling development build — package `de.kewl.boatspeedy.debug`, label “BoatSpeedy DEV”
-          (installs alongside the release app, so your normal BoatSpeedy stays untouched).
-          Signed with the release key.
+          Development build — installs next to the release app as “BoatSpeedy DEV”.
           HEAD
             echo
-            echo "Build ${{ github.run_number }} · branch ${{ github.ref_name }} · commit ${{ github.sha }}"
-            echo "The app shows this build as -dev${{ github.run_number }}."
+            echo "Build ${{ github.run_number }} · \`${{ github.ref_name }}\` · ${{ github.sha }}"
             echo
             cat .github/dev-notes.md
           } > dev-release-notes.md
