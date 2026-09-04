@@ -1,9 +1,6 @@
 package de.kewl.boatspeedy.nav
 
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
 
 /**
  * Ein Geschwindigkeitszeichen am Wasser, wie OpenStreetMap es kennt.
@@ -30,8 +27,6 @@ data class SpeedSign(
  * Bilder. Für den Wert führt kein Weg an den Rohdaten vorbei.
  */
 object SpeedSignSource {
-
-    private const val OVERPASS = "https://overpass-api.de/api/interpreter"
 
     /** Unterhalb dieser Zoomstufe stehen zu viele Schilder zu dicht – dann lieber keine. */
     const val MIN_ZOOM = 12.0
@@ -99,22 +94,8 @@ object SpeedSignSource {
             );
             out tags center;
         """.trimIndent()
-        return runCatching {
-            val c = (URL(OVERPASS).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                connectTimeout = 15_000
-                readTimeout = 40_000
-                setRequestProperty("User-Agent", "BoatSpeedy")
-                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-            }
-            try {
-                c.outputStream.use { it.write(("data=" + URLEncoder.encode(q, "UTF-8")).toByteArray()) }
-                if (c.responseCode != 200) return@runCatching null
-                c.inputStream.bufferedReader().use { it.readText() }
-            } finally {
-                c.disconnect()
-            }
-        }.getOrNull()
+        // Dieselbe Server-Reihe wie beim Routing: ein einzelner Overpass fällt aus, und
+        // dann fehlten die Schilder, obwohl das Gerät online ist.
+        return WaterRouter.postOverpass(q)
     }
 }

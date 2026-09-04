@@ -138,7 +138,21 @@ object WaterRouter {
     /** Für das Zusammenfügen der Wege: OSM teilt Knoten, die Koordinaten sind identisch. */
     private const val SNAP = 1_000_000.0
 
-    private const val OVERPASS = "https://overpass-api.de/api/interpreter"
+    /**
+     * Mehrere Overpass-Server, der Reihe nach. Ein einzelner fest verdrahteter reicht
+     * nicht: Am 2026-09-04 war `overpass-api.de` von hier aus **gar nicht** erreichbar —
+     * drei Versuche, keine Verbindung —, während ein Spiegel dieselbe Abfrage in zwei
+     * Sekunden beantwortete. Das Routing meldete daraufhin „keine Verbindung zu den
+     * Kartendaten", obwohl das Gerät online war und die Daten es hergaben.
+     *
+     * Es sind öffentliche, gespendete Server. Deshalb wird immer erst der nächste
+     * versucht, wenn der vorige nicht antwortet, und nie parallel angefragt.
+     */
+    private val OVERPASS_HOSTS = listOf(
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter",
+    )
 
     /**
      * Nur befahrbares Wasser. Gräben und Entwässerungen (`ditch`, `drain`, `stream`) sind
@@ -261,24 +275,44 @@ object WaterRouter {
             );
             out geom;
         """.trimIndent()
-        return runCatching {
-            val c = (URL(OVERPASS).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = 15_000
-                readTimeout = 60_000
-                doOutput = true
-                setRequestProperty("User-Agent", "BoatSpeedy")
-                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-            }
-            try {
-                c.outputStream.use { it.write(("data=" + URLEncoder.encode(query, "UTF-8")).toByteArray()) }
-                if (c.responseCode != 200) return@runCatching null
-                c.inputStream.bufferedReader().use { it.readText() }
-            } finally {
-                c.disconnect()
-            }
-        }.getOrNull()
+        return postOverpass(query)
     }
+
+    /**
+     * Schickt die Abfrage an den ersten Server, der antwortet.
+     *
+     * „Antwortet" heißt: HTTP 200 **und** JSON. Overpass liefert bei Überlast gern 504
+     * oder eine XML-Fehlerseite mit Status 200 — beides als Ergebnis durchzureichen
+     * hieße, dem Nutzer „hier sind keine Wasserwege verzeichnet" zu zeigen, wo in
+     * Wirklichkeit nur der Server müde war.
+     */
+    internal fun postOverpass(query: String): String? {
+        for (host in OVERPASS_HOSTS) {
+            val body = runCatching {
+                val c = (URL(host).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 10_000
+                    readTimeout = 60_000
+                    doOutput = true
+                    setRequestProperty("User-Agent", "BoatSpeedy")
+                    setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                }
+                try {
+                    c.outputStream.use { it.write(("data=" + URLEncoder.encode(query, "UTF-8")).toByteArray()) }
+                    if (c.responseCode != 200) return@runCatching null
+                    c.inputStream.bufferedReader().use { it.readText() }
+                } finally {
+                    c.disconnect()
+                }
+            }.getOrNull()
+            if (looksLikeJson(body)) return body
+        }
+        return null
+    }
+
+    /** Overpass antwortet im Fehlerfall mit XML, teils sogar unter Status 200. */
+    internal fun looksLikeJson(body: String?): Boolean =
+        body != null && body.trimStart().startsWith("{")
 
     private fun parseWays(json: String, craft: Craft): List<List<Node>> = runCatching {
         val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptyList()
