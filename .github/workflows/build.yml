@@ -111,7 +111,7 @@ jobs:
         run: |
           {
             cat <<'HEAD'
-          Development build — installs next to the release app as “BoatSpeedy DEV”.
+          Development build — **replaces** the installed BoatSpeedy, shown as “BoatSpeedy DEV”.
           HEAD
             echo
             echo "Build ${{ github.run_number }} · \`${{ github.ref_name }}\` · ${{ github.sha }}"

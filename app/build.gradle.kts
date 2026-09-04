@@ -44,8 +44,8 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 39                       // manuell, altes kleines Schema (steigt je Release)
-        versionName = "1.3.4"                   // manuell (F-Droid-lesbar + reproduzierbar)
+        versionCode = 40                       // manuell, altes kleines Schema (steigt je Release)
+        versionName = "1.4.0"                   // manuell (F-Droid-lesbar + reproduzierbar)
         resValue("string", "app_name", "BoatSpeedy")
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }
@@ -62,11 +62,11 @@ android {
     }
 
     buildTypes {
-        // DEV als eigenes Paket (…​.debug) + eigenes Label „BoatSpeedy DEV" → liegt neben
-        // der echten App. Signiert mit dem Release-Keystore, damit Dev-über-Dev-Updates
-        // ohne Deinstallieren funktionieren.
+        // DEV benutzt **dasselbe Paket** wie die echte App und ersetzt sie beim
+        // Installieren. Das Label bleibt „BoatSpeedy DEV", damit erkennbar ist, was
+        // gerade auf dem Gerät liegt. Signiert mit dem Release-Keystore — sonst würde
+        // Android die Installation über die vorhandene App verweigern.
         debug {
-            applicationIdSuffix = ".debug"
             // Fortlaufende Nummer je CI-Lauf: -PdevBuild=<n> → "1.3.3-dev142".
             // Lokal ohne Eigenschaft bleibt es schlicht "-dev". Betrifft nur den
             // Debug-Build; das versionName oben, das F-Droid ausliest, bleibt unberührt.
