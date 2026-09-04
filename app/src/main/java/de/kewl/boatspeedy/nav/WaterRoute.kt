@@ -105,7 +105,16 @@ fun pathLengthM(path: List<LatLon>): Double =
     path.zipWithNext().sumOf { (a, b) -> distanceM(a, b) }
 
 /** Was beim Routen schiefgehen kann – jeder Fall bekommt in der UI seinen eigenen Text. */
-enum class RouteError { TOO_FAR, NO_NETWORK, NO_WATERWAYS, NOT_ON_WATER, NO_CONNECTION }
+enum class RouteError { TOO_FAR, NO_NETWORK, SERVICE_BUSY, NO_WATERWAYS, NOT_ON_WATER, NO_CONNECTION }
+
+/** Was bei der Overpass-Abfrage herauskam. */
+internal sealed interface OverpassResult {
+    data class Ok(val body: String) : OverpassResult
+    /** Server haben geantwortet, aber nichts Brauchbares geliefert. */
+    data object Busy : OverpassResult
+    /** Keiner hat überhaupt geantwortet. */
+    data object Unreachable : OverpassResult
+}
 
 sealed interface RouteResult {
     data class Ok(
@@ -147,6 +156,11 @@ object WaterRouter {
      *
      * Es sind öffentliche, gespendete Server. Deshalb wird immer erst der nächste
      * versucht, wenn der vorige nicht antwortet, und nie parallel angefragt.
+     *
+     * **Nur weltweite Instanzen.** `overpass.osm.ch` etwa antwortet in 0,17 s mit
+     * gültigem JSON und null Elementen, weil es nur die Schweiz enthält — die App würde
+     * daraufhin überzeugt „hier sind keine Wasserwege verzeichnet" melden. Ein regionaler
+     * Spiegel ist schlimmer als gar keiner.
      */
     private val OVERPASS_HOSTS = listOf(
         "https://overpass-api.de/api/interpreter",
@@ -224,7 +238,11 @@ object WaterRouter {
         if (direct > MAX_DISTANCE_M) return RouteResult.Failed(RouteError.TOO_FAR)
         val maxSnap = maxSnapM(direct)
 
-        val json = fetch(from, to, craft) ?: return RouteResult.Failed(RouteError.NO_NETWORK)
+        val json = when (val r = askOverpass(buildQuery(from, to, craft))) {
+            is OverpassResult.Ok -> r.body
+            OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
+            OverpassResult.Unreachable -> return RouteResult.Failed(RouteError.NO_NETWORK)
+        }
         val ways = parseWays(json, craft)
         if (ways.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
@@ -257,7 +275,7 @@ object WaterRouter {
 
     /* ------------------------------ Daten holen ------------------------------ */
 
-    private fun fetch(from: LatLon, to: LatLon, craft: Craft): String? {
+    private fun buildQuery(from: LatLon, to: LatLon, craft: Craft): String {
         val south = minOf(from.lat, to.lat) - BBOX_PADDING_DEG
         val north = maxOf(from.lat, to.lat) + BBOX_PADDING_DEG
         val west = minOf(from.lon, to.lon) - BBOX_PADDING_DEG
@@ -275,7 +293,7 @@ object WaterRouter {
             );
             out geom;
         """.trimIndent()
-        return postOverpass(query)
+        return query
     }
 
     /**
@@ -286,29 +304,94 @@ object WaterRouter {
      * hieße, dem Nutzer „hier sind keine Wasserwege verzeichnet" zu zeigen, wo in
      * Wirklichkeit nur der Server müde war.
      */
-    internal fun postOverpass(query: String): String? {
-        for (host in OVERPASS_HOSTS) {
-            val body = runCatching {
-                val c = (URL(host).openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    connectTimeout = 10_000
-                    readTimeout = 60_000
-                    doOutput = true
-                    setRequestProperty("User-Agent", "BoatSpeedy")
-                    setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+    /**
+     * Wie oft die ganze Liste durchgegangen wird, und wie lange insgesamt höchstens.
+     *
+     * Ein Anlauf reicht nicht: gemessen am 2026-09-04 scheiterten bei beiden erreichbaren
+     * Spiegeln drei von fünf Anfragen mit einem 504. Bei etwa jeder zweiten Anfrage sinkt
+     * die Aussicht auf Misserfolg mit sechs Versuchen unter zwei Prozent. Die Frist
+     * verhindert, dass daraus anderthalb Minuten Warten werden.
+     */
+    private const val ROUNDS = 2
+    private const val DEADLINE_MS = 45_000L
+    private const val PAUSE_MS = 1_000L
+
+    /**
+     * Der zuletzt erfolgreiche Server wird zuerst gefragt. Sonst kostet ein toter erster
+     * Eintrag bei **jeder** Route erneut die volle Wartezeit.
+     */
+    @Volatile
+    private var lastGoodHost: String? = null
+
+    /**
+     * Für Beiwerk wie die Geschwindigkeitsschilder: **ein** Durchgang, keine Wiederholung.
+     * Fehlen die Schilder, ist nichts verloren — die Server aber sind knapp, und eine
+     * Route, die daneben ansteht, soll sie nicht mit Nebensachen belegt vorfinden.
+     */
+    internal fun postOverpass(query: String): String? =
+        (askOverpass(query, rounds = 1) as? OverpassResult.Ok)?.body
+
+    /**
+     * Fragt die Server der Reihe nach, in mehreren Anläufen und mit einer Gesamtfrist.
+     *
+     * Unterscheidet dabei, **warum** es nicht geklappt hat: Hat überhaupt kein Server
+     * geantwortet, ist es ein Verbindungsproblem. Kamen Antworten, waren aber unbrauchbar
+     * (504, XML-Fehlerseite), ist der Dienst überlastet — und dann ist „keine Verbindung
+     * zu den Kartendaten" schlicht die falsche Auskunft.
+     */
+    internal fun askOverpass(query: String, rounds: Int = ROUNDS): OverpassResult {
+        val order = (listOfNotNull(lastGoodHost) + OVERPASS_HOSTS).distinct()
+        val until = System.currentTimeMillis() + DEADLINE_MS
+        var answered = false
+        repeat(rounds) { round ->
+            for (host in order) {
+                if (System.currentTimeMillis() >= until) {
+                    return if (answered) OverpassResult.Busy else OverpassResult.Unreachable
                 }
-                try {
-                    c.outputStream.use { it.write(("data=" + URLEncoder.encode(query, "UTF-8")).toByteArray()) }
-                    if (c.responseCode != 200) return@runCatching null
-                    c.inputStream.bufferedReader().use { it.readText() }
-                } finally {
-                    c.disconnect()
+                val reply = post(host, query)
+                if (reply.reached) answered = true
+                if (looksLikeJson(reply.body)) {
+                    lastGoodHost = host
+                    return OverpassResult.Ok(reply.body!!)
                 }
-            }.getOrNull()
-            if (looksLikeJson(body)) return body
+            }
+            if (round < rounds - 1) runCatching { Thread.sleep(PAUSE_MS) }
         }
-        return null
+        return if (answered) OverpassResult.Busy else OverpassResult.Unreachable
     }
+
+    /** [reached] sagt, ob der Server überhaupt geantwortet hat – egal mit was. */
+    private class Reply(val body: String?, val reached: Boolean)
+
+    private fun post(host: String, query: String): Reply {
+        var reached = false
+        val body = runCatching {
+            val c = (URL(host).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = CONNECT_MS
+                // Kurz gehalten: erfolgreiche Antworten kamen in 2,5 bis 9 s, ein 504 erst
+                // nach 35 bis 40. Ohne diesen Schnitt wartet man auf jeden müden Server
+                // eine halbe Minute, bevor der nächste drankommt.
+                readTimeout = READ_MS
+                doOutput = true
+                setRequestProperty("User-Agent", "BoatSpeedy")
+                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            }
+            try {
+                c.outputStream.use { it.write(("data=" + URLEncoder.encode(query, "UTF-8")).toByteArray()) }
+                val code = c.responseCode
+                reached = true
+                if (code != 200) return@runCatching null
+                c.inputStream.bufferedReader().use { it.readText() }
+            } finally {
+                c.disconnect()
+            }
+        }.getOrNull()
+        return Reply(body, reached)
+    }
+
+    private const val CONNECT_MS = 8_000
+    private const val READ_MS = 15_000
 
     /** Overpass antwortet im Fehlerfall mit XML, teils sogar unter Status 200. */
     internal fun looksLikeJson(body: String?): Boolean =

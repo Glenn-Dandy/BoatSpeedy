@@ -298,6 +298,7 @@
     <string name="nav_routing">Suche einen Weg …</string>
     <string name="nav_clear">Ziel entfernen</string>
     <string name="nav_err_far">Für eine Route ist das zu weit weg. Die Luftlinie geht trotzdem.</string>
+    <string name="nav_err_busy">Der Kartendienst ist gerade überlastet und antwortet nicht. Später noch einmal — die Luftlinie geht sofort.</string>
     <string name="nav_err_offline">Keine Verbindung zu den Kartendaten. Draußen ist das normal — die Luftlinie kommt ohne aus.</string>
     <string name="nav_err_nodata">Hier sind keine Wasserwege verzeichnet.</string>
     <string name="nav_err_unconnected">Es führt kein durchgehender Wasserweg dorthin — jedenfalls keiner, der verzeichnet ist.</string>

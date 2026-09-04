@@ -185,8 +185,11 @@ fun LiveMapScreen(
     var recenterKey by remember { mutableIntStateOf(0) }
     var mapBox by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
     var zoomLevel by remember { mutableStateOf(0.0) }
-    LaunchedEffect(settings.seamarks, weatherMode, mapBox, zoomLevel) {
+    LaunchedEffect(settings.seamarks, weatherMode, mapBox, zoomLevel, routing) {
         if (!settings.seamarks || weatherMode) { speedSigns = emptyList(); signArea = null; return@LaunchedEffect }
+        // Während eine Route gerechnet wird, nicht dazwischenfunken: beide fragen
+        // dieselben Server, und die Route ist das Wichtigere.
+        if (routing) return@LaunchedEffect
         val box = mapBox ?: return@LaunchedEffect
         // Zu weit draußen stehen zu viele Schilder zu dicht beieinander, um lesbar zu sein.
         if (zoomLevel < SpeedSignSource.MIN_ZOOM) { speedSigns = emptyList(); signArea = null; return@LaunchedEffect }
@@ -506,6 +509,7 @@ fun LiveMapScreen(
                         when (err) {
                             RouteError.TOO_FAR -> R.string.nav_err_far
                             RouteError.NO_NETWORK -> R.string.nav_err_offline
+                            RouteError.SERVICE_BUSY -> R.string.nav_err_busy
                             RouteError.NO_WATERWAYS -> R.string.nav_err_nodata
                             RouteError.NOT_ON_WATER -> R.string.nav_err_notwater
                             RouteError.NO_CONNECTION -> R.string.nav_err_unconnected

@@ -301,6 +301,7 @@
     <string name="nav_routing">Looking for a way through…</string>
     <string name="nav_clear">Remove destination</string>
     <string name="nav_err_far">That is too far away for a route. Straight line still works.</string>
+    <string name="nav_err_busy">The map service is overloaded and not answering. Try again later — the straight line works right away.</string>
     <string name="nav_err_offline">No connection to the map data. Out here that is normal — the straight line works without one.</string>
     <string name="nav_err_nodata">No waterways are mapped around here.</string>
     <string name="nav_err_unconnected">No continuous waterway leads there — at least none that is mapped.</string>
