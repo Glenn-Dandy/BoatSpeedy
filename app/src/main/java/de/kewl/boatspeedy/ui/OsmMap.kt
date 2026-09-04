@@ -493,13 +493,52 @@ fun OsmMap(
         }
     }
 
-    // Marker in Fahrtrichtung drehen. osmdroid dreht gegen den Uhrzeigersinn, der
-    // Kompasskurs läuft mit – deshalb das umgekehrte Vorzeichen. Steht das Boot, kommt
-    // hier nichts an und die letzte Richtung bleibt stehen, statt zu zappeln.
-    LaunchedEffect(courseDeg) {
-        courseDeg?.let {
-            marker.rotation = ((-it % 360f) + 360f) % 360f
+    /**
+     * Der Marker wird **mitgezogen**, nicht gesetzt: Position und Drehung wandern über
+     * dieselbe Zeitspanne wie die Kartenbewegung.
+     *
+     * Vorher sprang er bei jeder GPS-Meldung an die neue Stelle, während die Karte weich
+     * nachzog — er wanderte also sichtbar über den Bildschirm und blieb stehen, einmal je
+     * Sekunde. Genau das war das Stocken.
+     *
+     * osmdroid dreht gegen den Uhrzeigersinn, der Kompasskurs läuft mit — daher das
+     * umgekehrte Vorzeichen. Im Stand wird hart gesetzt, wie bei der Karte auch: dort
+     * wandert die GPS-Position um ein paar Meter, und das weich zu animieren sähe aus
+     * wie Driften.
+     */
+    val markerAnim = remember(mapView) { MarkerAnim() }
+    LaunchedEffect(currentLat, currentLon, courseDeg, smoothFollow) {
+        if (currentLat == null || currentLon == null) return@LaunchedEffect
+        val toRot = courseDeg?.let { ((-it % 360f) + 360f) % 360f } ?: markerAnim.rot
+        val fromLat = markerAnim.lat
+        val fromLon = markerAnim.lon
+        val fromRot = markerAnim.rot
+
+        fun place(lat: Double, lon: Double, rot: Float) {
+            markerAnim.set(lat, lon, rot)
+            marker.position = GeoPoint(lat, lon)
+            marker.rotation = rot
             mapView.invalidate()
+        }
+
+        // Erste Position oder Stillstand: sofort setzen.
+        if (fromLat == null || fromLon == null || !smoothFollow) {
+            place(currentLat, currentLon, toRot)
+            return@LaunchedEffect
+        }
+
+        val turn = shortestTurn(fromRot, toRot)
+        val started = System.nanoTime()
+        while (true) {
+            val elapsed = (System.nanoTime() - started) / 1_000_000.0
+            val f = (elapsed / MARKER_ANIM_MS).coerceIn(0.0, 1.0)
+            place(
+                fromLat + (currentLat - fromLat) * f,
+                fromLon + (currentLon - fromLon) * f,
+                fromRot + turn * f.toFloat(),
+            )
+            if (f >= 1.0) break
+            delay(16)
         }
     }
 
@@ -512,8 +551,8 @@ fun OsmMap(
             mapView.overlays.remove(line)
         }
 
+        // Die Position setzt der Animationslauf oben; hier wird der Marker nur eingehängt.
         if (currentLat != null && currentLon != null) {
-            marker.position = GeoPoint(currentLat, currentLon)
             if (!mapView.overlays.contains(marker)) mapView.overlays.add(marker)
         }
 
@@ -684,3 +723,26 @@ private fun trimRendered(
         used -= cache.remove(victim)?.second?.allocationByteCount ?: 0
     }
 }
+
+/**
+ * Was der Positionsmarker gerade **zeigt** — bewusst kein Compose-Zustand: die Werte
+ * ändern sich sechzigmal je Sekunde, und als Zustand würde damit die ganze Karte
+ * genauso oft neu zusammengesetzt.
+ */
+private class MarkerAnim {
+    var lat: Double? = null
+        private set
+    var lon: Double? = null
+        private set
+    var rot: Float = 0f
+        private set
+
+    fun set(lat: Double, lon: Double, rot: Float) {
+        this.lat = lat
+        this.lon = lon
+        this.rot = rot
+    }
+}
+
+/** Wie die Kartenbewegung: knapp unter dem GPS-Takt, sonst überholen sich zwei Läufe. */
+private const val MARKER_ANIM_MS = 900.0

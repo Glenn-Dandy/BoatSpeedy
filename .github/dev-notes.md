@@ -7,6 +7,9 @@
 - Settings → Navigation: **craft** (motorboat or canoe) decides which bans apply; **seamarks** from OpenSeaMap, on by default.
 - **Speed limit signs show their value** — OpenSeaMap draws the sign but leaves it empty. Tap one for the original text.
 
+- The position marker is dragged along with the map instead of jumping to each new fix, on the dashboard's small map as well as the full one.
+- Turning off satellite details now hides the whole status line, dot and "Fix" included.
+
 **Weather**
 - A Weather entry in the menu: rain radar, plus what the nearest DWD station measures now.
 - The radar no longer reloads when you zoom, and no longer draws the raw grid as squares.

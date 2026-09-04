@@ -206,6 +206,9 @@ private fun MapMiniTile(points: List<TrackPoint>, lat: Double?, lon: Double?, on
                 navPath = navTarget?.path.orEmpty(),
                 navWaterPath = navTarget?.water.orEmpty(),
                 courseDeg = mapCourse?.deg,
+                // Wie in der großen Karte: in Fahrt weich nachziehen, im Stand hart
+                // setzen. „stale" heißt, das GPS liefert gerade keinen brauchbaren Kurs.
+                smoothFollow = mapCourse?.stale == false,
                 modifier = Modifier.matchParentSize(),
             )
             // Nicht-interaktive Vorschau: Overlay fängt den Tap (→ große Karte),
@@ -464,8 +467,14 @@ private fun TripButton(tracking: Boolean, onStart: () -> Unit, onStop: () -> Uni
     }
 }
 
+/**
+ * Punkt, „Fix", Satellitenzahl und Genauigkeit. Sind die Satelliten-Details abgeschaltet,
+ * verschwindet die Zeile ganz — vorher blieben Punkt und „Fix" stehen, und genau die
+ * wollte man ja loswerden.
+ */
 @Composable
 private fun StatusRow(gps: GpsState, showSatDetails: Boolean) {
+    if (!showSatDetails) return
     val statusColor = when {
         !gps.hasFix -> StatusNone
         (gps.accuracyM ?: Float.MAX_VALUE) <= 10f && gps.satellitesUsed >= 4 -> StatusGood
@@ -479,19 +488,17 @@ private fun StatusRow(gps: GpsState, showSatDetails: Boolean) {
             text = if (gps.hasFix) stringResource(R.string.status_fix) else stringResource(R.string.status_no_fix),
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
         )
-        if (showSatDetails) {
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text = stringResource(R.string.sat_label, gps.satellitesUsed, gps.satellitesVisible),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+        )
+        gps.accuracyM?.let { acc ->
             Spacer(Modifier.width(16.dp))
             Text(
-                text = stringResource(R.string.sat_label, gps.satellitesUsed, gps.satellitesVisible),
+                text = stringResource(R.string.accuracy_label, acc.toInt()),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
             )
-            gps.accuracyM?.let { acc ->
-                Spacer(Modifier.width(16.dp))
-                Text(
-                    text = stringResource(R.string.accuracy_label, acc.toInt()),
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                )
-            }
         }
     }
 }
