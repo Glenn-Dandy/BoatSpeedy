@@ -36,9 +36,9 @@ import kotlin.math.tan
 class RadarImageOverlay : Overlay() {
 
     private val paint = Paint().apply {
-        // Geglättet wird bereits beim Aufbereiten (smoothRadar) – dort werden die
-        // Messwerte interpoliert, nicht die Farben. Was hier noch skaliert wird, sind
-        // schon Zwischenwerte, deshalb ist die Filterung an dieser Stelle richtig.
+        // Interpoliert wird beim Aufbereiten (renderRadarWindow) – dort die Messwerte,
+        // nicht die Farben. Was hier noch skaliert wird, sind bereits Zwischenwerte;
+        // die Filterung macht daraus weiche Ränder statt Treppen.
         isFilterBitmap = true
         isAntiAlias = true
     }
@@ -125,6 +125,31 @@ fun MercatorBox.clampToWorld(): MercatorBox = MercatorBox(
 val MercatorBox.width: Double get() = maxX - minX
 val MercatorBox.height: Double get() = maxY - minY
 
+/**
+ * Das Gebiet, für das der DWD Radardaten liefert — etwa Deutschland mit Rand. **Fest**,
+ * und das ist der Kern der Sache: solange die Bilder immer für dieselbe Fläche geholt
+ * werden, ändert Zoomen und Schwenken nichts am Abruf. Vorher hing die Fläche am
+ * sichtbaren Ausschnitt, jede Zoomstufe warf alle Frames weg und lud sie neu — deshalb
+ * stand nach jedem Zoom sekundenlang das alte, hochgezogene Übersichtsbild auf der Karte.
+ */
+val RADAR_AREA_GER = MercatorBox(500_000.0, 5_850_000.0, 1_750_000.0, 7_450_000.0)
+
+/**
+ * Bildgröße für den Abruf des festen Gebiets: **ein Bildpunkt je Kilometer**, also genau
+ * die Auflösung der Messdaten. Gemessen: 87 kB und 0,7 s je Frame.
+ */
+const val RADAR_AREA_W = 790
+const val RADAR_AREA_H = 1010
+
+/** Gemeinsame Fläche, oder `null` wenn sie sich nicht überschneiden. */
+fun MercatorBox.intersect(other: MercatorBox): MercatorBox? {
+    val x0 = maxOf(minX, other.minX)
+    val y0 = maxOf(minY, other.minY)
+    val x1 = minOf(maxX, other.maxX)
+    val y1 = minOf(maxY, other.maxY)
+    return if (x1 > x0 && y1 > y0) MercatorBox(x0, y0, x1, y1) else null
+}
+
 fun MercatorBox.contains(other: MercatorBox): Boolean =
     minX <= other.minX && minY <= other.minY && maxX >= other.maxX && maxY >= other.maxY
 
@@ -200,47 +225,148 @@ private fun classColor(v: Float): Int {
 }
 
 /**
- * Glättet das Radarbild so, wie es die DWD-App zeigt: nicht das Bild wird weichgezeichnet,
- * sondern die **Messwerte** werden zwischen den Rasterzellen interpoliert und danach neu
- * eingefärbt. Ein Weichzeichner über das fertige Bild verwischt nur die Farben und macht
- * Matsch; hier entstehen echte Zwischenwerte, deshalb bleiben Kerne und Ränder erkennbar.
- *
- * Erwartet [src] in der Auflösung der Messdaten (ein Bildpunkt ≈ ein Kilometer).
+ * Kante des dargestellten Ausschnitts. Das Ergebnis wird beim Zeichnen noch auf die
+ * Bildschirmgröße gezogen — mit Filterung, was die Farbgrenzen weich macht statt
+ * treppig. Genau so sehen die Bilder der Wetter-Apps aus: weiche Umrisse, harte Stufen.
  */
-fun smoothRadar(src: Bitmap, maxEdge: Int): Bitmap {
+const val RADAR_RENDER_EDGE = 768
+
+/**
+ * Weiter als das zu vergrößern bringt nichts: über die Messauflösung hinaus entsteht nur
+ * größerer Weichzeichner, kostet aber Speicher in der ganzen Schleife.
+ */
+private const val MAX_ZOOM_FACTOR = 16.0
+
+/**
+ * Vergrößerungsfaktor für ein Fenster von [longestSpan] Rasterzellen. Ausgelagert, weil
+ * genau hier der Fehler saß: vorher `640 / breite` als **ganzzahlige** Division, die ab
+ * etwa 180 km Blickbreite 1 ergab — die Glättung lief dann, tat aber nichts.
+ */
+fun radarZoomFactor(longestSpan: Double, maxEdge: Int = RADAR_RENDER_EDGE): Double =
+    if (longestSpan <= 0.0) 0.0 else (maxEdge / longestSpan).coerceAtMost(MAX_ZOOM_FACTOR)
+
+/** Unterhalb dieser Vergrößerung lohnt das Aufbereiten nicht. */
+const val RADAR_MIN_FACTOR = 1.2
+
+/**
+ * Rechnet aus dem Deutschlandbild den sichtbaren Ausschnitt heraus und vergrößert ihn
+ * dabei — nicht das Bild wird weichgezeichnet, sondern die **Messwerte** werden zwischen
+ * den Rasterzellen interpoliert und danach neu eingefärbt.
+ *
+ * Der Vergrößerungsfaktor war vorher eine **ganzzahlige** Division `640 / Bildbreite`.
+ * Ab etwa 180 km Blickbreite kam dabei 1 heraus: die Glättung lief, tat aber nichts, und
+ * das Rohraster wurde ungefiltert über den Bildschirm gezogen — die sichtbaren Würfel.
+ * Hier ist der Faktor eine Fließkommazahl und richtet sich nach dem *Fenster*, nicht
+ * nach der gesamten Fläche, deshalb ist die Vergrößerung bei jedem Zoom passend.
+ *
+ * Gibt `null` zurück, wenn im Fenster ohnehin ungefähr ein Bildpunkt je Rasterzelle
+ * übrig bliebe — dann ist nichts zu gewinnen und der Aufrufer zeigt das Bild direkt.
+ */
+fun renderRadarWindow(
+    src: Bitmap,
+    srcBox: MercatorBox,
+    window: MercatorBox,
+    maxEdge: Int = RADAR_RENDER_EDGE,
+): Bitmap? {
     val sw = src.width
     val sh = src.height
-    // Entscheidend ist die **absolute** Ausgabegröße, nicht der Vergrößerungsfaktor.
-    // Mit festem Faktor wächst das Bild mit dem Ausschnitt: bei hundert Kilometern Blick
-    // wären es acht Megabyte je Frame und über hundertsiebzig für die ganze Schleife.
-    // Der Zwischenspeicher läuft dann über, jeder Wechsel rechnet neu — und es ruckelt.
-    // Diese Kante reicht für den Bildschirm; den Rest erledigt die Skalierung beim
-    // Zeichnen, die ohnehin nur noch leicht glättet.
-    val longest = kotlin.math.max(sw, sh).coerceAtLeast(1)
-    val factor = (maxEdge / longest).coerceIn(1, 12)
-    val ow = (sw * factor).coerceAtLeast(1)
-    val oh = (sh * factor).coerceAtLeast(1)
+    if (sw < 2 || sh < 2) return null
+
+    // Fenster in Quell-Bildpunkte umrechnen (Web-Mercator ist linear, also einfach).
+    val pxPerX = sw / srcBox.width
+    val pxPerY = sh / srcBox.height
+    // Auf die Bildkanten begrenzt – ein Fenster, das über das Radargebiet hinausragt,
+    // wird beschnitten. Genau dieselbe Beschneidung liefert renderedWindowBox als Fläche,
+    // sonst säße das Bild versetzt auf der Karte.
+    val fx0 = ((window.minX - srcBox.minX) * pxPerX).coerceIn(0.0, sw.toDouble())
+    val fx1 = ((window.maxX - srcBox.minX) * pxPerX).coerceIn(0.0, sw.toDouble())
+    // Bildzeilen laufen von oben (maxY) nach unten.
+    val fy0 = ((srcBox.maxY - window.maxY) * pxPerY).coerceIn(0.0, sh.toDouble())
+    val fy1 = ((srcBox.maxY - window.minY) * pxPerY).coerceIn(0.0, sh.toDouble())
+    val spanX = fx1 - fx0
+    val spanY = fy1 - fy0
+    if (spanX < 1.0 || spanY < 1.0) return null
+
+    val longest = kotlin.math.max(spanX, spanY)
+    val factor = radarZoomFactor(longest, maxEdge)
+    // Bei kleiner Vergrößerung lohnt der Aufwand nicht: das Quellbild hat dann schon
+    // ungefähr Bildschirmauflösung und wird beim Zeichnen ohnehin gefiltert.
+    if (factor < RADAR_MIN_FACTOR) return null
+    val ow = kotlin.math.round(spanX * factor).toInt().coerceIn(1, 4096)
+    val oh = kotlin.math.round(spanY * factor).toInt().coerceIn(1, 4096)
+
     val srcPx = IntArray(sw * sh)
     src.getPixels(srcPx, 0, sw, 0, 0, sw, sh)
     val values = FloatArray(sw * sh) { classOf(srcPx[it]) }
 
     val out = IntArray(ow * oh)
     for (y in 0 until oh) {
-        val fy = ((y + 0.5f) / factor) - 0.5f
-        val y0 = kotlin.math.floor(fy).toInt().coerceIn(0, sh - 1)
+        val sy = fy0 + (y + 0.5) / factor - 0.5
+        val y0 = kotlin.math.floor(sy).toInt().coerceIn(0, sh - 1)
         val y1 = (y0 + 1).coerceAtMost(sh - 1)
-        val wy = (fy - y0).coerceIn(0f, 1f)
+        val wy = (sy - y0).coerceIn(0.0, 1.0).toFloat()
+        val row = y * ow
         for (x in 0 until ow) {
-            val fx = ((x + 0.5f) / factor) - 0.5f
-            val x0 = kotlin.math.floor(fx).toInt().coerceIn(0, sw - 1)
+            val sx = fx0 + (x + 0.5) / factor - 0.5
+            val x0 = kotlin.math.floor(sx).toInt().coerceIn(0, sw - 1)
             val x1 = (x0 + 1).coerceAtMost(sw - 1)
-            val wx = (fx - x0).coerceIn(0f, 1f)
+            val wx = (sx - x0).coerceIn(0.0, 1.0).toFloat()
             val v00 = values[y0 * sw + x0]; val v10 = values[y0 * sw + x1]
             val v01 = values[y1 * sw + x0]; val v11 = values[y1 * sw + x1]
             val top = v00 + (v10 - v00) * wx
             val bot = v01 + (v11 - v01) * wx
-            out[y * ow + x] = classColor(top + (bot - top) * wy)
+            out[row + x] = classColor(top + (bot - top) * wy)
         }
     }
     return Bitmap.createBitmap(out, ow, oh, Bitmap.Config.ARGB_8888)
+}
+
+/** Die Fläche, die [renderRadarWindow] für dieses Fenster tatsächlich abdeckt. */
+fun renderedWindowBox(srcBox: MercatorBox, window: MercatorBox): MercatorBox =
+    window.intersect(srcBox) ?: srcBox
+
+/* ----------------------- Plattenspeicher für die Frames ----------------------- */
+
+/**
+ * Zwischenspeicher auf der Platte, damit Bildschirm verlassen und zurückkommen nicht die
+ * ganze Schleife noch einmal kostet — über Mobilfunk wurde sie vorher nie fertig.
+ *
+ * **Kurz gültig, und das mit Absicht.** Die Schleife zeigt eine Vorhersage von jetzt bis
+ * +100 Minuten, und der DWD rechnet sie alle fünf Minuten neu: das Bild für 15:00 Uhr
+ * sieht anders aus, je nachdem ob es um 14:00 oder um 14:30 berechnet wurde. Nur der
+ * Zeitstempel als Schlüssel würde deshalb alte Vorhersagen ausliefern. Deshalb gilt ein
+ * Eintrag nur, solange derselbe Vorhersagelauf aktuell ist.
+ */
+const val RADAR_CACHE_MS = 5 * 60_000L
+fun radarCacheDir(context: android.content.Context): java.io.File =
+    java.io.File(context.cacheDir, "radar").apply { mkdirs() }
+
+private fun cacheName(layer: String, timeIso: String?): String =
+    (layer + "_" + (timeIso ?: "now")).replace(Regex("[^A-Za-z0-9_.-]"), "_") + ".png"
+
+fun readCachedRadar(
+    dir: java.io.File,
+    layer: String,
+    timeIso: String?,
+    maxAgeMs: Long = RADAR_CACHE_MS,
+): ByteArray? = runCatching {
+    java.io.File(dir, cacheName(layer, timeIso))
+        .takeIf { it.isFile && System.currentTimeMillis() - it.lastModified() < maxAgeMs }
+        ?.readBytes()
+}.getOrNull()
+
+fun writeCachedRadar(dir: java.io.File, layer: String, timeIso: String?, png: ByteArray) {
+    runCatching { java.io.File(dir, cacheName(layer, timeIso)).writeBytes(png) }
+}
+
+/**
+ * Wirft weg, was älter als [maxAgeMs] ist. Das Vorhersageraster wandert alle fünf Minuten
+ * weiter; ohne Aufräumen sammelt sich der Speicher voll mit Bildern, die kein Abruf mehr
+ * annimmt.
+ */
+fun pruneRadarCache(dir: java.io.File, maxAgeMs: Long = 30 * 60_000L) {
+    runCatching {
+        val cutoff = System.currentTimeMillis() - maxAgeMs
+        dir.listFiles()?.forEach { if (it.isFile && it.lastModified() < cutoff) it.delete() }
+    }
 }

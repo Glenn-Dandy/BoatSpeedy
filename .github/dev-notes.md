@@ -28,6 +28,19 @@ Net changes only. Anything tried and taken back during the dev cycle is not list
 - **A Weather entry in the menu** — the map with the rain radar running, and in the title
   what the nearest DWD station measures now: temperature, sky symbol, wind and gusts.
   That is a measurement some kilometres away, not a forecast for where you float.
+- **The radar no longer reloads when you zoom.** Each frame is now fetched once for a
+  fixed area — the whole German radar domain at its native one-kilometre resolution,
+  87 kB a frame — instead of for whatever happened to be on screen. Zooming and panning
+  are pure local work; previously every zoom threw all 21 frames away and re-downloaded
+  them, leaving the old wide-area picture stretched across the screen for the ten to
+  thirty seconds that took. Frames are also kept on disk for the five minutes a forecast
+  run stays current, so leaving the screen and coming back costs nothing.
+- **The radar is smooth at every zoom.** The magnification was computed with an integer
+  division, so from roughly 180 km of view width it came out as exactly 1: the smoothing
+  ran but changed nothing, and the raw one-kilometre grid was drawn as visible squares.
+  It is now a fraction, and it follows the visible window rather than the whole fetched
+  area, so the interpolation is right at every zoom level. It still cannot invent detail
+  — every DWD radar layer is one kilometre, there is nothing finer to be had.
 
 ### Battery
 

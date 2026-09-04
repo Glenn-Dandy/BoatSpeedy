@@ -163,19 +163,26 @@ fun OsmMap(
     val radarOverlay = remember(mapView) { RadarImageOverlay() }
     val lightningOverlay = remember(mapView) { RadarImageOverlay() }
 
-    // PNG-Bytes je Frame; dekodiert wird nur der sichtbare.
+    // PNG-Bytes je Frame, immer für das feste Gebiet. Dekodiert wird nur, was gezeigt
+    // wird. Der Ausschnitt spielt hier keine Rolle mehr – deshalb löst Zoomen und
+    // Schwenken auch keinen Abruf mehr aus.
     val framePngs = remember(radarTimes) { mutableStateMapOf<Int, ByteArray>() }
-    var fetchedArea by remember(radarTimes) { mutableStateOf<MercatorBox?>(null) }
     var lightningPng by remember { mutableStateOf<ByteArray?>(null) }
-    // Ein Zähler, der einen Neu-Abruf auslöst, wenn der Ausschnitt weggewandert ist.
-    var viewEpoch by remember { mutableIntStateOf(0) }
-    // Fertig geglättete Frames. Ohne den Zwischenspeicher wird bei jedem Wechsel neu
-    // interpoliert – beim Schieben des Reglers reiht sich das auf und ruckelt.
-    val smoothedFrames = remember(radarTimes) { mutableMapOf<Int, Pair<Int, android.graphics.Bitmap>>() }
-    // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner) und zu welchem Abruf.
+    // Zähler für das *Darstellungsfenster*. Steigt, wenn sich der Blick so weit geändert
+    // hat, dass neu gerechnet werden soll — ohne Netzverkehr.
+    var windowEpoch by remember { mutableIntStateOf(0) }
+    var renderWindow by remember { mutableStateOf<MercatorBox?>(null) }
+    // Fertig gerechnete Frames für das aktuelle Fenster, mit der Fläche, auf der sie
+    // sitzen. Ohne den Zwischenspeicher wird bei jedem Wechsel neu interpoliert – beim
+    // Schieben des Reglers reiht sich das auf und ruckelt.
+    val renderedFrames = remember(radarTimes) {
+        mutableMapOf<Int, Triple<Int, android.graphics.Bitmap, org.osmdroid.util.BoundingBox>>()
+    }
+    // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner) und zu welchem Fenster.
     var shownFrame by remember { mutableIntStateOf(-1) }
     var shownEpoch by remember { mutableIntStateOf(-1) }
     var lightningArea by remember { mutableStateOf<MercatorBox?>(null) }
+    val radarCache = remember(context) { radarCacheDir(context) }
 
     DisposableEffect(Unit) {
         mapView.onResume()
@@ -193,6 +200,7 @@ fun OsmMap(
             mapView.overlays.remove(radarOverlay)
             radarOverlay.setImage(null, null)
             shownFrame = -1
+            shownEpoch = -1
         }
         mapView.invalidate()
         onDispose { }
@@ -227,41 +235,44 @@ fun OsmMap(
         onDispose { }
     }
 
-    // Merkt, wenn der sichtbare Bereich den geladenen verlässt → neu holen.
-    LaunchedEffect(showRadar || showLightning) {
-        while (showRadar || showLightning) {
-            delay(1200)
-            val loaded = fetchedArea
+    // Merkt, wenn der Blick das gerechnete Fenster verlässt oder deutlich näher
+    // herangeht → neu **rechnen**. Geholt wird dabei nichts: die Bilder decken ohnehin
+    // das ganze Gebiet ab.
+    LaunchedEffect(showRadar) {
+        if (!showRadar) return@LaunchedEffect
+        while (!awaitMapReady(mapView) { centered }) delay(500)
+        while (showRadar) {
             val now = runCatching { mapView.boundingBox.toMercator() }.getOrNull()
-            // Neu holen, wenn der Blick den geladenen Bereich verlässt – aber auch, wenn
-            // er deutlich kleiner geworden ist: sonst bleibt nach dem Herauszoomen und
-            // Wiederhineinzoomen das grobe Übersichtsbild stehen und wirkt „kaputt".
-            val wanderedOff = loaded != null && now != null && !loaded.contains(now)
-            val zoomedIn = loaded != null && now != null && now.width > 0 &&
-                loaded.width / now.width > RADAR_PAD * 2.2
-            // Nur nachfordern. Das vorhandene Bild bleibt stehen, bis das neue fertig
-            // ist – es sitzt ja weiterhin richtig auf dem Boden, nur gröber.
-            if (wanderedOff || zoomedIn) viewEpoch++
+            if (now != null) {
+                val w = renderWindow
+                // Verglichen wird gegen das **unbeschnittene** Fenster. Gegen das auf das
+                // Radargebiet beschnittene verglichen wäre die Bedingung an der Grenze
+                // Deutschlands nie erfüllbar – es würde alle 400 ms neu gerechnet.
+                val wanderedOff = w == null || !w.contains(now)
+                val zoomedIn = w != null && now.width > 0 && w.width / now.width > 2.2
+                if (wanderedOff || zoomedIn) {
+                    renderWindow = now.expand(RENDER_PAD)
+                    windowEpoch++
+                }
+            }
+            delay(400)
         }
     }
 
-    // Alle Frames holen – der sichtbare zuerst, damit sofort etwas zu sehen ist,
-    // der Rest danach in kleinen Gruppen parallel. Seriell wären 21 Anfragen à 2–4 s
-    // über eine Minute; alle auf einmal überlastet den DWD-Server.
-    LaunchedEffect(showRadar, radarTimes, viewEpoch) {
+    // Alle Frames holen – für das **feste Gebiet**, unabhängig vom Ausschnitt, und nur
+    // einmal. Der sichtbare zuerst, damit sofort etwas zu sehen ist, der Rest danach in
+    // kleinen Gruppen. Was auf der Platte liegt, wird nicht noch einmal geholt.
+    LaunchedEffect(showRadar, radarTimes) {
         if (!showRadar || radarTimes.isEmpty()) return@LaunchedEffect
-        while (!awaitMapReady(mapView) { centered }) delay(500) // nicht aufgeben
-        val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
-        // Großzügiger Rand: kleine Schwenks sollen kein Nachladen auslösen.
-        val area = view.expand(RADAR_PAD).clampToWorld()
-        val px = radarPixels(area, area.toBoundingBox().centerLatitude)
-        framePngs.clear()
-        smoothedFrames.clear()
-        fetchedArea = area
+        withContext(Dispatchers.IO) { pruneRadarCache(radarCache) }
 
         suspend fun load(i: Int) {
+            if (framePngs.containsKey(i)) return
+            val time = radarTimes[i]
             val png = withContext(Dispatchers.IO) {
-                fetchRadarPng(DWD_RADAR_LAYER, radarTimes[i], area, px.first, px.second)
+                readCachedRadar(radarCache, DWD_RADAR_LAYER, time)
+                    ?: fetchRadarPng(DWD_RADAR_LAYER, time, RADAR_AREA_GER, RADAR_AREA_W, RADAR_AREA_H)
+                        ?.also { writeCachedRadar(radarCache, DWD_RADAR_LAYER, time, it) }
             }
             if (png != null) framePngs[i] = png
         }
@@ -272,24 +283,26 @@ fun OsmMap(
         radarTimes.indices.filter { it != first }.chunked(4).forEach { group ->
             coroutineScope { group.forEach { i -> launch { load(i) } } }
         }
+    }
 
-        // Die Frames im Voraus glätten, solange niemand hinschaut. Sonst rechnet der
-        // erste Durchlauf der Schleife bei jedem Wechsel neu und ruckelt.
+    // Die Frames für das aktuelle Fenster im Voraus rechnen, solange niemand hinschaut.
+    // Sonst rechnet der erste Durchlauf der Schleife bei jedem Wechsel neu und ruckelt.
+    LaunchedEffect(showRadar, radarTimes, framePngs.size, windowEpoch) {
+        if (!showRadar || radarTimes.isEmpty()) return@LaunchedEffect
+        val window = renderWindow ?: return@LaunchedEffect
+        val epoch = windowEpoch
         for (i in radarTimes.indices) {
-            if (smoothedFrames[i]?.first == viewEpoch) continue
+            if (renderedFrames[i]?.first == epoch) continue
+            if (epoch != windowEpoch) return@LaunchedEffect // Blick hat sich weitergedreht
             val png = framePngs[i] ?: continue
-            val bmp = withContext(Dispatchers.Default) {
-                decodeRadar(png)?.let { raw ->
-                    runCatching { smoothRadar(raw, RADAR_EDGE) }.getOrDefault(raw)
-                }
-            } ?: continue
-            smoothedFrames[i] = viewEpoch to bmp
-            trimSmoothed(smoothedFrames, shownFrame)
+            val made = withContext(Dispatchers.Default) { buildFrame(png, window) } ?: continue
+            renderedFrames[i] = Triple(epoch, made.first, made.second)
+            trimRendered(renderedFrames, shownFrame)
         }
     }
 
     // Blitze (nur Ist-Zeit).
-    LaunchedEffect(showLightning, viewEpoch) {
+    LaunchedEffect(showLightning, windowEpoch) {
         if (!showLightning) { lightningPng = null; return@LaunchedEffect }
         while (!awaitMapReady(mapView) { centered }) delay(500)
         val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
@@ -301,43 +314,35 @@ fun OsmMap(
         }
     }
 
-    // Nur den gezeigten Frame dekodieren und das alte Bild danach freigeben. Fehlt der
-    // Frame noch, bleibt das bisherige Bild stehen – sonst blinkt die Schleife leer.
-    LaunchedEffect(showRadar, radarFrameIndex, framePngs.size, viewEpoch) {
+    // Nur den gezeigten Frame aufbereiten und das alte Bild danach freigeben. Fehlt der
+    // Frame noch, bleibt das bisherige Bild stehen – sonst blinkt die Schleife leer. Weil
+    // Bild und Fläche zusammengehören, werden sie immer gemeinsam gesetzt: getrennt zeigt
+    // das Overlay zwischendurch das alte Bild auf der neuen Fläche und springt.
+    LaunchedEffect(showRadar, radarFrameIndex, framePngs.size, windowEpoch) {
         if (!showRadar) { shownFrame = -1; return@LaunchedEffect }
         val idx = radarFrameIndex.coerceIn(0, (radarTimes.size - 1).coerceAtLeast(0))
-        if (idx == shownFrame && shownEpoch == viewEpoch && radarOverlay.image != null) {
+        if (idx == shownFrame && shownEpoch == windowEpoch && radarOverlay.image != null) {
             return@LaunchedEffect
         }
-        val area = fetchedArea ?: return@LaunchedEffect
-        val box = area.toBoundingBox()
+        val window = renderWindow ?: return@LaunchedEffect
 
-        // Schon geglättet? Dann sofort zeigen – ohne Umweg über einen Hintergrundlauf,
+        // Schon gerechnet? Dann sofort zeigen – ohne Umweg über einen Hintergrundlauf,
         // damit das Durchschieben des Reglers unmittelbar folgt.
-        smoothedFrames[idx]?.takeIf { it.first == viewEpoch }?.let { (_, ready) ->
-            radarOverlay.setImage(ready, box)
+        renderedFrames[idx]?.takeIf { it.first == windowEpoch }?.let { (_, bmp, box) ->
+            radarOverlay.setImage(bmp, box)
             shownFrame = idx
-            shownEpoch = viewEpoch
+            shownEpoch = windowEpoch
             mapView.invalidate()
             return@LaunchedEffect
         }
 
         val png = framePngs[idx] ?: return@LaunchedEffect
-        val bmp = withContext(Dispatchers.Default) {
-            // Sollte der Speicher einmal nicht reichen, lieber das ungeglättete Bild
-            // zeigen als abstürzen.
-            decodeRadar(png)?.let { raw ->
-                runCatching { smoothRadar(raw, RADAR_EDGE) }.getOrDefault(raw)
-            }
-        } ?: return@LaunchedEffect
-        smoothedFrames[idx] = viewEpoch to bmp
-        trimSmoothed(smoothedFrames, idx)
-        // Bild und Fläche gehören zusammen und werden deshalb gemeinsam gesetzt. Getrennt
-        // gesetzt zeigt das Overlay zwischendurch das alte Bild auf der neuen Fläche –
-        // es springt und wirkt, als hinge es am Finger statt am Boden.
-        radarOverlay.setImage(bmp, box)
+        val made = withContext(Dispatchers.Default) { buildFrame(png, window) } ?: return@LaunchedEffect
+        renderedFrames[idx] = Triple(windowEpoch, made.first, made.second)
+        trimRendered(renderedFrames, idx)
+        radarOverlay.setImage(made.first, made.second)
         shownFrame = idx
-        shownEpoch = viewEpoch
+        shownEpoch = windowEpoch
         mapView.invalidate()
     }
 
@@ -546,35 +551,46 @@ fun AnchorMap(
 }
 
 /**
- * Bildgröße für einen Radarabruf: **ein Bildpunkt je Kilometer**, also genau die
- * Auflösung der Messdaten.
- *
- * Mehr anzufordern bringt nichts — der DWD vergrößert dann selbst mit harten Kanten, und
- * genau die wollen wir nicht. Weniger würde Daten wegwerfen. Aus diesem kleinen Bild
- * rechnet [smoothRadar] die Zwischenwerte, und das Ergebnis wird beim Zeichnen auf die
- * Karte skaliert. Nebenbei sinkt die Downloadgröße auf wenige Kilobyte je Frame.
+ * Bildgröße für den Blitz-Abruf: **ein Bildpunkt je Kilometer**, also die Auflösung der
+ * Messdaten. Mehr anzufordern bringt nichts — der DWD vergrößert dann selbst mit harten
+ * Kanten. Das Radar rechnet nicht mehr so: es holt immer das feste Gebiet.
  */
 private fun radarPixels(box: MercatorBox, centerLat: Double): Pair<Int, Int> {
     // In Web-Mercator ist ein Meter am Boden 1/cos(Breite) Mercator-Meter.
     val metersPerCell = 1000.0 / kotlin.math.cos(Math.toRadians(centerLat.coerceIn(-80.0, 80.0)))
-    // Nach oben begrenzt: ein Ausschnitt über hunderte Kilometer braucht die
-    // Kilometer-Auflösung nicht, und das Glätten danach kostet sonst zu viel Speicher.
     val w = (box.width / metersPerCell).toInt().coerceIn(16, 600)
     val h = (box.height / metersPerCell).toInt().coerceIn(16, 600)
     return w to h
 }
 
 /**
- * Längste Kante des geglätteten Frames. Am Bildschirm ausprobiert: bei dieser Größe sind
- * die Umrisse rund und die Farbgrenzen scharf, und ein Frame belegt rund anderthalb
- * Megabyte — so passt die ganze Schleife in den Speicher, statt bei jedem Wechsel neu
- * gerechnet werden zu müssen. Was danach beim Zeichnen noch vergrößert wird, wirkt wie
- * Kantenglättung, nicht wie Unschärfe.
+ * Bereitet einen Frame für das Fenster auf: Bild dekodieren, den sichtbaren Teil
+ * herausrechnen und vergrößern. Lohnt die Vergrößerung nicht — weil ohnehin etwa ein
+ * Bildpunkt je Rasterzelle bliebe —, wird das Deutschlandbild unverändert genommen und
+ * die Filterung beim Zeichnen erledigt den Rest.
  */
-private const val RADAR_EDGE = 640
+private fun buildFrame(
+    png: ByteArray,
+    window: MercatorBox,
+): Pair<android.graphics.Bitmap, org.osmdroid.util.BoundingBox>? {
+    val src = decodeRadar(png) ?: return null
+    val zoomed = runCatching { renderRadarWindow(src, RADAR_AREA_GER, window) }.getOrNull()
+    return if (zoomed != null) {
+        src.recycle()
+        zoomed to renderedWindowBox(RADAR_AREA_GER, window).toBoundingBox()
+    } else {
+        src to RADAR_AREA_GER.toBoundingBox()
+    }
+}
 
-/** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt ein Abruf ohne Nachladen. */
+/** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt der Blitz-Abruf. */
 private const val RADAR_PAD = 1.8
+
+/**
+ * Rand um das gerechnete Fenster. Kleiner als der Abruf-Rand früher, weil hier nichts
+ * mehr geladen wird: ein größeres Fenster kostet nur Rechenzeit und Auflösung.
+ */
+private const val RENDER_PAD = 1.4
 
 /**
  * Wartet, bis die Karte vermessen und auf die Position zentriert ist. Ohne das liefert
@@ -599,7 +615,10 @@ private suspend fun awaitMapReady(map: MapView, centered: () -> Boolean): Boolea
  * dreistellige Megabyte belegen. Geworfen wird der jeweils älteste Eintrag, nie der
  * gerade gezeigte.
  */
-private fun trimSmoothed(cache: MutableMap<Int, Pair<Int, android.graphics.Bitmap>>, keep: Int) {
+private fun trimRendered(
+    cache: MutableMap<Int, Triple<Int, android.graphics.Bitmap, org.osmdroid.util.BoundingBox>>,
+    keep: Int,
+) {
     val budget = 40 * 1024 * 1024
     var used = cache.values.sumOf { it.second.allocationByteCount }
     if (used <= budget) return
