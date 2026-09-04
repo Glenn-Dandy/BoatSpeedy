@@ -16,7 +16,8 @@ Net changes only. Anything tried and taken back during the dev cycle is not list
   bottom left, counted separately.
 - **Settings → Navigation**: pick your **craft** (motorboat or canoe — it decides which
   bans apply and whether streams count), and switch **seamarks** on or off. Seamarks come
-  from OpenSeaMap (tiles CC-BY-SA, data ODbL) and are on by default.
+  from OpenSeaMap (tiles CC-BY-SA, data ODbL) and are on by default; the attribution
+  sits with the other data sources under About.
 
   A route is a suggestion, not a fairway: the data knows nothing about depth or clearance,
   and OpenSeaMap is no substitute for official charts.

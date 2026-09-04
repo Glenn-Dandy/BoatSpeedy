@@ -259,7 +259,7 @@
     <string name="license_value">MIT</string>
     <string name="about_feedback">Feedback</string>
     <string name="about_data">Data &amp; maps</string>
-    <string name="about_data_text">Maps: © OpenStreetMap contributors (ODbL).\n\nWeather warnings, rain radar and lightning: Deutscher Wetterdienst (DWD), licensed CC BY 4.0. Warnings retrieved via Bright Sky; radar via the DWD open GeoServer (WMS).\n\nBoatSpeedy is not affiliated with the DWD.</string>
+    <string name="about_data_text">Maps: © OpenStreetMap contributors (ODbL).\n\nSeamarks: © OpenSeaMap contributors. Map tiles under CC BY-SA 2.0, underlying data under ODbL. OpenSeaMap is no substitute for official nautical charts.\n\nWeather warnings, rain radar and lightning: Deutscher Wetterdienst (DWD), licensed CC BY 4.0. Warnings retrieved via Bright Sky; radar via the DWD open GeoServer (WMS).\n\nBoatSpeedy is not affiliated with the DWD.</string>
     <string name="about_project">Project</string>
     <string name="update_section">Update</string>
     <string name="report_bug">Report a bug</string>
