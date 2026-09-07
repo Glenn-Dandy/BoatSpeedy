@@ -62,6 +62,8 @@ fun OsmMap(
     showLightning: Boolean = false,
     /** Langer Druck auf die Karte – für das Setzen eines Ziels. */
     onLongPress: ((Double, Double) -> Unit)? = null,
+    /** Kurzer Druck auf die Karte – für die Auskunft zu einem Seezeichen. */
+    onTap: ((Double, Double) -> Unit)? = null,
     /** Weg zum Ziel (Luftlinie oder Route); leer = kein Ziel gesetzt. */
     navPath: List<LatLon> = emptyList(),
     /** Der Abschnitt entlang des Fahrwassers; davor und danach wird frei gefahren. */
@@ -440,13 +442,18 @@ fun OsmMap(
         onDispose { }
     }
 
-    // Langer Druck auf die Karte → Ziel setzen.
-    DisposableEffect(onLongPress) {
-        val overlay = onLongPress?.let { cb ->
+    // Kurzer Druck fragt nach dem Seezeichen an der Stelle, langer setzt ein Ziel.
+    DisposableEffect(onLongPress, onTap) {
+        val overlay = if (onLongPress == null && onTap == null) null else {
             org.osmdroid.views.overlay.MapEventsOverlay(
                 object : org.osmdroid.events.MapEventsReceiver {
-                    override fun singleTapConfirmedHelper(p: GeoPoint?) = false
+                    override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
+                        val cb = onTap ?: return false
+                        p?.let { cb(it.latitude, it.longitude) }
+                        return true
+                    }
                     override fun longPressHelper(p: GeoPoint?): Boolean {
+                        val cb = onLongPress ?: return false
                         p?.let { cb(it.latitude, it.longitude) }
                         return true
                     }

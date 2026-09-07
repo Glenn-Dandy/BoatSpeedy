@@ -27,6 +27,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,11 +63,14 @@ import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.nav.LatLon
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import de.kewl.boatspeedy.nav.MapTiles
 import de.kewl.boatspeedy.nav.NavMode
 import de.kewl.boatspeedy.nav.NavRepository
 import de.kewl.boatspeedy.nav.NavTarget
 import de.kewl.boatspeedy.nav.ObstacleKind
 import de.kewl.boatspeedy.nav.SpeedSign
+import de.kewl.boatspeedy.nav.SeamarkInfo
+import de.kewl.boatspeedy.nav.SeamarkSource
 import de.kewl.boatspeedy.nav.SpeedSignSource
 import de.kewl.boatspeedy.nav.RouteError
 import de.kewl.boatspeedy.nav.RouteResult
@@ -163,7 +169,7 @@ fun LiveMapScreen(
         }
         routing = true
         scope.launch {
-            val result = withContext(Dispatchers.IO) { WaterRouter.route(from, at, settings.craft) }
+            val result = withContext(Dispatchers.IO) { WaterRouter.route(from, at, settings.craft, MapTiles.dir(context.filesDir)) }
             routing = false
             when (result) {
                 is RouteResult.Ok -> NavRepository.set(
@@ -183,6 +189,10 @@ fun LiveMapScreen(
     var speedSigns by remember { mutableStateOf<List<SpeedSign>>(emptyList()) }
     var signArea by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
     var recenterKey by remember { mutableIntStateOf(0) }
+    // Auskunft zum angetippten Seezeichen: null = niemand hat gefragt,
+    // leere Liste = gefragt und nichts gefunden.
+    var seamarkInfo by remember { mutableStateOf<List<SeamarkInfo>?>(null) }
+    var seamarkBusy by remember { mutableStateOf(false) }
     var mapBox by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
     var zoomLevel by remember { mutableStateOf(0.0) }
     LaunchedEffect(settings.seamarks, weatherMode, mapBox, zoomLevel, routing) {
@@ -276,6 +286,22 @@ fun LiveMapScreen(
                 // Route zeichnen. Und die Karte bleibt stehen, wo man sie hingeschoben
                 // hat – sonst zieht sie einem beim Betrachten unter der Hand weg.
                 onLongPress = if (weatherMode) null else { lat, lon -> askTarget = LatLon(lat, lon) },
+                // Nur wenn Seezeichen an sind und nah genug herangezoomt: Ein Tipp kostet
+                // eine Overpass-Anfrage, und weiter draußen trifft man ohnehin nichts
+                // Bestimmtes.
+                onTap = if (weatherMode || !settings.seamarks || zoomLevel < SeamarkSource.MIN_ZOOM) {
+                    null
+                } else {
+                    { lat, lon ->
+                        seamarkBusy = true
+                        seamarkInfo = null
+                        scope.launch {
+                            val found = withContext(Dispatchers.IO) { SeamarkSource.fetch(lat, lon) }
+                            seamarkInfo = found
+                            seamarkBusy = false
+                        }
+                    }
+                },
                 navPath = if (weatherMode) emptyList() else navTarget?.path.orEmpty(),
                 navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
                 obstacles = if (weatherMode) emptyList() else navTarget?.obstacles.orEmpty(),
@@ -288,6 +314,21 @@ fun LiveMapScreen(
                 recenterKey = recenterKey,
                 modifier = Modifier.fillMaxSize(),
             )
+
+            if (seamarkBusy) {
+                Surface(
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    tonalElevation = 3.dp,
+                ) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(12.dp))
+                        Text(stringResource(R.string.seamark_asking))
+                    }
+                }
+            }
 
             // Der Wetterstreifen gehört **in** die Karten-Box, nicht daneben in eine
         // Spalte. Als Geschwisterelement lag er außerhalb der Zeichenfläche der
@@ -478,6 +519,47 @@ fun LiveMapScreen(
                 }
             }
         }
+    }
+
+    // Auskunft zum angetippten Seezeichen.
+    seamarkInfo?.let { marks ->
+        AlertDialog(
+            onDismissRequest = { seamarkInfo = null },
+            title = {
+                Text(
+                    if (marks.isEmpty()) stringResource(R.string.seamark_none_title)
+                    else stringResource(R.string.seamark_title),
+                )
+            },
+            text = {
+                if (marks.isEmpty()) {
+                    Text(stringResource(R.string.seamark_none))
+                } else {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        marks.forEachIndexed { i, m ->
+                            if (i > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            Text(m.title, fontWeight = FontWeight.SemiBold)
+                            m.lines.forEach { Text(it, fontSize = 14.sp) }
+                            // Unübersetztes bleibt sichtbar – lieber ein Kürzel als eine
+                            // erfundene Bedeutung.
+                            if (m.raw.isNotEmpty()) {
+                                Spacer(Modifier.size(4.dp))
+                                m.raw.forEach {
+                                    Text(
+                                        it,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { seamarkInfo = null }) { Text(stringResource(R.string.close)) }
+            },
+        )
     }
 
     // Langer Druck → fragen, wie gerechnet werden soll.

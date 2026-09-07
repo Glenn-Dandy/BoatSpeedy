@@ -331,4 +331,27 @@
     <string name="nav_obstacles_lock_one">1 Schleuse</string>
     <string name="nav_obstacles_weirs">%d Wehre in der Nähe</string>
     <string name="nav_obstacles_weir_one">1 Wehr in der Nähe</string>
+    <!-- Kartendaten -->
+    <string name="group_mapdata">Kartendaten</string>
+    <string name="cat_mapdata_desc">Wasserwege für unterwegs speichern</string>
+    <string name="mapdata_intro">Einmal geladen, rechnet das Routing ohne Internet — auf dem Wasser gibt es meist keins. Am besten im WLAN laden.</string>
+    <string name="mapdata_no_position">Noch keine Position. Warte auf GPS, dann weiß die App, welches Gebiet du brauchst.</string>
+    <string name="mapdata_load">Gebiet um mich laden</string>
+    <string name="mapdata_load_size">%1$d Felder laden · rund %2$.1f MB</string>
+    <string name="mapdata_load_count">%1$d Felder laden</string>
+    <string name="mapdata_complete">Umkreis vollständig geladen</string>
+    <string name="mapdata_loading">Lade %1$d von %2$d</string>
+    <string name="mapdata_failed">Nicht alles konnte geladen werden. Nochmal versuchen — fehlende Felder werden nachgeholt.</string>
+    <string name="mapdata_stored">Auf dem Gerät</string>
+    <string name="mapdata_nothing">Noch nichts geladen. Routing fragt dann bei jedem Ziel im Netz nach.</string>
+    <string name="mapdata_summary">%1$d Felder · %2$.1f MB</string>
+    <string name="mapdata_generated">Stand %1$s</string>
+    <string name="mapdata_delete">Löschen</string>
+    <string name="mapdata_index_loading">Verzeichnis wird geladen…</string>
+    <string name="mapdata_attribution">Wasserwege: © OpenStreetMap-Mitwirkende (ODbL). Es ist eine Hilfe, keine Seekarte — Tiefen, Durchfahrtshöhen und Sperrungen stehen nicht darin.</string>
+    <string name="seamark_asking">Frage nach…</string>
+    <string name="seamark_title">Seezeichen</string>
+    <string name="seamark_none_title">Nichts gefunden</string>
+    <string name="seamark_none">An dieser Stelle ist kein Seezeichen verzeichnet. Näher herantippen oder weiter heranzoomen.</string>
+    <string name="close">Schließen</string>
 </resources>

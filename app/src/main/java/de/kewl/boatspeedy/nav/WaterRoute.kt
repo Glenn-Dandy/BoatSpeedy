@@ -177,16 +177,12 @@ object WaterRouter {
     private val WATERWAYS = "river|canal|fairway"
 
     /**
-     * Für ein Kanu zählt zusätzlich der Bach: schmal, oft nur zeitweise befahrbar, für ein
-     * Motorboot aber wertlos. Nur deshalb hängt die Abfrage überhaupt am Fahrzeug.
+     * Bäche standen hier eine Zeit lang zusätzlich für das Kanu. Sie sind es nicht wert:
+     * kaum einer ist befahrbar, sie machten 87 % der Datenmenge aus, und sie vermischten
+     * zwei verschiedene Fragen. **Welche Gewässerart** ins Netz kommt, hängt nicht vom
+     * Fahrzeug ab — sondern nur, **was dort verboten ist**. Siehe [isForbidden].
      */
-    private val WATERWAYS_CANOE = "river|canal|fairway|stream"
-
-    private fun waterwaysFor(craft: Craft) =
-        if (craft == Craft.CANOE) WATERWAYS_CANOE else WATERWAYS
-
-    private fun navigableFor(craft: Craft) =
-        if (craft == Craft.CANOE) NAVIGABLE + "stream" else NAVIGABLE
+    private fun navigableFor(craft: Craft) = NAVIGABLE
 
     /**
      * Was den Weg versperren oder aufhalten kann. Schleusen kosten Zeit, ein Wehr ist in
@@ -233,16 +229,27 @@ object WaterRouter {
      */
     private fun maxSnapM(directM: Double) = (directM * 0.35).coerceIn(800.0, 5_000.0)
 
-    fun route(from: LatLon, to: LatLon, craft: Craft = Craft.MOTORBOAT): RouteResult {
+    /**
+     * @param tileDir Wo die heruntergeladenen Kacheln liegen. Ist der Ausschnitt davon
+     *   vollständig abgedeckt, wird **gar nicht** gefragt — kein Netz, keine Wartezeit,
+     *   keine überlasteten Server. Fehlt eine Kachel, geht es wie bisher über Overpass.
+     */
+    fun route(
+        from: LatLon,
+        to: LatLon,
+        craft: Craft = Craft.MOTORBOAT,
+        tileDir: java.io.File? = null,
+    ): RouteResult {
         val direct = distanceM(from, to)
         if (direct > MAX_DISTANCE_M) return RouteResult.Failed(RouteError.TOO_FAR)
         val maxSnap = maxSnapM(direct)
 
-        val json = when (val r = askOverpass(buildQuery(from, to, craft))) {
-            is OverpassResult.Ok -> r.body
-            OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
-            OverpassResult.Unreachable -> return RouteResult.Failed(RouteError.NO_NETWORK)
-        }
+        val json = fromTiles(from, to, tileDir)
+            ?: when (val r = askOverpass(buildQuery(from, to))) {
+                is OverpassResult.Ok -> r.body
+                OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
+                OverpassResult.Unreachable -> return RouteResult.Failed(RouteError.NO_NETWORK)
+            }
         val ways = parseWays(json, craft)
         if (ways.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
@@ -275,7 +282,24 @@ object WaterRouter {
 
     /* ------------------------------ Daten holen ------------------------------ */
 
-    private fun buildQuery(from: LatLon, to: LatLon, craft: Craft): String {
+    /**
+     * Liest den benötigten Ausschnitt aus den Kacheln — oder `null`, wenn auch nur eine
+     * fehlt. Halb aus Kacheln und halb vom Server zusammenzusetzen wäre der schlechteste
+     * Fall: Die Naht läge irgendwo im Netz, und die Route bräche genau dort ab.
+     */
+    private fun fromTiles(from: LatLon, to: LatLon, tileDir: java.io.File?): String? {
+        if (tileDir == null || !tileDir.isDirectory) return null
+        val ids = MapTiles.tilesFor(
+            minOf(from.lat, to.lat) - BBOX_PADDING_DEG,
+            minOf(from.lon, to.lon) - BBOX_PADDING_DEG,
+            maxOf(from.lat, to.lat) + BBOX_PADDING_DEG,
+            maxOf(from.lon, to.lon) + BBOX_PADDING_DEG,
+        )
+        if (MapTiles.missing(tileDir, ids).isNotEmpty()) return null
+        return MapTiles.read(tileDir, ids)
+    }
+
+    private fun buildQuery(from: LatLon, to: LatLon): String {
         val south = minOf(from.lat, to.lat) - BBOX_PADDING_DEG
         val north = maxOf(from.lat, to.lat) + BBOX_PADDING_DEG
         val west = minOf(from.lon, to.lon) - BBOX_PADDING_DEG
@@ -285,7 +309,7 @@ object WaterRouter {
         val query = """
             [out:json][timeout:30];
             (
-              way["waterway"~"^(${waterwaysFor(craft)})${'$'}"]($south,$west,$north,$east);
+              way["waterway"~"^($WATERWAYS)${'$'}"]($south,$west,$north,$east);
               node["waterway"~"^($OBSTACLES)${'$'}"]($south,$west,$north,$east);
               way["waterway"~"^($OBSTACLES)${'$'}"]($south,$west,$north,$east);
               node["seamark:notice:category"="no_entry"]($south,$west,$north,$east);

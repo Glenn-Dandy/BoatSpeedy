@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DirectionsBoat
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DeveloperMode
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GpsFixed
@@ -407,6 +408,7 @@ fun NavigationSettingsScreen(
     settings: Settings,
     onCraft: (Craft) -> Unit,
     onSeamarks: (Boolean) -> Unit,
+    onMapData: () -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_navigation), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -428,6 +430,13 @@ fun NavigationSettingsScreen(
         HintText(stringResource(R.string.nav_seamarks_hint))
         // Der Hinweis stammt von OpenSeaMap selbst und gehört sichtbar in die App.
         HintText(stringResource(R.string.nav_seamarks_disclaimer))
+        HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+        CategoryRow(
+            Icons.Filled.Download,
+            stringResource(R.string.group_mapdata),
+            stringResource(R.string.cat_mapdata_desc),
+            onMapData,
+        )
     }
 }
 
@@ -621,7 +630,7 @@ private fun AutoPauseField(amps: Float, onChange: (Float) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsScaffold(
+internal fun SettingsScaffold(
     title: String,
     navigationIcon: ImageVector,
     onNav: () -> Unit,

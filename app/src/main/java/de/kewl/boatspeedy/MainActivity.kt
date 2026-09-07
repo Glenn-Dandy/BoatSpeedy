@@ -71,6 +71,7 @@ import de.kewl.boatspeedy.ui.DiagnosticScreen
 import de.kewl.boatspeedy.ui.DashboardSettingsScreen
 import de.kewl.boatspeedy.ui.GeneralSettingsScreen
 import de.kewl.boatspeedy.ui.GpsSettingsScreen
+import de.kewl.boatspeedy.ui.MapDataScreen
 import de.kewl.boatspeedy.ui.NavigationSettingsScreen
 import de.kewl.boatspeedy.ui.NotificationSettingsScreen
 import de.kewl.boatspeedy.ui.LiveMapScreen
@@ -85,7 +86,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_NAV, SETTINGS_APPEARANCE, SETTINGS_DEV, WEATHER, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_NAV, SETTINGS_MAPDATA, SETTINGS_APPEARANCE, SETTINGS_DEV, WEATHER, ABOUT }
 
 class MainActivity : ComponentActivity() {
     // Von außen zum Import übergebene GPX-Datei (Öffnen-mit / Teilen an BoatSpeedy).
@@ -391,7 +392,14 @@ private fun BoatSpeedyApp(
                         settings = settings,
                         onCraft = vm::setCraft,
                         onSeamarks = vm::setSeamarks,
+                        onMapData = { screen = Screen.SETTINGS_MAPDATA },
                         onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_MAPDATA -> MapDataScreen(
+                        lat = gps.latitude,
+                        lon = gps.longitude,
+                        onBack = { screen = Screen.SETTINGS_NAV },
                     )
 
                     Screen.SETTINGS_APPEARANCE -> AppearanceSettingsScreen(

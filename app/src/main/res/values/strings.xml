@@ -334,4 +334,27 @@
     <string name="nav_obstacles_lock_one">1 lock</string>
     <string name="nav_obstacles_weirs">%d weirs nearby</string>
     <string name="nav_obstacles_weir_one">1 weir nearby</string>
+    <!-- Map data -->
+    <string name="group_mapdata">Map data</string>
+    <string name="cat_mapdata_desc">Store waterways for the trip</string>
+    <string name="mapdata_intro">Once downloaded, routing works without internet — out on the water there usually is none. Best done on wifi.</string>
+    <string name="mapdata_no_position">No position yet. Wait for GPS so the app knows which area you need.</string>
+    <string name="mapdata_load">Download area around me</string>
+    <string name="mapdata_load_size">Download %1$d tiles · about %2$.1f MB</string>
+    <string name="mapdata_load_count">Download %1$d tiles</string>
+    <string name="mapdata_complete">Area fully downloaded</string>
+    <string name="mapdata_loading">Downloading %1$d of %2$d</string>
+    <string name="mapdata_failed">Not everything could be downloaded. Try again — only the missing tiles are fetched.</string>
+    <string name="mapdata_stored">On this device</string>
+    <string name="mapdata_nothing">Nothing downloaded yet. Routing will ask the network for every destination.</string>
+    <string name="mapdata_summary">%1$d tiles · %2$.1f MB</string>
+    <string name="mapdata_generated">As of %1$s</string>
+    <string name="mapdata_delete">Delete</string>
+    <string name="mapdata_index_loading">Loading the tile list…</string>
+    <string name="mapdata_attribution">Waterways: © OpenStreetMap contributors (ODbL). It is an aid, not a nautical chart — depths, clearances and closures are not in it.</string>
+    <string name="seamark_asking">Asking…</string>
+    <string name="seamark_title">Seamark</string>
+    <string name="seamark_none_title">Nothing found</string>
+    <string name="seamark_none">No seamark is recorded here. Tap closer to the symbol, or zoom in further.</string>
+    <string name="close">Close</string>
 </resources>
