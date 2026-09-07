@@ -8,7 +8,7 @@ enum class BmsType(val display: String, val tested: Boolean) {
     DALY("Daly", false),
     JK("JK (Jikong)", false),
     REDODO("Redodo / LiTime / Power Queen", true),
-    METER("Coulometer (Hall-Sensor)", false),
+    METER("Coulometer (Hall-Sensor)", true),
 }
 
 /**

@@ -379,8 +379,16 @@ object WaterRouter {
             }
             try {
                 c.outputStream.use { it.write(("data=" + URLEncoder.encode(query, "UTF-8")).toByteArray()) }
-                val code = c.responseCode
+                // Hier steht die Verbindung und die Abfrage ist draußen — der Server ist
+                // also erreichbar. Was danach passiert, ist seine Sache.
+                //
+                // Vorher stand diese Zeile hinter `responseCode`, und das war falsch: ein
+                // 504 kommt erst nach 35 bis 40 s, unsere Lesefrist liegt bei 15. Der
+                // Abbruch flog als Zeitüberschreitung heraus, `reached` blieb falsch, und
+                // die App meldete „keine Verbindung zu den Kartendaten" — obwohl alle drei
+                // Server erreichbar und bloß überlastet waren.
                 reached = true
+                val code = c.responseCode
                 if (code != 200) return@runCatching null
                 c.inputStream.bufferedReader().use { it.readText() }
             } finally {
