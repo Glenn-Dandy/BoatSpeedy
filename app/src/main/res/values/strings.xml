@@ -357,4 +357,8 @@
     <string name="seamark_none_title">Nothing found</string>
     <string name="seamark_none">No seamark is recorded here. Tap closer to the symbol, or zoom in further.</string>
     <string name="close">Close</string>
+    <string name="mapdata_missing_title">Map data missing</string>
+    <string name="mapdata_missing">%1$d tiles are missing for this stretch. With them the app computes instantly and without a network — for every other destination nearby too.</string>
+    <string name="mapdata_download_now">Download</string>
+    <string name="mapdata_online_instead">Compute online</string>
 </resources>

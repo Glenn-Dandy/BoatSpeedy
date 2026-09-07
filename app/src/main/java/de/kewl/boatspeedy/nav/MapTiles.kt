@@ -22,6 +22,9 @@ data class TileId(val lat: Int, val lon: Int) {
         }
 }
 
+/** Ein Seezeichen aus den Kacheln, mit seinen Rohmerkmalen. */
+data class SeamarkPoi(val lat: Double, val lon: Double, val tags: Map<String, String>)
+
 /** Was auf dem Gerät liegt. */
 data class StoredTile(val id: TileId, val bytes: Long, val generated: String?)
 
@@ -190,6 +193,45 @@ object MapTiles {
             c.disconnect()
         }
     }.getOrNull()
+
+    /**
+     * Liest die Seezeichen eines Ausschnitts aus den vorhandenen Kacheln.
+     *
+     * Fehlende Kacheln werden übergangen, nicht als Fehler behandelt: Anders als beim
+     * Routen ist ein Loch hier harmlos — dann fehlen eben ein paar Zeichen, statt dass
+     * eine Route falsch abbricht.
+     */
+    fun readSeamarks(
+        dir: File,
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+    ): List<SeamarkPoi> {
+        val out = ArrayList<SeamarkPoi>()
+        for (id in tilesFor(south, west, north, east)) {
+            val f = file(dir, id)
+            if (!f.isFile) continue
+            val text = runCatching {
+                GZIPInputStream(f.inputStream()).bufferedReader().use { it.readText() }
+            }.getOrNull() ?: continue
+            val arr = runCatching { JSONObject(text).optJSONArray("elements") }.getOrNull() ?: continue
+            for (i in 0 until arr.length()) {
+                val el = arr.getJSONObject(i)
+                if (el.optString("type") != "node") continue
+                val tags = el.optJSONObject("tags") ?: continue
+                if (!tags.has("seamark:type")) continue
+                val lat = el.optDouble("lat", Double.NaN)
+                val lon = el.optDouble("lon", Double.NaN)
+                if (lat.isNaN() || lon.isNaN()) continue
+                if (lat < south || lat > north || lon < west || lon > east) continue
+                val map = HashMap<String, String>()
+                for (k in tags.keys()) map[k] = tags.getString(k)
+                out.add(SeamarkPoi(lat, lon, map))
+            }
+        }
+        return out
+    }
 
     /** Wie viele Kacheln ein Umkreis kostet, in Byte — aus dem Verzeichnis des Servers. */
     fun sizeOf(index: Index?, ids: List<TileId>): Long =

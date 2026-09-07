@@ -69,8 +69,8 @@ import de.kewl.boatspeedy.nav.NavRepository
 import de.kewl.boatspeedy.nav.NavTarget
 import de.kewl.boatspeedy.nav.ObstacleKind
 import de.kewl.boatspeedy.nav.SpeedSign
-import de.kewl.boatspeedy.nav.SeamarkInfo
-import de.kewl.boatspeedy.nav.SeamarkSource
+import de.kewl.boatspeedy.nav.SeamarkPoi
+import de.kewl.boatspeedy.nav.TileId
 import de.kewl.boatspeedy.nav.SpeedSignSource
 import de.kewl.boatspeedy.nav.RouteError
 import de.kewl.boatspeedy.nav.RouteResult
@@ -158,6 +158,38 @@ fun LiveMapScreen(
         null
     }
 
+    // Fehlende Kacheln samt Ziel, über das gefragt wird.
+    var askDownload by remember { mutableStateOf<Pair<List<TileId>, LatLon>?>(null) }
+    var downloading by remember { mutableIntStateOf(-1) }
+    var downloadTotal by remember { mutableIntStateOf(0) }
+
+    /**
+     * Bittet zuerst um die Kartendaten, statt blind ins Netz zu gehen.
+     *
+     * Vorher lief jede Route ohne Kacheln direkt zu Overpass — bei überlasteten Servern
+     * eine Minute Warten und danach eine Fehlermeldung. Der Vorrat wäre in derselben
+     * Zeit geladen gewesen und hätte alle weiteren Routen gleich mit erledigt.
+     */
+    fun startRoute(from: LatLon, at: LatLon) {
+        routing = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                WaterRouter.route(from, at, settings.craft, MapTiles.dir(context.filesDir))
+            }
+            routing = false
+            when (result) {
+                is RouteResult.Ok -> NavRepository.set(
+                    NavTarget(
+                        at, mode = NavMode.ROUTE, path = result.path,
+                        distanceM = pathLengthM(result.path),
+                        water = result.water, obstacles = result.obstacles,
+                    ),
+                )
+                is RouteResult.Failed -> routeError = result.reason
+            }
+        }
+    }
+
     fun setTarget(mode: NavMode, at: LatLon) {
         val from = if (currentLat != null && currentLon != null) LatLon(currentLat, currentLon) else null
         if (from == null) return
@@ -167,20 +199,19 @@ fun LiveMapScreen(
             NavRepository.set(NavTarget(at, mode, listOf(from, at), distanceM(from, at)))
             return
         }
-        routing = true
-        scope.launch {
-            val result = withContext(Dispatchers.IO) { WaterRouter.route(from, at, settings.craft, MapTiles.dir(context.filesDir)) }
-            routing = false
-            when (result) {
-                is RouteResult.Ok -> NavRepository.set(
-                    NavTarget(
-                        at, mode, result.path, pathLengthM(result.path),
-                        result.water, result.obstacles,
-                    ),
-                )
-                is RouteResult.Failed -> routeError = result.reason
-            }
+        // Fehlen Kacheln für die Strecke, erst fragen — nicht erst eine Minute lang
+        // vergeblich einen fremden Server bemühen.
+        val dir = MapTiles.dir(context.filesDir)
+        val needed = MapTiles.tilesFor(
+            minOf(from.lat, at.lat) - 0.05, minOf(from.lon, at.lon) - 0.05,
+            maxOf(from.lat, at.lat) + 0.05, maxOf(from.lon, at.lon) + 0.05,
+        )
+        val gaps = MapTiles.missing(dir, needed)
+        if (gaps.isNotEmpty()) {
+            askDownload = gaps to at
+            return
         }
+        startRoute(from, at)
     }
 
     // Geschwindigkeitszeichen für den sichtbaren Ausschnitt. Nachgeladen wird erst, wenn
@@ -191,10 +222,26 @@ fun LiveMapScreen(
     var recenterKey by remember { mutableIntStateOf(0) }
     // Auskunft zum angetippten Seezeichen: null = niemand hat gefragt,
     // leere Liste = gefragt und nichts gefunden.
-    var seamarkInfo by remember { mutableStateOf<List<SeamarkInfo>?>(null) }
-    var seamarkBusy by remember { mutableStateOf(false) }
     var mapBox by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
+    // Seezeichen aus den Kacheln – antippbar, ohne dafür ins Netz zu gehen.
+    var seamarks by remember { mutableStateOf<List<SeamarkPoi>>(emptyList()) }
     var zoomLevel by remember { mutableStateOf(0.0) }
+
+    // Seezeichen für den sichtbaren Ausschnitt, gelesen aus den Kacheln auf dem Gerät.
+    // Weiter draußen wären es zu viele, um einzeln getroffen zu werden.
+    LaunchedEffect(settings.seamarks, weatherMode, mapBox, zoomLevel) {
+        val box = mapBox
+        if (!settings.seamarks || weatherMode || box == null || zoomLevel < SEAMARK_MIN_ZOOM) {
+            seamarks = emptyList()
+            return@LaunchedEffect
+        }
+        val dir = MapTiles.dir(context.filesDir)
+        seamarks = withContext(Dispatchers.IO) {
+            MapTiles.readSeamarks(dir, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
+                .take(MAX_SEAMARKS)
+        }
+    }
+
     LaunchedEffect(settings.seamarks, weatherMode, mapBox, zoomLevel, routing) {
         if (!settings.seamarks || weatherMode) { speedSigns = emptyList(); signArea = null; return@LaunchedEffect }
         // Während eine Route gerechnet wird, nicht dazwischenfunken: beide fragen
@@ -286,22 +333,6 @@ fun LiveMapScreen(
                 // Route zeichnen. Und die Karte bleibt stehen, wo man sie hingeschoben
                 // hat – sonst zieht sie einem beim Betrachten unter der Hand weg.
                 onLongPress = if (weatherMode) null else { lat, lon -> askTarget = LatLon(lat, lon) },
-                // Nur wenn Seezeichen an sind und nah genug herangezoomt: Ein Tipp kostet
-                // eine Overpass-Anfrage, und weiter draußen trifft man ohnehin nichts
-                // Bestimmtes.
-                onTap = if (weatherMode || !settings.seamarks || zoomLevel < SeamarkSource.MIN_ZOOM) {
-                    null
-                } else {
-                    { lat, lon ->
-                        seamarkBusy = true
-                        seamarkInfo = null
-                        scope.launch {
-                            val found = withContext(Dispatchers.IO) { SeamarkSource.fetch(lat, lon) }
-                            seamarkInfo = found
-                            seamarkBusy = false
-                        }
-                    }
-                },
                 navPath = if (weatherMode) emptyList() else navTarget?.path.orEmpty(),
                 navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
                 obstacles = if (weatherMode) emptyList() else navTarget?.obstacles.orEmpty(),
@@ -310,25 +341,11 @@ fun LiveMapScreen(
                 speedMs = if (weatherMode) null else speedMs,
                 showSeamarks = settings.seamarks && !weatherMode,
                 speedSigns = speedSigns,
+                seamarks = seamarks,
                 onViewport = { box, zoom -> mapBox = box; zoomLevel = zoom },
                 recenterKey = recenterKey,
                 modifier = Modifier.fillMaxSize(),
             )
-
-            if (seamarkBusy) {
-                Surface(
-                    modifier = Modifier.align(Alignment.Center).padding(16.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                    tonalElevation = 3.dp,
-                ) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(12.dp))
-                        Text(stringResource(R.string.seamark_asking))
-                    }
-                }
-            }
 
             // Der Wetterstreifen gehört **in** die Karten-Box, nicht daneben in eine
         // Spalte. Als Geschwisterelement lag er außerhalb der Zeichenfläche der
@@ -521,43 +538,54 @@ fun LiveMapScreen(
         }
     }
 
-    // Auskunft zum angetippten Seezeichen.
-    seamarkInfo?.let { marks ->
+    // Fehlen Kacheln, erst fragen. Der Vorrat lohnt sich fast immer: er ist in derselben
+    // Zeit geladen, in der ein überlasteter Overpass-Server nur wartet, und er gilt
+    // danach für jedes weitere Ziel in der Gegend.
+    askDownload?.let { (gaps, target) ->
+        val from = if (currentLat != null && currentLon != null) {
+            LatLon(currentLat, currentLon)
+        } else {
+            null
+        }
         AlertDialog(
-            onDismissRequest = { seamarkInfo = null },
-            title = {
-                Text(
-                    if (marks.isEmpty()) stringResource(R.string.seamark_none_title)
-                    else stringResource(R.string.seamark_title),
-                )
-            },
+            onDismissRequest = { askDownload = null },
+            title = { Text(stringResource(R.string.mapdata_missing_title)) },
             text = {
-                if (marks.isEmpty()) {
-                    Text(stringResource(R.string.seamark_none))
-                } else {
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                        marks.forEachIndexed { i, m ->
-                            if (i > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                            Text(m.title, fontWeight = FontWeight.SemiBold)
-                            m.lines.forEach { Text(it, fontSize = 14.sp) }
-                            // Unübersetztes bleibt sichtbar – lieber ein Kürzel als eine
-                            // erfundene Bedeutung.
-                            if (m.raw.isNotEmpty()) {
-                                Spacer(Modifier.size(4.dp))
-                                m.raw.forEach {
-                                    Text(
-                                        it,
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
-                                    )
-                                }
-                            }
-                        }
+                Column {
+                    Text(stringResource(R.string.mapdata_missing, gaps.size))
+                    if (downloading >= 0) {
+                        Spacer(Modifier.size(12.dp))
+                        Text(stringResource(R.string.mapdata_loading, downloading, downloadTotal))
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { seamarkInfo = null }) { Text(stringResource(R.string.close)) }
+                TextButton(
+                    enabled = downloading < 0,
+                    onClick = {
+                        downloading = 0
+                        downloadTotal = gaps.size
+                        scope.launch {
+                            val dir = MapTiles.dir(context.filesDir)
+                            for (id in gaps) {
+                                withContext(Dispatchers.IO) { MapTiles.download(dir, id) }
+                                downloading += 1
+                            }
+                            downloading = -1
+                            askDownload = null
+                            from?.let { startRoute(it, target) }
+                        }
+                    },
+                ) { Text(stringResource(R.string.mapdata_download_now)) }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = downloading < 0,
+                    onClick = {
+                        askDownload = null
+                        from?.let { startRoute(it, target) }
+                    },
+                ) { Text(stringResource(R.string.mapdata_online_instead)) }
             },
         )
     }
@@ -629,3 +657,9 @@ private fun ObstacleLine(iconRes: Int, text: String, color: androidx.compose.ui.
         Text(text, fontSize = 13.sp, color = color)
     }
 }
+
+/** Darunter stehen zu viele Zeichen zu dicht, um eines gezielt zu treffen. */
+private const val SEAMARK_MIN_ZOOM = 13.0
+
+/** Deckel gegen tausend Marker auf einmal – so viele kann ohnehin niemand antippen. */
+private const val MAX_SEAMARKS = 400

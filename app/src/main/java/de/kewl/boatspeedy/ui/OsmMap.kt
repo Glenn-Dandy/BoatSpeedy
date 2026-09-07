@@ -84,6 +84,8 @@ fun OsmMap(
     showSeamarks: Boolean = false,
     /** Geschwindigkeitszeichen mit ihrem Wert; die Kacheln zeigen nur das leere Schild. */
     speedSigns: List<de.kewl.boatspeedy.nav.SpeedSign> = emptyList(),
+    /** Antippbare Seezeichen aus den Kartendaten – die Kacheln selbst sind nur Bilder. */
+    seamarks: List<de.kewl.boatspeedy.nav.SeamarkPoi> = emptyList(),
     /**
      * Meldet den sichtbaren Ausschnitt samt Zoomstufe — aber nur, wenn er sich wirklich
      * geändert hat. Bei jedem Durchlauf zu melden würde den ganzen Bildschirm im
@@ -420,6 +422,36 @@ fun OsmMap(
         mapView.invalidate()
     }
 
+    /**
+     * Seezeichen zum Antippen. Der Marker selbst ist **durchsichtig** — gezeichnet hat
+     * die Kachel von OpenSeaMap das Symbol längst, hier geht es nur um die Trefferfläche
+     * und die Sprechblase.
+     *
+     * Vorher wurde bei jedem Tipp irgendwo auf der Karte nachgefragt, was dort steht.
+     * Das hieß Warten und meistens „nichts gefunden". Aus den Kartendaten wissen wir
+     * vorher, wo etwas ist — und was.
+     */
+    val seamarkMarkers = remember(mapView) { mutableListOf<Marker>() }
+    DisposableEffect(seamarks) {
+        seamarkMarkers.forEach { mapView.overlays.remove(it) }
+        seamarkMarkers.clear()
+        val hit = seamarkHitArea(context)
+        seamarks.forEach { poi ->
+            val info = de.kewl.boatspeedy.nav.SeamarkSource.describe(poi.tags) ?: return@forEach
+            val m = Marker(mapView).apply {
+                position = GeoPoint(poi.lat, poi.lon)
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                icon = hit
+                title = info.title
+                snippet = (info.lines + info.raw).joinToString("\n")
+            }
+            seamarkMarkers.add(m)
+            mapView.overlays.add(m)
+        }
+        mapView.invalidate()
+        onDispose { }
+    }
+
     // Geschwindigkeitszeichen: eigene Marker, weil die Kacheln zwar das Schild zeichnen,
     // aber die Zahl darin frei lassen. Unsere liegen genau darauf und decken es ab.
     val signMarkers = remember(mapView) { mutableListOf<Marker>() }
@@ -734,3 +766,14 @@ private fun trimRendered(
     }
 }
 
+
+/**
+ * Durchsichtige Trefferfläche für ein Seezeichen. Gezeichnet hat das Symbol längst die
+ * Kachel von OpenSeaMap — hier geht es nur darum, dass man es treffen kann. Ein Finger
+ * ist ungenauer als ein Zeiger, deshalb deutlich größer als das Symbol darunter.
+ */
+private fun seamarkHitArea(context: android.content.Context): android.graphics.drawable.Drawable {
+    val px = (36 * context.resources.displayMetrics.density).toInt().coerceAtLeast(28)
+    val bmp = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888)
+    return android.graphics.drawable.BitmapDrawable(context.resources, bmp)
+}
