@@ -138,8 +138,21 @@ sealed interface RouteResult {
  */
 object WaterRouter {
 
-    /** Weiter entfernte Ziele würden eine riesige Abfrage auslösen. */
-    private const val MAX_DISTANCE_M = 60_000.0
+    /**
+     * Wie weit ein Ziel entfernt sein darf — und das hängt davon ab, woher die Daten
+     * kommen.
+     *
+     * **Über Overpass** würde ein Ziel in 200 km Entfernung eine Abfrage über ein
+     * Rechteck von halb Deutschland auslösen; der Server lehnt das ab oder rechnet
+     * minutenlang. Dort bleibt es bei sechzig Kilometern.
+     *
+     * **Aus den Kacheln** entfällt der Grund vollständig: Die Daten liegen auf dem
+     * Gerät, Lesen kostet nichts, und die Wegsuche über ein paar hunderttausend Knoten
+     * ist eine Sache von Millisekunden. Die alte Grenze hätte dort nur noch grundlos
+     * gebremst.
+     */
+    private const val MAX_DISTANCE_ONLINE_M = 60_000.0
+    private const val MAX_DISTANCE_TILES_M = 400_000.0
 
     /** Rand um die Strecke, damit ein Bogen im Kanal nicht abgeschnitten wird. */
     private const val BBOX_PADDING_DEG = 0.05
@@ -241,10 +254,15 @@ object WaterRouter {
         tileDir: java.io.File? = null,
     ): RouteResult {
         val direct = distanceM(from, to)
-        if (direct > MAX_DISTANCE_M) return RouteResult.Failed(RouteError.TOO_FAR)
+        // Zuerst nachsehen, ob die Kacheln reichen — davon hängt ab, wie weit das Ziel
+        // liegen darf. Umgekehrt hätte eine Fahrt über hundert Kilometer abgelehnt, was
+        // vollständig auf dem Gerät liegt.
+        val offline = fromTiles(from, to, tileDir)
+        val limit = if (offline != null) MAX_DISTANCE_TILES_M else MAX_DISTANCE_ONLINE_M
+        if (direct > limit) return RouteResult.Failed(RouteError.TOO_FAR)
         val maxSnap = maxSnapM(direct)
 
-        val json = fromTiles(from, to, tileDir)
+        val json = offline
             ?: when (val r = askOverpass(buildQuery(from, to))) {
                 is OverpassResult.Ok -> r.body
                 OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
