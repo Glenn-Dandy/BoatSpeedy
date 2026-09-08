@@ -104,6 +104,51 @@ class DeadReckoningTest {
     }
 
     /**
+     * Der Kurs wird weich herangeführt, nicht mit fester Drehrate. Der reine
+     * Geschwindigkeitsbegrenzer drehte mit voller Rate los und blieb schlagartig stehen —
+     * am kleinen Pfeil kaum zu sehen, aber seit sich die ganze Karte danach richtet, ist
+     * genau das das Ruckeln: drehen, stehen, drehen.
+     */
+    @Test
+    fun `die Drehung laeuft aus, statt abrupt zu stoppen`() {
+        val r = DeadReckoner()
+        r.onFix(52.0, 13.0, 0f, 3f, t0)
+        r.onFix(52.0, 13.0, 40f, 3f, t0 + 1000)
+        val schritte = ArrayList<Float>()
+        var vorher = r.headingDeg
+        repeat(12) {
+            r.advance(0.05, t0 + 1000)
+            schritte.add(r.headingDeg - vorher)
+            vorher = r.headingDeg
+        }
+        // Jeder Schritt kleiner als der davor: die Drehung wird langsamer, statt auf
+        // gleicher Rate zu laufen und dann auf null zu fallen.
+        for (i in 1 until schritte.size) {
+            assertTrue(
+                "Schritt $i (${schritte[i]}°) war nicht kleiner als ${schritte[i - 1]}°",
+                schritte[i] < schritte[i - 1],
+            )
+        }
+        // Nach 0,6 s ist gut die Hälfte geschafft — ein Zeitglied nähert sich an, es
+        // rennt nicht hin.
+        assertTrue("erst bei ${r.headingDeg}° nach 0,6 s", r.headingDeg > 20f)
+        // Und es kommt an.
+        repeat(60) { r.advance(0.05, t0 + 1000) }
+        assertEquals(40f, r.headingDeg, 0.5f)
+    }
+
+    @Test
+    fun `ein Kurssprung bleibt gedeckelt`() {
+        val r = DeadReckoner()
+        r.onFix(52.0, 13.0, 0f, 3f, t0)
+        // 170 Grad auf einmal — das Zeitglied allein ergäbe hier einen Satz von über
+        // 90 Grad in einem Schritt. Der Deckel muss greifen.
+        r.onFix(52.0, 13.0, 170f, 3f, t0 + 1000)
+        r.advance(1.0, t0 + 1000)
+        assertTrue("drehte ${r.headingDeg}° auf einmal", r.headingDeg <= 120.001f)
+    }
+
+    /**
      * Kommt die App aus dem Hintergrund, liegen zwischen zwei Bildern Minuten. Ohne
      * Deckel schösse die Schätzung kilometerweit davon.
      */

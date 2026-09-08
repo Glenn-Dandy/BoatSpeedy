@@ -115,9 +115,18 @@ class DeadReckoner {
         errLat -= errLat * k
         errLon -= errLon * k
 
+        // Der Kurs wird **weich** herangeführt, nicht mit fester Drehrate.
+        //
+        // Vorher war das ein reiner Geschwindigkeitsbegrenzer: Bei einer neuen Messung
+        // drehte die Schätzung mit voller Rate los und blieb schlagartig stehen, sobald sie
+        // den Wert erreicht hatte. Am kleinen Pfeil fiel das kaum auf; seit sich die ganze
+        // Karte danach richtet, ist genau das das Ruckeln — drehen, stehen, drehen. Ein
+        // Zeitglied wie bei der Position läuft dagegen an und wieder aus. Der Deckel bleibt
+        // trotzdem: Er fängt ab, wenn das GPS den Kurs auf einmal um hundert Grad umwirft.
         val turn = shortestTurn(headingDeg, targetHeading)
+        val kHeading = (1.0 - exp(-dt / TAU_HEADING_S)).toFloat()
         val maxTurn = (MAX_TURN_DEG_PER_S * dt).toFloat()
-        headingDeg = normalize(headingDeg + turn.coerceIn(-maxTurn, maxTurn))
+        headingDeg = normalize(headingDeg + (turn * kHeading).coerceIn(-maxTurn, maxTurn))
 
         val moved = abs(newLat - curLat) > 1e-9 || abs(newLon - curLon) > 1e-9
         lat = newLat
@@ -150,7 +159,14 @@ class DeadReckoner {
         const val TAU_MOVING_S = 0.6
         const val TAU_STOPPED_S = 2.0
 
-        /** Wie schnell der Marker höchstens dreht. */
+        /**
+         * Zeitkonstante der Drehung. Etwas träger als die Korrektur der Position: Der Kurs
+         * aus dem GPS zappelt, und seit sich die ganze Karte danach richtet, wird jedes
+         * Zappeln zur Bewegung des ganzen Bildes.
+         */
+        const val TAU_HEADING_S = 0.7
+
+        /** Wie schnell der Marker höchstens dreht — der Deckel über dem Zeitglied. */
         const val MAX_TURN_DEG_PER_S = 120.0
 
         /** Darunter gilt es als angekommen bzw. ausgerichtet. */

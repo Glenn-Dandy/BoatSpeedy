@@ -647,7 +647,15 @@ fun OsmMap(
         // „noch keine Schätzung vorhanden" vor der Drehung, und die Karte blieb nach
         // Norden stehen, obwohl der Kurs längst bekannt war.
         val drehung = sollDrehung()
-        if (mapView.mapOrientation != drehung) mapView.mapOrientation = drehung
+        if (mapView.mapOrientation != drehung) {
+            // **Ohne Layoutlauf.** `mapOrientation = x` ruft in osmdroid requestLayout()
+            // *und* invalidate(). Bei jedem Bild neu vermessen zu lassen — die Kartenansicht
+            // steckt in einer eingebetteten Android-Ansicht, das zieht den ganzen Baum mit —
+            // war das Stocken beim Drehen. Die zweistellige Fassung setzt nur den Wert; das
+            // Neuzeichnen stoßen wir unten selbst an, und die Ausrichtung wird ohnehin erst
+            // beim Zeichnen ausgewertet.
+            mapView.setMapOrientation(drehung, false)
+        }
         mapRotation?.floatValue = drehung
         val la = reckoner.lat
         val lo = reckoner.lon
