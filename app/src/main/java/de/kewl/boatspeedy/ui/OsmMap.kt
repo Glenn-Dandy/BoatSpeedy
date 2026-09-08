@@ -622,8 +622,14 @@ fun OsmMap(
      * GPS. Der kommt einmal je Sekunde und sprang die Karte in Stufen weiter — genau das
      * Stocken, das beim Marker längst behoben war.
      */
-    fun sollDrehung(): Float =
-        if (orientation == de.kewl.boatspeedy.data.MapOrientation.COURSE) -reckoner.headingDeg else 0f
+    fun sollDrehung(): Float {
+        if (orientation != de.kewl.boatspeedy.data.MapOrientation.COURSE) return 0f
+        // Solange die Koppelnavigation noch keine Position hat, steht ihr Kurs auf null —
+        // die Karte bliebe nach Norden ausgerichtet, und zwischen den beiden Einstellungen
+        // wäre kein Unterschied zu sehen. Bis dahin zählt der rohe Kurs aus dem GPS.
+        val kurs = if (reckoner.lat != null) reckoner.headingDeg else courseDeg ?: return 0f
+        return -kurs
+    }
 
     /**
      * Setzt Position, Kartendrehung und Pfeilrichtung in einem Zug.
@@ -637,15 +643,20 @@ fun OsmMap(
      * also senkrecht nach oben, sobald die Karte der Fahrt folgt.
      */
     fun male() {
-        val la = reckoner.lat ?: return
-        val lo = reckoner.lon ?: return
+        // **Zuerst drehen, dann den Marker setzen.** Andersherum stand der Ausstieg
+        // „noch keine Schätzung vorhanden" vor der Drehung, und die Karte blieb nach
+        // Norden stehen, obwohl der Kurs längst bekannt war.
         val drehung = sollDrehung()
         if (mapView.mapOrientation != drehung) mapView.mapOrientation = drehung
         mapRotation?.floatValue = drehung
-        val at = GeoPoint(la, lo)
-        marker.position = at
-        marker.rotation = de.kewl.boatspeedy.nav.markerBearingDeg(reckoner.headingDeg, drehung)
-        if (followState.value && centered) mapView.controller.setCenter(at)
+        val la = reckoner.lat
+        val lo = reckoner.lon
+        if (la != null && lo != null) {
+            val at = GeoPoint(la, lo)
+            marker.position = at
+            marker.rotation = de.kewl.boatspeedy.nav.markerBearingDeg(reckoner.headingDeg, drehung)
+            if (followState.value && centered) mapView.controller.setCenter(at)
+        }
         mapView.invalidate()
     }
 
@@ -880,21 +891,36 @@ private fun seamarkHitArea(context: android.content.Context): android.graphics.d
 fun NorthArrow(
     mapRotationDeg: () -> Float,
     modifier: Modifier = Modifier,
+    courseUp: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
+    // Die eingeschaltete Fahrtrichtung ist **ausgefüllt**, Norden bleibt hell. Allein an
+    // der Nadel war die Einstellung nicht abzulesen: Sie steht bei Norden immer senkrecht,
+    // und bei Fahrtrichtung tut sie das auch — nämlich immer dann, wenn man gerade nach
+    // Norden fährt. Zwei gleich aussehende Zustände an einem Schalter sind keiner.
+    val grund = if (courseUp) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+    }
+    val schrift = if (courseUp) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
     Surface(
-        modifier = modifier.size(38.dp).let {
+        modifier = modifier.size(40.dp).let {
             if (onClick != null) it.clickable(onClick = onClick) else it
         },
         shape = androidx.compose.foundation.shape.CircleShape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        color = grund,
         tonalElevation = 3.dp,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 Icons.Filled.Navigation,
-                contentDescription = "Norden",
-                tint = MaterialTheme.colorScheme.error,
+                contentDescription = if (courseUp) "Fahrtrichtung oben" else "Norden oben",
+                tint = if (courseUp) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.error,
                 modifier = Modifier
                     .size(20.dp)
                     .graphicsLayer { rotationZ = mapRotationDeg() },
@@ -904,7 +930,7 @@ fun NorthArrow(
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.offset(y = 12.dp),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = schrift,
             )
         }
     }

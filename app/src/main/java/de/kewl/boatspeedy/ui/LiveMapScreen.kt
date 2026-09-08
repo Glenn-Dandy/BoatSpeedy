@@ -525,7 +525,7 @@ fun LiveMapScreen(
                 }
             }
 
-            // Die Nadel steht oben links und ist zugleich der Schalter für die
+            // Die Nadel steht oben rechts und ist zugleich der Schalter für die
             // Ausrichtung — der Weg über die Einstellungen war für etwas, das man
             // unterwegs wechselt, zu weit. Sie zeigt in **beiden** Ausrichtungen; nur bei
             // gedrehter Karte zu erscheinen hieße, sie wäre genau dann weg, wenn man
@@ -533,7 +533,8 @@ fun LiveMapScreen(
             if (!weatherMode) {
                 NorthArrow(
                     mapRotationDeg = { mapRotation.floatValue },
-                    modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                    courseUp = settings.mapOrientation == de.kewl.boatspeedy.data.MapOrientation.COURSE,
                     onClick = {
                         onMapOrientation(
                             if (settings.mapOrientation == de.kewl.boatspeedy.data.MapOrientation.COURSE) {
