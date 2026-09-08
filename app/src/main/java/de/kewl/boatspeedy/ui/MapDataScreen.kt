@@ -201,7 +201,9 @@ fun MapDataScreen(
             )
         } else {
             val bytes = stored.sumOf { it.bytes }
-            val age = stored.mapNotNull { it.generated }.minOrNull()
+            // Nur der Tag. Der Stempel traegt inzwischen auch die Uhrzeit, damit zwei
+            // Laeufe am selben Tag unterscheidbar bleiben — abzulesen ist das nichts.
+            val age = stored.mapNotNull { it.generated }.minOrNull()?.take(10)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
