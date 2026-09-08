@@ -102,6 +102,8 @@ fun LiveMapScreen(
      * nicht abschalten. So gibt es die Karte einmal und nicht zweimal fast gleich.
      */
     weatherMode: Boolean = false,
+    /** Ausrichtung umstellen — die Nadel auf der Karte schaltet damit um. */
+    onMapOrientation: (de.kewl.boatspeedy.data.MapOrientation) -> Unit = {},
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -232,6 +234,10 @@ fun LiveMapScreen(
     var speedSigns by remember { mutableStateOf<List<SpeedSign>>(emptyList()) }
     var signArea by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
     var recenterKey by remember { mutableIntStateOf(0) }
+    // Wie die Karte gerade steht. Wird bei jedem Bild gesetzt und nur in der Zeichenphase
+    // gelesen — als gewoehnlicher Zustand wuerde die Nadel den Bildschirm sechzigmal in
+    // der Sekunde neu zusammensetzen lassen.
+    val mapRotation = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     // Auskunft zum angetippten Seezeichen: null = niemand hat gefragt,
     // leere Liste = gefragt und nichts gefunden.
     var mapBox by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
@@ -376,6 +382,7 @@ fun LiveMapScreen(
                     settings.mapOrientation
                 },
                 onViewport = { box, zoom -> mapBox = box; zoomLevel = zoom },
+                mapRotation = mapRotation,
                 recenterKey = recenterKey,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -518,12 +525,24 @@ fun LiveMapScreen(
                 }
             }
 
-            // Nordpfeil nur, wenn die Karte sich auch dreht — bei "Norden oben" stünde er
-            // senkrecht und sagte nichts.
-            if (!weatherMode && settings.mapOrientation == de.kewl.boatspeedy.data.MapOrientation.COURSE) {
+            // Die Nadel steht oben links und ist zugleich der Schalter für die
+            // Ausrichtung — der Weg über die Einstellungen war für etwas, das man
+            // unterwegs wechselt, zu weit. Sie zeigt in **beiden** Ausrichtungen; nur bei
+            // gedrehter Karte zu erscheinen hieße, sie wäre genau dann weg, wenn man
+            // zurückschalten will.
+            if (!weatherMode) {
                 NorthArrow(
-                    mapRotationDeg = course?.deg?.let { -it } ?: 0f,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                    mapRotationDeg = { mapRotation.floatValue },
+                    modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+                    onClick = {
+                        onMapOrientation(
+                            if (settings.mapOrientation == de.kewl.boatspeedy.data.MapOrientation.COURSE) {
+                                de.kewl.boatspeedy.data.MapOrientation.NORTH
+                            } else {
+                                de.kewl.boatspeedy.data.MapOrientation.COURSE
+                            },
+                        )
+                    },
                 )
             }
 

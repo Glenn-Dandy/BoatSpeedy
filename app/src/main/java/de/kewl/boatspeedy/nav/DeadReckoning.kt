@@ -174,3 +174,23 @@ fun shortestTurn(from: Float, to: Float): Float {
 }
 
 fun normalize(deg: Float): Float = ((deg % 360f) + 360f) % 360f
+
+/**
+ * Welche Peilung der Positionsmarker bekommen muss, damit er auf dem Schirm in
+ * Fahrtrichtung zeigt — bei gedrehter Karte ebenso wie bei „Norden oben".
+ *
+ * osmdroid dreht die Zeichenfläche um die Ausrichtung der Karte und rechnet sie beim
+ * Marker wieder heraus (`-Ausrichtung - Peilung`), sodass unterm Strich `-Peilung` auf
+ * dem Schirm steht — die Kartendrehung fällt heraus. Mit `-Kurs` stimmte das bei
+ * „Norden oben"; sobald die Karte der Fahrt folgte, zeigte der Pfeil weiter stur in die
+ * Himmelsrichtung, während sich alles darunter drehte. Er schien in einer beliebigen
+ * Richtung festzuhängen.
+ *
+ * Gewollt ist ein Schirmwinkel von `Kurs + Kartendrehung`: bei „Norden oben" der Kurs,
+ * bei „Fahrtrichtung oben" (Drehung `-Kurs`) senkrecht nach oben.
+ *
+ * @param headingDeg Kurs über Grund, rechtweisend.
+ * @param mapRotationDeg wie die Karte steht — 0 bei „Norden oben", sonst `-headingDeg`.
+ */
+fun markerBearingDeg(headingDeg: Float, mapRotationDeg: Float): Float =
+    normalize(-(headingDeg + mapRotationDeg))

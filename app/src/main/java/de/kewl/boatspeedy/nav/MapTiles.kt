@@ -124,10 +124,24 @@ object MapTiles {
      * Gerät lagen Kacheln aus dem Deutschland-Lauf, in denen der Grand Canal d'Alsace
      * fehlte. Ab Basel läuft die Fahrrinne aber über die französische Seite, und so riss
      * das Netz mitten im Rhein, während der Server die vollständigen Daten längst hatte.
+     *
+     * Verglichen wird **je Kachel**, nicht gegen ein Gesamtdatum.
+     *
+     * Ein Lauf über ein einzelnes Land schneidet trotzdem alle Kacheln neu — ein Fluss
+     * läuft über die Grenze, und die Kachel braucht beide Seiten. Am Gesamtdatum gemessen
+     * galt danach alles als veraltet: Nach einem Deutschland-Lauf wollte die App auch die
+     * portugiesischen Kacheln neu holen. Der Server datiert eine Kachel jetzt nur um, wenn
+     * sich ihr Inhalt geändert hat, und schreibt das Datum in den Index-Eintrag.
+     *
+     * Fehlt es dort — ein Server mit älterem Verzeichnis —, gilt weiter das Gesamtdatum.
+     * Lieber einmal zu viel geladen als eine Lücke im Netz übersehen.
      */
     fun outdated(dir: File, index: Index?): List<StoredTile> {
         val stand = index?.generated?.takeIf { it.isNotBlank() } ?: return emptyList()
-        return stored(dir).filter { it.generated == null || it.generated < stand }
+        return stored(dir).filter {
+            val soll = index.dates[it.id.name]?.takeIf { d -> d.isNotBlank() } ?: stand
+            it.generated == null || it.generated < soll
+        }
     }
 
     fun stored(dir: File): List<StoredTile> =
@@ -191,17 +205,32 @@ object MapTiles {
 
     /* ------------------------------ Laden ------------------------------ */
 
-    data class Index(val generated: String, val tiles: Map<String, Long>)
+    /**
+     * Das Verzeichnis des Servers.
+     *
+     * @param generated Stand des ganzen Bestands — greift nur noch dort, wo eine Kachel
+     *   kein eigenes Datum hat.
+     * @param tiles Größe je Kachel, für die Frage „was kostet der Download".
+     * @param dates Stand je Kachel. Danach entscheidet sich, was aufzufrischen ist.
+     */
+    data class Index(
+        val generated: String,
+        val tiles: Map<String, Long>,
+        val dates: Map<String, String> = emptyMap(),
+    )
 
     fun fetchIndex(base: String = DEFAULT_BASE): Index? = runCatching {
         val body = get("${base.trimEnd('/')}/index.json") ?: return null
         val o = JSONObject(String(body))
         val tiles = o.optJSONObject("tiles") ?: return null
         val sizes = HashMap<String, Long>()
+        val dates = HashMap<String, String>()
         for (k in tiles.keys()) {
-            sizes[k] = tiles.getJSONObject(k).optLong("bytes")
+            val e = tiles.getJSONObject(k)
+            sizes[k] = e.optLong("bytes")
+            e.optString("generated").takeIf { it.isNotBlank() }?.let { dates[k] = it }
         }
-        Index(o.optString("generated"), sizes)
+        Index(o.optString("generated"), sizes, dates)
     }.getOrNull()
 
     /** Lädt eine Kachel und legt sie gepackt ab. Liefert die Größe, oder `null`. */

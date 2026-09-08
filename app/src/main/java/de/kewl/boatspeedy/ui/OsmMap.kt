@@ -12,7 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.rotate
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
@@ -105,6 +106,14 @@ fun OsmMap(
     /** Norden oben, oder die Karte in Fahrtrichtung drehen. */
     orientation: de.kewl.boatspeedy.data.MapOrientation =
         de.kewl.boatspeedy.data.MapOrientation.NORTH,
+    /**
+     * Nimmt entgegen, wie die Karte gerade steht — für die Kompassnadel daneben.
+     *
+     * Bewusst ein Zustandswert statt einer Rückmeldung: Er wird bei jedem Bild gesetzt,
+     * und ein Aufruf nach oben würde damit sechzigmal in der Sekunde den halben Bildschirm
+     * neu zusammensetzen lassen. Wer ihn erst in der Zeichenphase liest, kommt ohne aus.
+     */
+    mapRotation: androidx.compose.runtime.MutableFloatState? = null,
     /**
      * Meldet den sichtbaren Ausschnitt samt Zoomstufe — aber nur, wenn er sich wirklich
      * geändert hat. Bei jedem Durchlauf zu melden würde den ganzen Bildschirm im
@@ -592,21 +601,6 @@ fun OsmMap(
      *
      * Gezeichnet wird im Takt des Bildschirms, nicht in einer festen 16-ms-Schleife.
      */
-    // Karte drehen, wenn sie der Fahrtrichtung folgen soll. osmdroid dreht gegen den
-    // Uhrzeigersinn, der Kompasskurs läuft mit — daher das umgekehrte Vorzeichen. Ohne
-    // Kurs (im Stand) bleibt die letzte Ausrichtung stehen statt zu kreiseln.
-    LaunchedEffect(orientation, courseDeg) {
-        val drehung = if (orientation == de.kewl.boatspeedy.data.MapOrientation.COURSE) {
-            courseDeg?.let { -it }
-        } else {
-            0f
-        }
-        if (drehung != null && mapView.mapOrientation != drehung) {
-            mapView.mapOrientation = drehung
-            mapView.invalidate()
-        }
-    }
-
     val reckoner = remember(mapView) { DeadReckoner() }
 
     LaunchedEffect(recenterKey) {
@@ -620,14 +614,60 @@ fun OsmMap(
         reckoner.onFix(currentLat, currentLon, courseDeg, speedMs, System.currentTimeMillis())
     }
 
-    LaunchedEffect(mapView, currentLat == null) {
-        if (currentLat == null) return@LaunchedEffect
+    /**
+     * Wohin die Karte gedreht sein soll. Bei „Fahrtrichtung oben" gegen den Kurs, sonst
+     * Norden.
+     *
+     * Genommen wird der **geglättete** Kurs aus [DeadReckoner], nicht der rohe aus dem
+     * GPS. Der kommt einmal je Sekunde und sprang die Karte in Stufen weiter — genau das
+     * Stocken, das beim Marker längst behoben war.
+     */
+    fun sollDrehung(): Float =
+        if (orientation == de.kewl.boatspeedy.data.MapOrientation.COURSE) -reckoner.headingDeg else 0f
+
+    /**
+     * Setzt Position, Kartendrehung und Pfeilrichtung in einem Zug.
+     *
+     * **Der Pfeil hängt an der Kartendrehung.** osmdroid dreht die Zeichenfläche um die
+     * Ausrichtung der Karte und rechnet sie bei einem Marker wieder heraus
+     * (`-Ausrichtung - Peilung`), sodass am Ende schlicht `-Peilung` auf dem Schirm steht.
+     * Bei „Norden oben" stimmte das. Bei gedrehter Karte zeigte der Pfeil weiter in die
+     * Himmelsrichtung, während sich alles andere darunter drehte — er schien in einer
+     * beliebigen Richtung festzuhängen. Gewollt ist: Schirmwinkel = Kurs + Kartendrehung,
+     * also senkrecht nach oben, sobald die Karte der Fahrt folgt.
+     */
+    fun male() {
+        val la = reckoner.lat ?: return
+        val lo = reckoner.lon ?: return
+        val drehung = sollDrehung()
+        if (mapView.mapOrientation != drehung) mapView.mapOrientation = drehung
+        mapRotation?.floatValue = drehung
+        val at = GeoPoint(la, lo)
+        marker.position = at
+        marker.rotation = de.kewl.boatspeedy.nav.markerBearingDeg(reckoner.headingDeg, drehung)
+        if (followState.value && centered) mapView.controller.setCenter(at)
+        mapView.invalidate()
+    }
+
+    LaunchedEffect(mapView, currentLat == null, orientation) {
+        if (currentLat == null) {
+            // Ohne Position gibt es keinen Kurs — dann bleibt Norden oben, sonst stünde
+            // die Karte für immer schief, wie der letzte Fix sie hinterlassen hat.
+            if (mapView.mapOrientation != 0f) {
+                mapView.mapOrientation = 0f
+                mapRotation?.floatValue = 0f
+                mapView.invalidate()
+            }
+            return@LaunchedEffect
+        }
         var lastNanos = 0L
         while (true) {
             // Steht alles still, kostet das Zeichnen nur Strom. Dann warten wir auf die
-            // nächste Messung, statt jedes Bild durchzurechnen.
+            // nächste Messung, statt jedes Bild durchzurechnen — nur ein Umschalten der
+            // Ausrichtung wird auch im Stand sofort übernommen.
             if (!reckoner.isBusy(System.currentTimeMillis())) {
                 lastNanos = 0L
+                if (mapView.mapOrientation != sollDrehung()) male()
                 delay(200)
                 continue
             }
@@ -635,16 +675,7 @@ fun OsmMap(
                 val dt = if (lastNanos == 0L) 0.0 else (now - lastNanos) / 1_000_000_000.0
                 lastNanos = now
                 if (dt > 0.0) reckoner.advance(dt, System.currentTimeMillis())
-                val la = reckoner.lat
-                val lo = reckoner.lon
-                if (la != null && lo != null) {
-                    val at = GeoPoint(la, lo)
-                    marker.position = at
-                    // osmdroid dreht gegen den Uhrzeigersinn, der Kompasskurs mit.
-                    marker.rotation = ((-reckoner.headingDeg % 360f) + 360f) % 360f
-                    if (followState.value && centered) mapView.controller.setCenter(at)
-                    mapView.invalidate()
-                }
+                male()
             }
         }
     }
@@ -835,14 +866,26 @@ private fun seamarkHitArea(context: android.content.Context): android.graphics.d
 }
 
 /**
- * Zeigt, wo Norden liegt — und ist damit erst bei gedrehter Karte wirklich nötig. Bei
- * „Norden oben" steht er senkrecht und bestätigt bloß, was man ohnehin annimmt; sobald
- * sich die Karte dreht, ist er die einzige Auskunft darüber, wohin man eigentlich sieht.
+ * Zeigt, wo Norden liegt — und schaltet auf Antippen zwischen „Norden oben" und
+ * „Fahrtrichtung oben" um.
+ *
+ * Er steht in **beiden** Ausrichtungen da. Nur bei gedrehter Karte zu erscheinen wäre
+ * folgerichtig gewesen, solange er bloß Auskunft gab; als Schalter wäre er damit aber
+ * genau dann verschwunden, wenn man ihn zum Zurückschalten braucht.
+ *
+ * @param mapRotationDeg als Funktion, nicht als Wert: So wird die Drehung erst beim
+ *   Zeichnen gelesen. Als Wert übergeben, würde jedes Bild den Aufbau neu anstoßen.
  */
 @Composable
-fun NorthArrow(mapRotationDeg: Float, modifier: Modifier = Modifier) {
+fun NorthArrow(
+    mapRotationDeg: () -> Float,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
     Surface(
-        modifier = modifier.size(38.dp),
+        modifier = modifier.size(38.dp).let {
+            if (onClick != null) it.clickable(onClick = onClick) else it
+        },
         shape = androidx.compose.foundation.shape.CircleShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
         tonalElevation = 3.dp,
@@ -852,7 +895,9 @@ fun NorthArrow(mapRotationDeg: Float, modifier: Modifier = Modifier) {
                 Icons.Filled.Navigation,
                 contentDescription = "Norden",
                 tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(20.dp).rotate(mapRotationDeg),
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer { rotationZ = mapRotationDeg() },
             )
             Text(
                 "N",

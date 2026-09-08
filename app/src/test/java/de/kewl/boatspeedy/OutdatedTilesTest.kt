@@ -77,4 +77,38 @@ class OutdatedTilesTest {
             dir.deleteRecursively()
         }
     }
+
+    @Test
+    fun `nur die Kachel mit neuerem Datum wird aufgefrischt`() {
+        val dir = createTempDir()
+        try {
+            // Beide Kacheln liegen vom 5. auf dem Gerät. Der Lauf vom 8. hat nur die eine
+            // wirklich geändert — die andere hat der Server auf ihrem alten Datum gelassen.
+            kachel(dir, "n50e011", "2026-09-05")
+            kachel(dir, "n38w009", "2026-09-05")
+            val index = MapTiles.Index(
+                generated = "2026-09-08",
+                tiles = emptyMap(),
+                dates = mapOf("n50e011" to "2026-09-08", "n38w009" to "2026-09-05"),
+            )
+            val alt = MapTiles.outdated(dir, index)
+            assertEquals("Portugal hat sich nicht geändert: $alt", 1, alt.size)
+            assertEquals("n50e011", alt.first().id.name)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `ohne Datum je Kachel gilt weiter das Gesamtdatum`() {
+        val dir = createTempDir()
+        try {
+            // Ein Server mit älterem Verzeichnis. Dann lieber einmal zu viel laden als
+            // eine Lücke im Netz übersehen.
+            kachel(dir, "n50e011", "2026-09-05")
+            assertEquals(1, MapTiles.outdated(dir, index("2026-09-08")).size)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }

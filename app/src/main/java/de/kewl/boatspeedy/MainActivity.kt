@@ -488,6 +488,7 @@ private fun BoatSpeedyApp(
                         settings = settings,
                         tripDistanceM = tripStats.distanceM,
                         tripChargeAh = tripStats.chargeAh,
+                        onMapOrientation = vm::setMapOrientation,
                         onBack = { screen = Screen.SPEED },
                     )
 
