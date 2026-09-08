@@ -358,4 +358,9 @@
     <string name="mapdata_missing">Für diese Strecke fehlen %1$d Felder. Geladen rechnet die App sofort und ohne Netz — auch für jedes weitere Ziel in der Gegend.</string>
     <string name="mapdata_download_now">Laden</string>
     <string name="mapdata_online_instead">Online rechnen</string>
+    <string name="nav_pick_hint_planned">Ab dem festgelegten Startpunkt gerechnet, nicht ab dem Boot.</string>
+    <string name="nav_set_start">Als Startpunkt festlegen</string>
+    <string name="nav_move_start">Startpunkt hierher verschieben</string>
+    <string name="nav_clear_start">Startpunkt verwerfen</string>
+    <string name="nav_to_start">zum Start %1$s</string>
 </resources>

@@ -124,29 +124,27 @@ object MapTiles {
     /* ------------------------------ Lesen ------------------------------ */
 
     /**
-     * Fügt die genannten Kacheln zu **einer** Antwort zusammen, in der Gestalt, die der
-     * Router ohnehin von Overpass kennt. Fehlt auch nur eine, gibt es `null` — dann
-     * bliebe ein Loch im Netz, und eine Route mit Loch wäre schlimmer als keine.
+     * Gibt die genannten Kacheln **einzeln** heraus, nicht zu einer Antwort verklebt.
+     *
+     * Zusammengeklebt lag der gesamte Ausschnitt als eine Zeichenkette im Speicher und
+     * beim Auswerten ein zweites Mal als Objektbaum: bei tausend Kilometern zusammen
+     * über dreihundert Megabyte, womit die App abstürzt. So wird immer nur eine Kachel
+     * gehalten, und der Aufrufer sammelt daraus, was er braucht.
+     *
+     * Liefert `false`, wenn eine Kachel fehlt — dann bliebe ein Loch im Netz, und eine
+     * Route mit Loch wäre schlimmer als keine.
      */
-    fun read(dir: File, ids: List<TileId>): String? {
-        if (ids.isEmpty()) return null
-        val sb = StringBuilder("""{"elements":[""")
-        var first = true
+    fun forEach(dir: File, ids: List<TileId>, block: (String) -> Unit): Boolean {
+        if (ids.isEmpty()) return false
         for (id in ids) {
             val f = file(dir, id)
-            if (!f.isFile) return null
+            if (!f.isFile) return false
             val text = runCatching {
                 GZIPInputStream(f.inputStream()).bufferedReader().use { it.readText() }
-            }.getOrNull() ?: return null
-            val arr = runCatching { JSONObject(text).optJSONArray("elements") }.getOrNull() ?: continue
-            for (i in 0 until arr.length()) {
-                if (!first) sb.append(',')
-                sb.append(arr.getJSONObject(i).toString())
-                first = false
-            }
+            }.getOrNull() ?: return false
+            block(text)
         }
-        sb.append("]}")
-        return sb.toString()
+        return true
     }
 
     /* ------------------------------ Laden ------------------------------ */

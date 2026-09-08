@@ -361,4 +361,9 @@
     <string name="mapdata_missing">%1$d tiles are missing for this stretch. With them the app computes instantly and without a network — for every other destination nearby too.</string>
     <string name="mapdata_download_now">Download</string>
     <string name="mapdata_online_instead">Compute online</string>
+    <string name="nav_pick_hint_planned">Computed from the set start point, not from the boat.</string>
+    <string name="nav_set_start">Set as start point</string>
+    <string name="nav_move_start">Move start point here</string>
+    <string name="nav_clear_start">Discard start point</string>
+    <string name="nav_to_start">to start %1$s</string>
 </resources>

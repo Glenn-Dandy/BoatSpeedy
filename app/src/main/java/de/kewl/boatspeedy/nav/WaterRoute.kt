@@ -33,6 +33,13 @@ data class NavTarget(
     val water: List<LatLon> = emptyList(),
     /** Schleusen und Wehre, die auf dem Weg liegen. */
     val obstacles: List<Obstacle> = emptyList(),
+    /**
+     * Gesetzt, wenn die Strecke von einem **festgelegten Startpunkt** aus geplant wurde
+     * und nicht vom Boot. Eine geplante Strecke hängt nicht am eigenen Fahren: Sie wird
+     * nicht mitgeführt und nicht beim Ankommen abgeräumt, sondern bleibt liegen, bis man
+     * sie verwirft — man plant sie ja im Voraus.
+     */
+    val plannedFrom: LatLon? = null,
 )
 
 /**
@@ -152,7 +159,14 @@ object WaterRouter {
      * gebremst.
      */
     private const val MAX_DISTANCE_ONLINE_M = 60_000.0
-    private const val MAX_DISTANCE_TILES_M = 400_000.0
+    private const val MAX_DISTANCE_TILES_M = 600_000.0
+
+    /**
+     * Über so viele Kacheln geht keine Route mehr. Nicht die Rechenzeit ist die Grenze,
+     * sondern der Speicher: Bei tausend Kilometern sind es rund 160 Kacheln, und deren
+     * Wegenetz will als Objektbaum gehalten werden. Darüber hinaus wäre es geraten.
+     */
+    private const val MAX_TILES = 260
 
     /** Rand um die Strecke, damit ein Bogen im Kanal nicht abgeschnitten wird. */
     private const val BBOX_PADDING_DEG = 0.05
@@ -257,21 +271,22 @@ object WaterRouter {
         // Zuerst nachsehen, ob die Kacheln reichen — davon hängt ab, wie weit das Ziel
         // liegen darf. Umgekehrt hätte eine Fahrt über hundert Kilometer abgelehnt, was
         // vollständig auf dem Gerät liegt.
-        val offline = fromTiles(from, to, tileDir)
+        val offline = fromTiles(from, to, craft, tileDir)
         val limit = if (offline != null) MAX_DISTANCE_TILES_M else MAX_DISTANCE_ONLINE_M
         if (direct > limit) return RouteResult.Failed(RouteError.TOO_FAR)
         val maxSnap = maxSnapM(direct)
 
-        val json = offline
-            ?: when (val r = askOverpass(buildQuery(from, to))) {
-                is OverpassResult.Ok -> r.body
-                OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
-                OverpassResult.Unreachable -> return RouteResult.Failed(RouteError.NO_NETWORK)
-            }
-        val ways = parseWays(json, craft)
+        val quelle = offline ?: when (val r = askOverpass(buildQuery(from, to))) {
+            is OverpassResult.Ok -> Quelle(
+                parseWays(r.body, craft), parseObstacles(r.body), barrierNodes(r.body),
+            )
+            OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
+            OverpassResult.Unreachable -> return RouteResult.Failed(RouteError.NO_NETWORK)
+        }
+        val ways = quelle.ways
         if (ways.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
-        val graph = buildGraph(ways, barrierNodes(json))
+        val graph = buildGraph(ways, quelle.barriers)
         if (graph.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
         // Nicht einfach den nächsten Knoten nehmen: der liegt schnell auf einem
@@ -294,7 +309,7 @@ object WaterRouter {
         return RouteResult.Ok(
             path = full,
             water = water,
-            obstacles = onPath(parseObstacles(json), water),
+            obstacles = onPath(quelle.obstacles, water),
         )
     }
 
@@ -305,7 +320,27 @@ object WaterRouter {
      * fehlt. Halb aus Kacheln und halb vom Server zusammenzusetzen wäre der schlechteste
      * Fall: Die Naht läge irgendwo im Netz, und die Route bräche genau dort ab.
      */
-    private fun fromTiles(from: LatLon, to: LatLon, tileDir: java.io.File?): String? {
+    /** Was der Router zum Rechnen braucht — egal woher es kommt. */
+    private class Quelle(
+        val ways: List<List<Node>>,
+        val obstacles: List<Obstacle>,
+        val barriers: Set<Node>,
+    )
+
+    /**
+     * Liest den benötigten Ausschnitt aus den Kacheln — oder `null`, wenn auch nur eine
+     * fehlt. Halb aus Kacheln und halb vom Server zusammenzusetzen wäre der schlechteste
+     * Fall: Die Naht läge irgendwo im Netz, und die Route bräche genau dort ab.
+     *
+     * Ausgewertet wird **Kachel für Kachel**, nicht am Stück: Nur so bleibt der Speicher
+     * bei langen Strecken im Rahmen.
+     */
+    private fun fromTiles(
+        from: LatLon,
+        to: LatLon,
+        craft: Craft,
+        tileDir: java.io.File?,
+    ): Quelle? {
         if (tileDir == null || !tileDir.isDirectory) return null
         val ids = MapTiles.tilesFor(
             minOf(from.lat, to.lat) - BBOX_PADDING_DEG,
@@ -313,8 +348,18 @@ object WaterRouter {
             maxOf(from.lat, to.lat) + BBOX_PADDING_DEG,
             maxOf(from.lon, to.lon) + BBOX_PADDING_DEG,
         )
+        if (ids.size > MAX_TILES) return null
         if (MapTiles.missing(tileDir, ids).isNotEmpty()) return null
-        return MapTiles.read(tileDir, ids)
+
+        val ways = ArrayList<List<Node>>()
+        val obstacles = ArrayList<Obstacle>()
+        val barriers = HashSet<Node>()
+        val ok = MapTiles.forEach(tileDir, ids) { json ->
+            ways.addAll(parseWays(json, craft))
+            obstacles.addAll(parseObstacles(json))
+            barriers.addAll(barrierNodes(json))
+        }
+        return if (ok) Quelle(ways, obstacles, barriers) else null
     }
 
     private fun buildQuery(from: LatLon, to: LatLon): String {
@@ -393,8 +438,14 @@ object WaterRouter {
                 val reply = post(host, query)
                 if (reply.reached) answered = true
                 if (looksLikeJson(reply.body)) {
+                    if (!isComplete(reply.body!!)) {
+                        // Teilantwort: der Server hat abgebrochen. Wie ein Fehlschlag
+                        // behandeln — der nächste Server hat vielleicht mehr Luft.
+                        answered = true
+                        continue
+                    }
                     lastGoodHost = host
-                    return OverpassResult.Ok(reply.body!!)
+                    return OverpassResult.Ok(reply.body)
                 }
             }
             if (round < rounds - 1) runCatching { Thread.sleep(PAUSE_MS) }
@@ -446,6 +497,39 @@ object WaterRouter {
     /** Overpass antwortet im Fehlerfall mit XML, teils sogar unter Status 200. */
     internal fun looksLikeJson(body: String?): Boolean =
         body != null && body.trimStart().startsWith("{")
+
+    /**
+     * Ist die Antwort **vollständig**, oder nur so weit der Server kam?
+     *
+     * Overpass bricht eine zu große Abfrage nach seiner Zeitgrenze ab und liefert
+     * trotzdem Status 200 mit gültigem JSON — nur eben mit den Daten, die bis dahin
+     * zusammengekommen sind, und einem `remark` daneben. Gemessen: eine Abfrage über
+     * den Rhein von Basel bis Mainz kam mit *null* Elementen und
+     * „runtime error: Query timed out" zurück.
+     *
+     * Ungeprüft durchgereicht ergibt das ein Wegenetz mit Löchern, und die App meldet
+     * dann „kein durchgehender Wasserweg" — ehrlich, aber mit falscher Begründung: Der
+     * Weg ist da, nur die Antwort war es nicht. Eine unvollständige Auskunft ist
+     * schlimmer als gar keine, weil sie wie ein Ergebnis aussieht.
+     */
+    internal fun isComplete(body: String): Boolean {
+        // Bewusst über den Text und nicht über JSONObject: Die Antwort ist bei langen
+        // Strecken megabytegroß, und sie nur wegen einer Bemerkung vollständig zu
+        // zerlegen wäre Verschwendung. Nebenbei bleibt es damit im Unit-Test prüfbar —
+        // dort ist org.json nur eine Attrappe, die immer Leerwerte liefert.
+        return REMARK.findAll(body).none { m ->
+            val remark = m.groupValues[1]
+            remark.contains("runtime error", ignoreCase = true) ||
+                remark.contains("timed out", ignoreCase = true)
+        }
+    }
+
+    /**
+     * Ohne Zeilenanker, weil Overpass alles in eine Zeile schreibt. Gesucht wird nach
+     * **Overpass' eigenem Wortlaut**, nicht nach jeder Bemerkung: `remark` gibt es auch
+     * als OSM-Merkmal an Wegen, und das darf eine Route nicht scheitern lassen.
+     */
+    private val REMARK = Regex(""""remark"\s*:\s*"((?:[^"\\]|\\.)*)"""")
 
     private fun parseWays(json: String, craft: Craft): List<List<Node>> = runCatching {
         val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptyList()

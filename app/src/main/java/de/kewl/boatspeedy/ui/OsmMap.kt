@@ -86,6 +86,8 @@ fun OsmMap(
     speedSigns: List<de.kewl.boatspeedy.nav.SpeedSign> = emptyList(),
     /** Antippbare Seezeichen aus den Kartendaten – die Kacheln selbst sind nur Bilder. */
     seamarks: List<de.kewl.boatspeedy.nav.SeamarkPoi> = emptyList(),
+    /** Festgelegter Startpunkt einer geplanten Strecke; null = es wird ab Boot gerechnet. */
+    planStart: de.kewl.boatspeedy.nav.LatLon? = null,
     /**
      * Meldet den sichtbaren Ausschnitt samt Zoomstufe — aber nur, wenn er sich wirklich
      * geändert hat. Bei jedem Durchlauf zu melden würde den ganzen Bildschirm im
@@ -420,6 +422,28 @@ fun OsmMap(
             mapView.overlays.add(m)
         }
         mapView.invalidate()
+    }
+
+    // Der geplante Startpunkt bekommt ein eigenes Zeichen — sonst sieht man der Strecke
+    // nicht an, worauf sie sich bezieht, und wundert sich, warum sie nicht beim Boot
+    // beginnt.
+    val startMarker = remember(mapView) {
+        Marker(mapView).apply {
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            icon = ContextCompat.getDrawable(context, R.drawable.ic_dest_flag)
+            alpha = 0.75f
+        }
+    }
+    DisposableEffect(planStart) {
+        val p = planStart
+        if (p != null) {
+            startMarker.position = GeoPoint(p.lat, p.lon)
+            if (!mapView.overlays.contains(startMarker)) mapView.overlays.add(startMarker)
+        } else {
+            mapView.overlays.remove(startMarker)
+        }
+        mapView.invalidate()
+        onDispose { }
     }
 
     /**

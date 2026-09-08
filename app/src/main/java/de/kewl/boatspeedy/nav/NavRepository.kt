@@ -28,6 +28,17 @@ object NavRepository {
     val arrived: StateFlow<Int> = _arrived.asStateFlow()
 
     /**
+     * Ein festgelegter Startpunkt für die Planung. Ist einer gesetzt, wird von dort
+     * gerechnet statt vom Boot — man sitzt zu Hause und plant die Fahrt von der Slippe
+     * zum Ziel, nicht vom Schreibtisch aus.
+     */
+    private val _planStart = MutableStateFlow<LatLon?>(null)
+    val planStart: StateFlow<LatLon?> = _planStart.asStateFlow()
+
+    fun setPlanStart(at: LatLon) { _planStart.value = at }
+    fun clearPlanStart() { _planStart.value = null }
+
+    /**
      * Unterhalb dieser Fahrt liefert das GPS keinen brauchbaren Kurs mehr, sondern
      * Rauschen — der Pfeil würde im Stand kreiseln.
      */
@@ -56,6 +67,12 @@ object NavRepository {
         _target.value = null
     }
 
+    /** Ziel und Startpunkt zusammen verwerfen — der Weg zurück zum leeren Blatt. */
+    fun clearAll() {
+        _target.value = null
+        _planStart.value = null
+    }
+
     /**
      * Aktuelle Position einspeisen. Räumt das Ziel ab, sobald es erreicht ist, und gibt
      * dann true zurück.
@@ -70,6 +87,9 @@ object NavRepository {
      */
     fun onLocation(lat: Double, lon: Double): Boolean {
         val t = _target.value ?: return false
+        // Eine geplante Strecke steht für sich: Sie beginnt nicht beim Boot, schrumpft
+        // nicht beim Fahren und verschwindet nicht, wenn man zufällig am Ziel vorbeikommt.
+        if (t.plannedFrom != null) return false
         val here = LatLon(lat, lon)
         if (distanceM(here, t.target) <= ARRIVE_M) {
             _target.value = null

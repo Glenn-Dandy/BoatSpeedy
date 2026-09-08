@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -128,6 +129,8 @@ fun LiveMapScreen(
 
     // --- Ziel setzen (langer Druck auf die Karte) ---
     var askTarget by remember { mutableStateOf<LatLon?>(null) }
+    // Festgelegter Startpunkt für die Planung; ist keiner gesetzt, wird vom Boot gerechnet.
+    val planStart by NavRepository.planStart.collectAsStateWithLifecycle()
     // Der zuletzt gewählte Punkt, damit man nach einer gescheiterten Route direkt die
     // Luftlinie nehmen kann, ohne noch einmal zu zielen.
     var navTargetFallback by remember { mutableStateOf<LatLon?>(null) }
@@ -183,6 +186,7 @@ fun LiveMapScreen(
                         at, mode = NavMode.ROUTE, path = result.path,
                         distanceM = pathLengthM(result.path),
                         water = result.water, obstacles = result.obstacles,
+                        plannedFrom = if (planStart != null) from else null,
                     ),
                 )
                 is RouteResult.Failed -> routeError = result.reason
@@ -191,12 +195,19 @@ fun LiveMapScreen(
     }
 
     fun setTarget(mode: NavMode, at: LatLon) {
-        val from = if (currentLat != null && currentLon != null) LatLon(currentLat, currentLon) else null
-        if (from == null) return
+        // Ab dem festgelegten Startpunkt, sonst ab Boot. Beides ist gewollt: unterwegs
+        // will man von hier aus fahren, zu Hause die Fahrt von der Slippe planen.
+        val boot = if (currentLat != null && currentLon != null) LatLon(currentLat, currentLon) else null
+        val from = planStart ?: boot ?: return
         routeError = null
         navTargetFallback = at
         if (mode == NavMode.LINE) {
-            NavRepository.set(NavTarget(at, mode, listOf(from, at), distanceM(from, at)))
+            NavRepository.set(
+                NavTarget(
+                    at, mode, listOf(from, at), distanceM(from, at),
+                    plannedFrom = planStart,
+                ),
+            )
             return
         }
         // Fehlen Kacheln für die Strecke, erst fragen — nicht erst eine Minute lang
@@ -342,6 +353,7 @@ fun LiveMapScreen(
                 showSeamarks = settings.seamarks && !weatherMode,
                 speedSigns = speedSigns,
                 seamarks = seamarks,
+                planStart = if (weatherMode) null else planStart,
                 onViewport = { box, zoom -> mapBox = box; zoomLevel = zoom },
                 recenterKey = recenterKey,
                 modifier = Modifier.fillMaxSize(),
@@ -380,18 +392,42 @@ fun LiveMapScreen(
                         // Pfeil nur, wenn überhaupt einmal ein Kurs bekannt war.
                         if (currentLat != null && currentLon != null) {
                             course?.let { c ->
+                                // Bei geplanter Strecke zeigt der Pfeil zum **Start** —
+                                // dorthin muss man zuerst, das Ziel kommt danach.
                                 CourseArrow(
                                     relativeDeg = relativeBearing(
                                         c.deg,
-                                        bearingDeg(LatLon(currentLat, currentLon), t.target),
+                                        bearingDeg(
+                                            LatLon(currentLat, currentLon),
+                                            t.plannedFrom ?: t.target,
+                                        ),
                                     ),
                                     stale = c.stale,
                                 )
                                 Spacer(Modifier.size(8.dp))
                             }
                         }
+                        // Bei geplanter Strecke zwei Angaben: erst der Weg zum Start,
+                        // dann die Strecke selbst. Nur eine Zahl wäre irreführend — sie
+                        // beginnt ja nicht dort, wo das Boot liegt.
+                        val zumStart = t.plannedFrom?.let { p ->
+                            if (currentLat != null && currentLon != null) {
+                                distanceM(LatLon(currentLat, currentLon), p)
+                            } else {
+                                null
+                            }
+                        }
                         Text(
                             buildString {
+                                if (zumStart != null) {
+                                    append(
+                                        stringResource(
+                                            R.string.nav_to_start,
+                                            String.format(Locale.getDefault(), "%.1f km", zumStart / 1000.0),
+                                        ),
+                                    )
+                                    append(" · ")
+                                }
                                 append(String.format(Locale.getDefault(), "%.2f km", t.distanceM / 1000.0))
                                 val ah = ahPerKm?.let { it * (t.distanceM / 1000.0) }
                                 if (ah != null) {
@@ -542,7 +578,9 @@ fun LiveMapScreen(
     // Zeit geladen, in der ein überlasteter Overpass-Server nur wartet, und er gilt
     // danach für jedes weitere Ziel in der Gegend.
     askDownload?.let { (gaps, target) ->
-        val from = if (currentLat != null && currentLon != null) {
+        // Derselbe Ausgangspunkt wie beim Setzen des Ziels — sonst würde nach dem
+        // Herunterladen plötzlich vom Boot statt vom geplanten Start gerechnet.
+        val from = planStart ?: if (currentLat != null && currentLon != null) {
             LatLon(currentLat, currentLon)
         } else {
             null
@@ -591,19 +629,48 @@ fun LiveMapScreen(
     }
 
     // Langer Druck → fragen, wie gerechnet werden soll.
+    // Auswahl statt zweier Knöpfe: Mit dem Startpunkt sind es vier Möglichkeiten, und
+    // die passen nicht mehr in "bestätigen" und "abbrechen".
     askTarget?.let { at ->
         AlertDialog(
             onDismissRequest = { askTarget = null },
             title = { Text(stringResource(R.string.nav_target)) },
-            text = { Text(stringResource(R.string.nav_pick_hint)) },
-            confirmButton = {
-                TextButton(onClick = { setTarget(NavMode.ROUTE, at); askTarget = null }) {
-                    Text(stringResource(R.string.nav_route))
+            text = {
+                Column {
+                    Text(
+                        stringResource(
+                            if (planStart == null) R.string.nav_pick_hint
+                            else R.string.nav_pick_hint_planned,
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                    )
+                    Spacer(Modifier.size(12.dp))
+                    NavChoice(stringResource(R.string.nav_route)) {
+                        setTarget(NavMode.ROUTE, at); askTarget = null
+                    }
+                    NavChoice(stringResource(R.string.nav_line)) {
+                        setTarget(NavMode.LINE, at); askTarget = null
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                    NavChoice(
+                        stringResource(
+                            if (planStart == null) R.string.nav_set_start
+                            else R.string.nav_move_start,
+                        ),
+                    ) {
+                        NavRepository.setPlanStart(at); NavRepository.clear(); askTarget = null
+                    }
+                    if (planStart != null) {
+                        NavChoice(stringResource(R.string.nav_clear_start)) {
+                            NavRepository.clearAll(); askTarget = null
+                        }
+                    }
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { setTarget(NavMode.LINE, at); askTarget = null }) {
-                    Text(stringResource(R.string.nav_line))
+            confirmButton = {
+                TextButton(onClick = { askTarget = null }) {
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
@@ -661,5 +728,23 @@ private fun ObstacleLine(iconRes: Int, text: String, color: androidx.compose.ui.
 /** Darunter stehen zu viele Zeichen zu dicht, um eines gezielt zu treffen. */
 private const val SEAMARK_MIN_ZOOM = 13.0
 
-/** Deckel gegen tausend Marker auf einmal – so viele kann ohnehin niemand antippen. */
-private const val MAX_SEAMARKS = 400
+/**
+ * Nur ein Schutz gegen Tausende Marker auf einmal, keine inhaltliche Auswahl. Vorher
+ * standen hier 400, und in dichtem Revier fielen damit stillschweigend welche weg — ab
+ * Zoomstufe 13 liegen sie ohnehin weit genug auseinander, um jedes einzeln zu treffen.
+ */
+private const val MAX_SEAMARKS = 1500
+
+/** Eine Zeile im Auswahldialog — über die ganze Breite antippbar, nicht nur der Text. */
+@Composable
+private fun NavChoice(text: String, onClick: () -> Unit) {
+    Text(
+        text,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.primary,
+    )
+}
