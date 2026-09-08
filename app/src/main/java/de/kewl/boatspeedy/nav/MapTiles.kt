@@ -88,6 +88,20 @@ object MapTiles {
 
     fun missing(dir: File, ids: List<TileId>): List<TileId> = ids.filterNot { have(dir, it) }
 
+    /**
+     * Kacheln, die zwar daliegen, aber älter sind als der Stand auf dem Server.
+     *
+     * Ohne diese Prüfung wird eine einmal geholte Kachel **nie** aufgefrischt: [missing]
+     * fragt nur, ob die Datei existiert. Genau daran ist eine Fahrt gescheitert — auf dem
+     * Gerät lagen Kacheln aus dem Deutschland-Lauf, in denen der Grand Canal d'Alsace
+     * fehlte. Ab Basel läuft die Fahrrinne aber über die französische Seite, und so riss
+     * das Netz mitten im Rhein, während der Server die vollständigen Daten längst hatte.
+     */
+    fun outdated(dir: File, index: Index?): List<StoredTile> {
+        val stand = index?.generated?.takeIf { it.isNotBlank() } ?: return emptyList()
+        return stored(dir).filter { it.generated == null || it.generated < stand }
+    }
+
     fun stored(dir: File): List<StoredTile> =
         dir.listFiles { f -> f.name.endsWith(".json.gz") }?.mapNotNull { f ->
             val name = f.name.removeSuffix(".json.gz")

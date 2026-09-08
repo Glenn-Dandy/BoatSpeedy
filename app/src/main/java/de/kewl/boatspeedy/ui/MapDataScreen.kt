@@ -73,6 +73,9 @@ fun MapDataScreen(
     }
     val missing = remember(stored, wanted) { MapTiles.missing(dir, wanted) }
     val estimate = MapTiles.sizeOf(index, missing)
+    // Veraltete Kacheln sind gefährlicher als fehlende: Sie sehen vollständig aus, und
+    // das Routing rechnet stillschweigend mit einem Netz, das Lücken hat.
+    val veraltet = remember(stored, index) { MapTiles.outdated(dir, index) }
 
     SettingsScaffold(
         stringResource(R.string.group_mapdata),
@@ -152,6 +155,36 @@ fun MapDataScreen(
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 8.dp),
             )
+        }
+
+        if (veraltet.isNotEmpty() && !busy) {
+            Spacer(Modifier.size(12.dp))
+            Text(
+                stringResource(R.string.mapdata_outdated, veraltet.size),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.size(8.dp))
+            Button(
+                onClick = {
+                    failed = false
+                    busy = true
+                    done = 0
+                    total = veraltet.size
+                    scope.launch {
+                        var ok = true
+                        for (t in veraltet) {
+                            val got = withContext(Dispatchers.IO) { MapTiles.download(dir, t.id) }
+                            if (got == null) ok = false
+                            done += 1
+                        }
+                        stored = withContext(Dispatchers.IO) { MapTiles.stored(dir) }
+                        failed = !ok
+                        busy = false
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.mapdata_refresh, veraltet.size)) }
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))

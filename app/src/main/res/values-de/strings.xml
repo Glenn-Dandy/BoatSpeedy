@@ -363,4 +363,6 @@
     <string name="nav_move_start">Startpunkt hierher verschieben</string>
     <string name="nav_clear_start">Startpunkt verwerfen</string>
     <string name="nav_to_start">zum Start %1$s</string>
+    <string name="mapdata_outdated">%1$d Felder sind älter als die Daten auf dem Server. Veraltete Felder sehen vollständig aus, können aber Lücken haben — dann bricht eine Route ab, obwohl der Weg existiert.</string>
+    <string name="mapdata_refresh">%1$d Felder auffrischen</string>
 </resources>

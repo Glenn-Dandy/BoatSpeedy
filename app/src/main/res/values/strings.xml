@@ -366,4 +366,6 @@
     <string name="nav_move_start">Move start point here</string>
     <string name="nav_clear_start">Discard start point</string>
     <string name="nav_to_start">to start %1$s</string>
+    <string name="mapdata_outdated">%1$d tiles are older than the data on the server. Outdated tiles look complete but can have gaps — a route then breaks although the way exists.</string>
+    <string name="mapdata_refresh">Refresh %1$d tiles</string>
 </resources>
