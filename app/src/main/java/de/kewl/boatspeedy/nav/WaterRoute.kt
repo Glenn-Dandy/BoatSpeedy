@@ -33,6 +33,8 @@ data class NavTarget(
     val water: List<LatLon> = emptyList(),
     /** Schleusen und Wehre, die auf dem Weg liegen. */
     val obstacles: List<Obstacle> = emptyList(),
+    /** Strecke über Abschnitte mit allgemeinem Bootsverbot, in Metern. */
+    val restrictedM: Double = 0.0,
     /**
      * Gesetzt, wenn die Strecke von einem **festgelegten Startpunkt** aus geplant wurde
      * und nicht vom Boot. Eine geplante Strecke hängt nicht am eigenen Fahren: Sie wird
@@ -128,6 +130,11 @@ sealed interface RouteResult {
         val path: List<LatLon>,
         val water: List<LatLon>,
         val obstacles: List<Obstacle>,
+        /**
+         * Länge der Abschnitte mit allgemeinem Bootsverbot (`boat=no`), die auf der
+         * Strecke liegen. Beim Kanu sperrt das nicht, aber es gehört gesagt.
+         */
+        val restrictedM: Double = 0.0,
     ) : RouteResult
     data class Failed(val reason: RouteError) : RouteResult
 }
@@ -220,6 +227,25 @@ object WaterRouter {
     /** Bis zu dieser Entfernung vom Weg zählt ein Hindernis als „liegt darauf". */
     private const val OBSTACLE_NEAR_M = 40.0
 
+    /** Wie ein Weg für das gewählte Fahrzeug einzustufen ist. */
+    internal enum class Zugang {
+        /** Befahrbar. */
+        FREI,
+
+        /** Nicht befahrbar — kommt gar nicht erst ins Netz. */
+        GESPERRT,
+
+        /**
+         * Befahrbar, aber mit einem allgemeinen Bootsverbot belegt. Die Strecke wird
+         * gerechnet und ihre Länge unten auf der Karte angezeigt; entscheiden muss es,
+         * wer im Boot sitzt.
+         */
+        EINGESCHRAENKT,
+    }
+
+    private val VERBOTEN = setOf("no", "private")
+    private val ERLAUBT = setOf("yes", "designated", "permissive", "destination")
+
     /**
      * Wege, die als Fluss oder Kanal getaggt sind, aber nicht befahren werden dürfen oder
      * können. Ohne diese Prüfung schickt die Route durch **Rohrdurchlässe** und über
@@ -227,19 +253,42 @@ object WaterRouter {
      * `tunnel=culvert`, 43 ein `boat=no` und 29 ein `motorboat=no`. Genau so kommt eine
      * Route zustande, die an der Schleuse vorbeiführt statt hindurch.
      *
-     * Die Verbote hängen am Fahrzeug: `motorboat=no` sperrt 45 Wege im Testgebiet, `canoe=no`
-     * andere 26 — beide pauschal zu verwerfen nähme jedem Fahrzeug Strecken weg, die ihm
-     * ausdrücklich offenstehen.
+     * Die Zugangsmerkmale sind in OpenStreetMap **gestuft**: `access` gilt für alles,
+     * `boat` für Boote, `motorboat`/`ship`/`canoe` für die einzelne Art. Das Genauere
+     * schlägt das Allgemeinere — `boat=no` + `canoe=yes` heißt „Boote nein, Kanu ja".
+     *
+     * Vorher wurde flach geprüft und `boat=no` sperrte unbedingt. Auf der oberen Saale, wo
+     * Motorboote verboten sind und Kanus fahren dürfen, riss das Netz damit genau an der
+     * Einsetzstelle Zeutsch: 44 km Saale allein in der Kachel `n50e011` tragen `boat=no`,
+     * nur ein Teil davon zusätzlich `canoe=yes`.
      */
-    private fun isForbidden(tags: JSONObject?, craft: Craft): Boolean {
-        if (tags == null) return false
-        if (tags.optString("boat") == "no") return true
-        if (tags.optString("access") in setOf("no", "private")) return true
-        // Ein Rohr unter einer Straße ist kein Fahrwasser.
-        if (tags.optString("tunnel") in setOf("culvert", "pipe", "building_passage")) return true
-        return when (craft) {
-            Craft.MOTORBOAT -> tags.optString("motorboat") == "no" || tags.optString("ship") == "no"
-            Craft.CANOE -> tags.optString("canoe") == "no"
+    private fun zugang(tags: JSONObject?, craft: Craft): Zugang {
+        if (tags == null) return Zugang.FREI
+        // Ein Rohr unter einer Straße ist kein Fahrwasser — daran ändert kein Merkmal etwas.
+        if (tags.optString("tunnel") in setOf("culvert", "pipe", "building_passage")) {
+            return Zugang.GESPERRT
+        }
+        val kette = when (craft) {
+            Craft.MOTORBOAT -> listOf("access", "boat", "ship", "motorboat")
+            Craft.CANOE -> listOf("access", "boat", "canoe")
+        }
+        // Von allgemein nach genau; das zuletzt gefundene Verbot zählt, eine ausdrückliche
+        // Erlaubnis hebt es auf. Werte, die weder das eine noch das andere sind
+        // (`unknown`, `seasonal`), lassen den Stand, wie er ist.
+        var sperre: String? = null
+        for (k in kette) {
+            when (tags.optString(k)) {
+                in VERBOTEN -> sperre = k
+                in ERLAUBT -> sperre = null
+            }
+        }
+        return when {
+            sperre == null -> Zugang.FREI
+            // Beim Kanu ist ein allgemeines `boat=no` **kein** Ausschluss. Es ist fast immer
+            // gegen Motorboote gemeint; wo Paddeln wirklich untersagt ist, steht `canoe=no`
+            // oder `access=no`. Ein hartes Nein nähme dem Kanu die halben Oberläufe.
+            craft == Craft.CANOE && sperre == "boat" -> Zugang.EINGESCHRAENKT
+            else -> Zugang.GESPERRT
         }
     }
 
@@ -277,9 +326,9 @@ object WaterRouter {
         val maxSnap = maxSnapM(direct)
 
         val quelle = offline ?: when (val r = askOverpass(buildQuery(from, to))) {
-            is OverpassResult.Ok -> Quelle(
-                parseWays(r.body, craft), parseObstacles(r.body), barrierNodes(r.body),
-            )
+            is OverpassResult.Ok -> parseWays(r.body, craft).let { w ->
+                Quelle(w.ways, parseObstacles(r.body), barrierNodes(r.body), w.eingeschraenkt)
+            }
             OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
             OverpassResult.Unreachable -> return RouteResult.Failed(RouteError.NO_NETWORK)
         }
@@ -301,8 +350,9 @@ object WaterRouter {
             RouteResult.Failed(RouteError.NO_CONNECTION)
         }
 
-        val water = shortestPath(graph, ends.first, ends.second)?.map { it.toLatLon() }
+        val knoten = shortestPath(graph, ends.first, ends.second)
             ?: return RouteResult.Failed(RouteError.NO_CONNECTION)
+        val water = knoten.map { it.toLatLon() }
         // Anfahrt und Auslauf sind Luftlinie – sie werden getrennt zurückgegeben, damit die
         // Karte sie anders zeichnen kann: dort fährt man auf eigene Rechnung.
         val full = listOf(from) + water + listOf(to)
@@ -310,7 +360,24 @@ object WaterRouter {
             path = full,
             water = water,
             obstacles = onPath(quelle.obstacles, water),
+            restrictedM = eingeschraenkteLaenge(knoten, quelle.eingeschraenkt),
         )
+    }
+
+    /**
+     * Wie viel der gefundenen Strecke über Abschnitte mit allgemeinem Bootsverbot läuft.
+     *
+     * Gezählt wird nur, wenn **beide** Enden eines Stücks auf einem solchen Abschnitt
+     * liegen. Ein Punkt allein sagt nichts: An der Naht zweier Wege gehört er beiden, und
+     * eine einzelne Kante würde sonst dem falschen zugeschlagen.
+     */
+    private fun eingeschraenkteLaenge(path: List<Node>, punkte: Set<Node>): Double {
+        if (punkte.isEmpty()) return 0.0
+        var m = 0.0
+        for ((a, b) in path.zipWithNext()) {
+            if (a in punkte && b in punkte) m += distanceM(a.toLatLon(), b.toLatLon())
+        }
+        return m
     }
 
     /* ------------------------------ Daten holen ------------------------------ */
@@ -325,6 +392,8 @@ object WaterRouter {
         val ways: List<List<Node>>,
         val obstacles: List<Obstacle>,
         val barriers: Set<Node>,
+        /** Punkte auf Abschnitten mit allgemeinem Bootsverbot — befahrbar, aber gemeldet. */
+        val eingeschraenkt: Set<Node> = emptySet(),
     )
 
     /**
@@ -349,12 +418,15 @@ object WaterRouter {
         val ways = ArrayList<List<Node>>()
         val obstacles = ArrayList<Obstacle>()
         val barriers = HashSet<Node>()
+        val eingeschraenkt = HashSet<Node>()
         val ok = MapTiles.forEach(tileDir, ids) { json ->
-            ways.addAll(parseWays(json, craft))
+            val w = parseWays(json, craft)
+            ways.addAll(w.ways)
+            eingeschraenkt.addAll(w.eingeschraenkt)
             obstacles.addAll(parseObstacles(json))
             barriers.addAll(barrierNodes(json))
         }
-        return if (ok) Quelle(ways, obstacles, barriers) else null
+        return if (ok) Quelle(ways, obstacles, barriers, eingeschraenkt) else null
     }
 
     private fun buildQuery(from: LatLon, to: LatLon): String {
@@ -526,20 +598,38 @@ object WaterRouter {
      */
     private val REMARK = Regex(""""remark"\s*:\s*"((?:[^"\\]|\\.)*)"""")
 
-    private fun parseWays(json: String, craft: Craft): List<List<Node>> = runCatching {
-        val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptyList()
-        (0 until elements.length()).mapNotNull { i ->
+    /**
+     * Die Wege eines Ausschnitts, dazu die Punkte auf eingeschränkten Abschnitten.
+     *
+     * Getrennt gehalten statt am Weg vermerkt: Das Netz wird auf gerundete Punkte gebaut,
+     * und danach ist der einzelne Weg nicht mehr zu erkennen. Über die Punktmenge lässt
+     * sich hinterher an der fertigen Strecke ablesen, wie viel davon eingeschränkt war —
+     * ohne den Graphen dafür umzubauen.
+     */
+    private class Wege(val ways: List<List<Node>>, val eingeschraenkt: Set<Node>)
+
+    private fun parseWays(json: String, craft: Craft): Wege = runCatching {
+        val elements = JSONObject(json).optJSONArray("elements")
+            ?: return@runCatching Wege(emptyList(), emptySet())
+        val ways = ArrayList<List<Node>>()
+        val eingeschraenkt = HashSet<Node>()
+        for (i in 0 until elements.length()) {
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags")
-            if (tags?.optString("waterway") !in navigableFor(craft)) return@mapNotNull null
-            if (isForbidden(tags, craft)) return@mapNotNull null
-            val geom = el.optJSONArray("geometry") ?: return@mapNotNull null
-            (0 until geom.length()).map { g ->
+            if (tags?.optString("waterway") !in navigableFor(craft)) continue
+            val zugang = zugang(tags, craft)
+            if (zugang == Zugang.GESPERRT) continue
+            val geom = el.optJSONArray("geometry") ?: continue
+            val nodes = (0 until geom.length()).map { g ->
                 val p = geom.getJSONObject(g)
                 Node.of(p.getDouble("lat"), p.getDouble("lon"))
-            }.takeIf { it.size >= 2 }
+            }
+            if (nodes.size < 2) continue
+            ways.add(nodes)
+            if (zugang == Zugang.EINGESCHRAENKT) eingeschraenkt.addAll(nodes)
         }
-    }.getOrDefault(emptyList())
+        Wege(ways, eingeschraenkt)
+    }.getOrDefault(Wege(emptyList(), emptySet()))
 
     private val NAVIGABLE = setOf("river", "canal", "fairway")
 

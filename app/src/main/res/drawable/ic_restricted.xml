@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Allgemeines Bootsverbot: Einfahrt-verboten-Zeichen als Ring mit Querbalken. Der Ring
+     statt einer vollen Scheibe, weil das Symbol eingefärbt wird und eine gefüllte Fläche
+     dabei zum Klecks würde. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="26dp" android:height="26dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FF000000" android:fillType="evenOdd"
+        android:pathData="M12,2 A10,10 0 1,1 11.99,2 Z M12,4.6 A7.4,7.4 0 1,0 11.99,4.6 Z" />
+    <path android:fillColor="#FF000000" android:pathData="M6.6,10.8 h10.8 v2.4 h-10.8 Z" />
+</vector>

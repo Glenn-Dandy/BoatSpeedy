@@ -186,6 +186,7 @@ fun LiveMapScreen(
                         at, mode = NavMode.ROUTE, path = result.path,
                         distanceM = pathLengthM(result.path),
                         water = result.water, obstacles = result.obstacles,
+                        restrictedM = result.restrictedM,
                         plannedFrom = if (planStart != null) from else null,
                     ),
                 )
@@ -472,7 +473,11 @@ fun LiveMapScreen(
             navTarget?.takeIf { !weatherMode && it.mode == NavMode.ROUTE }?.let { t ->
                 val locks = t.obstacles.count { it.kind == ObstacleKind.LOCK || it.kind == ObstacleKind.SLUICE }
                 val weirs = t.obstacles.count { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
-                if (locks > 0 || weirs > 0) {
+                // Erst ab einem halben Kilometer. Kürzeres kommt an jeder zweiten Naht
+                // zustande, wo ein Weg mit Bootsverbot ein Stück weit mitläuft, und wäre
+                // als Warnung nur Rauschen.
+                val restrictedKm = (t.restrictedM / 1000.0).takeIf { it >= 0.5 }
+                if (locks > 0 || weirs > 0 || restrictedKm != null) {
                     Surface(
                         modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 16.dp),
                         shape = RoundedCornerShape(16.dp),
@@ -493,6 +498,18 @@ fun LiveMapScreen(
                                     iconRes = R.drawable.ic_obstacle_weir,
                                     text = if (weirs == 1) stringResource(R.string.nav_obstacles_weir_one)
                                     else stringResource(R.string.nav_obstacles_weirs, weirs),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                            // Abschnitte mit allgemeinem Bootsverbot. Das Kanu fährt dort
+                            // nach OSM-Lesart legal, aber wissen sollte man es.
+                            restrictedKm?.let { km ->
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_restricted,
+                                    text = stringResource(
+                                        R.string.nav_restricted,
+                                        if (km < 10) String.format("%.1f", km) else km.roundToInt().toString(),
+                                    ),
                                     color = MaterialTheme.colorScheme.error,
                                 )
                             }

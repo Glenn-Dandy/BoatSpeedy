@@ -331,6 +331,7 @@
     <string name="nav_obstacles_lock_one">1 Schleuse</string>
     <string name="nav_obstacles_weirs">%d Wehre in der Nähe</string>
     <string name="nav_obstacles_weir_one">1 Wehr in der Nähe</string>
+    <string name="nav_restricted">%s km gesperrt</string>
     <!-- Kartendaten -->
     <string name="group_mapdata">Kartendaten</string>
     <string name="cat_mapdata_desc">Wasserwege für unterwegs speichern</string>

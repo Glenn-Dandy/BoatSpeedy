@@ -134,4 +134,9 @@ dependencies {
 
     // Nur für `./gradlew test` – landet nicht in der App und ändert das Release-APK nicht.
     testImplementation(libs.junit)
+    // Android bringt org.json selbst mit, im Unit-Test steht dort aber nur eine Attrappe,
+    // die bei jedem Aufruf wirft. Der Router fängt das ab und sah dadurch aus, als gäbe es
+    // schlicht keine Wasserwege — die Routenrechnung war so gar nicht prüfbar. Mit der
+    // echten Bibliothek auf dem Testpfad läuft derselbe Code wie auf dem Gerät.
+    testImplementation(libs.json)
 }

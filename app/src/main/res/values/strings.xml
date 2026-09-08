@@ -334,6 +334,7 @@
     <string name="nav_obstacles_lock_one">1 lock</string>
     <string name="nav_obstacles_weirs">%d weirs nearby</string>
     <string name="nav_obstacles_weir_one">1 weir nearby</string>
+    <string name="nav_restricted">%s km restricted</string>
     <!-- Map data -->
     <string name="group_mapdata">Map data</string>
     <string name="cat_mapdata_desc">Store waterways for the trip</string>
