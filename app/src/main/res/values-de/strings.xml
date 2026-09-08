@@ -297,7 +297,7 @@
     <string name="nav_route">Route</string>
     <string name="nav_routing">Suche einen Weg …</string>
     <string name="nav_clear">Ziel entfernen</string>
-    <string name="nav_err_far">Für eine Route ohne gespeicherte Kartendaten ist das zu weit. Mit geladenen Karten geht es bis 400 km — die Luftlinie geht ohnehin.</string>
+    <string name="nav_err_far">Für eine Route ohne gespeicherte Kartendaten ist das zu weit. Mit geladenen Karten geht es bis 600 km — die Luftlinie geht ohnehin.</string>
     <string name="nav_err_busy">Der Kartendienst ist gerade überlastet und antwortet nicht. Später noch einmal — die Luftlinie geht sofort.</string>
     <string name="nav_err_offline">Keine Verbindung zu den Kartendaten. Draußen ist das normal — die Luftlinie kommt ohne aus.</string>
     <string name="nav_err_nodata">Hier sind keine Wasserwege verzeichnet.</string>
@@ -332,6 +332,13 @@
     <string name="nav_obstacles_weirs">%d Wehre in der Nähe</string>
     <string name="nav_obstacles_weir_one">1 Wehr in der Nähe</string>
     <string name="nav_restricted">%s km gesperrt</string>
+    <string name="nav_blocked_motorboat">Für Motorboote gesperrt</string>
+    <string name="nav_blocked_canoe">Für Kanus gesperrt</string>
+    <string name="nav_blocked_try_canoe">Mit dem Kanu wären es %1$d km.</string>
+    <string name="nav_blocked_try_motorboat">Mit dem Motorboot wären es %1$d km.</string>
+    <string name="nav_blocked_of_which">Davon %1$d km mit Bootsverbot.</string>
+    <string name="nav_as_canoe">Als Kanu rechnen</string>
+    <string name="nav_as_motorboat">Als Motorboot rechnen</string>
     <!-- Kartendaten -->
     <string name="group_mapdata">Kartendaten</string>
     <string name="cat_mapdata_desc">Wasserwege für unterwegs speichern</string>

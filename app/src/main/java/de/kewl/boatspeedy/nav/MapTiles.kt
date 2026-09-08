@@ -73,8 +73,16 @@ object MapTiles {
      * durchgehender Wasserweg", obwohl der Weg existiert. Nachgerechnet: mit neun Kacheln
      * findet sich nichts, mit zwölf sind es 425 km.
      *
-     * Ein Fünftel der Spannweite deckt auch großzügige Bögen ab; bei kurzen Strecken
-     * bleibt es bei den 0,05°, damit ein Ziel um die Ecke nicht ein halbes Land lädt.
+     * **Mindestens eine volle Kachelreihe.** Ein Anteil der Luftlinie allein war das
+     * falsche Maß: Wie weit ein Fluss ausholt, hängt nicht davon ab, wie weit man fährt.
+     * Uhlstädt–Bernburg ist in der Länge nur 0,27° breit, der Rand daraus 0,215° — und
+     * die Saale weicht zwischen Merseburg und Bad Dürrenberg 0,12° über den zwölften
+     * Längengrad aus. Diese 37,5 km Fluss liegen ausschließlich in der Nachbarkachel; ohne
+     * sie riss das Netz bei Merseburg, und dieselbe Meldung kam wie am Main.
+     *
+     * Ein Grad ist die Kachelbreite. Damit ist der Nachbar per Bauart immer dabei, und ein
+     * Ausweichen von einem Zehntelgrad kann nicht mehr durchfallen. Der Anteil bleibt
+     * darüber für lange Strecken, wo ein Fluss auch entsprechend weiter ausholt.
      */
     fun tilesForRoute(from: LatLon, to: LatLon): List<TileId> {
         val latSpan = kotlin.math.abs(from.lat - to.lat)
@@ -88,8 +96,9 @@ object MapTiles {
         )
     }
 
-    private const val MIN_ROUTE_PAD = 0.05
-    private const val MAX_ROUTE_PAD = 1.0
+    /** Eine volle Kachelreihe — der Nachbar ist damit immer dabei. */
+    private const val MIN_ROUTE_PAD = 1.0
+    private const val MAX_ROUTE_PAD = 2.0
 
     /**
      * Kacheln im Umkreis von [radiusKm] um einen Punkt. Der Umweg über ein Rechteck ist

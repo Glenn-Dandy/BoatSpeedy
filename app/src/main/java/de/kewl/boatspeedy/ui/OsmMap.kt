@@ -3,6 +3,8 @@ package de.kewl.boatspeedy.ui
 import android.graphics.Color
 import android.view.MotionEvent
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DirectionsBoat
+import androidx.compose.material.icons.filled.Kayaking
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -83,6 +85,11 @@ fun OsmMap(
     navPath: List<LatLon> = emptyList(),
     /** Der Abschnitt entlang des Fahrwassers; davor und danach wird frei gefahren. */
     navWaterPath: List<LatLon> = emptyList(),
+    /**
+     * Abschnitte der Route mit allgemeinem Bootsverbot. Werden rot über die Route gelegt:
+     * Eine Kilometerzahl sagt, **wie viel** gesperrt ist, aber nicht **wo**.
+     */
+    navBlockedPaths: List<List<LatLon>> = emptyList(),
     /** Kurs über Grund in Grad; dreht den Positionsmarker in Fahrtrichtung. */
     courseDeg: Float? = null,
     /** Fahrt über Grund in m/s – damit rechnet die Koppelnavigation zwischen den Fixes. */
@@ -192,6 +199,10 @@ fun OsmMap(
             outlinePaint.strokeWidth = 9f
         }
     }
+    // Gesperrte Abschnitte, rot und etwas dicker als die Route — sie liegen darüber und
+    // sollen auch dann zu sehen sein, wenn sie kurz sind. Mehrere, weil ein Bootsverbot
+    // die Strecke an mehreren Stellen treffen kann.
+    val navBlockedLines = remember(mapView) { mutableListOf<Polyline>() }
     // Zielfahne; der Fuß der Stange sitzt auf dem Zielpunkt.
     val navMarker = remember(mapView) {
         Marker(mapView).apply {
@@ -546,7 +557,7 @@ fun OsmMap(
     }
 
     // Weg zum Ziel zeichnen.
-    LaunchedEffect(navPath, navWaterPath) {
+    LaunchedEffect(navPath, navWaterPath, navBlockedPaths) {
         if (navPath.size >= 2) {
             navLine.setPoints(navPath.map { GeoPoint(it.lat, it.lon) })
             if (!mapView.overlays.contains(navLine)) mapView.overlays.add(navLine)
@@ -561,6 +572,22 @@ fun OsmMap(
             if (!mapView.overlays.contains(navWaterLine)) mapView.overlays.add(navWaterLine)
         } else {
             mapView.overlays.remove(navWaterLine)
+        }
+
+        // Erst die alten roten Linien weg, dann die neuen. Wiederverwenden wäre Buchhaltung
+        // über wechselnde Anzahlen; es sind wenige, und sie entstehen nur beim Rechnen
+        // einer Route, nicht bei jedem Bild.
+        navBlockedLines.forEach { mapView.overlays.remove(it) }
+        navBlockedLines.clear()
+        for (zug in navBlockedPaths) {
+            if (zug.size < 2) continue
+            val linie = Polyline(mapView).apply {
+                outlinePaint.color = Color.parseColor("#D32F2F")
+                outlinePaint.strokeWidth = 11f
+                setPoints(zug.map { GeoPoint(it.lat, it.lon) })
+            }
+            navBlockedLines.add(linie)
+            mapView.overlays.add(linie)
         }
         mapView.invalidate()
     }
@@ -939,6 +966,38 @@ fun NorthArrow(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.offset(y = 12.dp),
                 color = schrift,
+            )
+        }
+    }
+}
+
+/**
+ * Zeigt das eingestellte Fahrzeug und wechselt es auf Antippen.
+ *
+ * Der Weg über die Einstellungen war nicht das Problem — dass die Einstellung auf der
+ * Karte **nicht abzulesen** war, schon. Zweimal ist deshalb an derselben Stelle gesucht
+ * worden, obwohl die Antwort „mit dem Motorboot darfst du dort nicht" lautete. Ein Verbot
+ * gilt je Fahrzeug; dann muss auch zu sehen sein, welches gemeint ist.
+ */
+@Composable
+fun CraftButton(
+    craft: de.kewl.boatspeedy.data.Craft,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val kanu = craft == de.kewl.boatspeedy.data.Craft.CANOE
+    Surface(
+        modifier = modifier.size(40.dp).clickable(onClick = onClick),
+        shape = androidx.compose.foundation.shape.CircleShape,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        tonalElevation = 3.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                if (kanu) Icons.Filled.Kayaking else Icons.Filled.DirectionsBoat,
+                contentDescription = if (kanu) "Kanu" else "Motorboot",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(22.dp),
             )
         }
     }

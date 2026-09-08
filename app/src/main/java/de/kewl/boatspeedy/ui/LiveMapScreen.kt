@@ -61,6 +61,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.util.Locale
 import de.kewl.boatspeedy.R
+import de.kewl.boatspeedy.data.Craft
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.nav.LatLon
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -84,6 +85,17 @@ import de.kewl.boatspeedy.trip.TrackPoint
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
+/**
+ * Eine Route, die mit dem eingestellten Fahrzeug nicht geht, mit dem anderen aber schon.
+ * Dann liegt es nicht am fehlenden Weg, sondern an einem Verbot — und das gehört gesagt.
+ */
+private data class CraftHint(
+    val from: LatLon,
+    val at: LatLon,
+    val craft: Craft,
+    val route: RouteResult.Ok,
+)
+
 /** Vollbild-Live-Karte: Position + Track (folgt/verlassen) und DWD-Wetterradar (Regen + optional Blitze). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,6 +116,8 @@ fun LiveMapScreen(
     weatherMode: Boolean = false,
     /** Ausrichtung umstellen — die Nadel auf der Karte schaltet damit um. */
     onMapOrientation: (de.kewl.boatspeedy.data.MapOrientation) -> Unit = {},
+    /** Fahrzeug umstellen — der Knopf oben links auf der Karte. */
+    onCraft: (Craft) -> Unit = {},
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -154,6 +168,8 @@ fun LiveMapScreen(
     }
     var routing by remember { mutableStateOf(false) }
     var routeError by remember { mutableStateOf<RouteError?>(null) }
+    // Gescheitert am Fahrzeug, nicht am Weg: Vorschlag, es mit dem anderen zu rechnen.
+    var craftHint by remember { mutableStateOf<CraftHint?>(null) }
     val scope = rememberCoroutineScope()
 
     // Verbrauch je Kilometer aus der laufenden Fahrt; erst ab etwas Strecke sinnvoll.
@@ -175,24 +191,48 @@ fun LiveMapScreen(
      * eine Minute Warten und danach eine Fehlermeldung. Der Vorrat wäre in derselben
      * Zeit geladen gewesen und hätte alle weiteren Routen gleich mit erledigt.
      */
+    fun uebernehmen(from: LatLon, at: LatLon, r: RouteResult.Ok) {
+        NavRepository.set(
+            NavTarget(
+                at, mode = NavMode.ROUTE, path = r.path,
+                distanceM = pathLengthM(r.path),
+                water = r.water, obstacles = r.obstacles,
+                restrictedM = r.restrictedM, restricted = r.restricted,
+                plannedFrom = if (planStart != null) from else null,
+            ),
+        )
+    }
+
     fun startRoute(from: LatLon, at: LatLon) {
         routing = true
         scope.launch {
+            val dir = MapTiles.dir(context.filesDir)
             val result = withContext(Dispatchers.IO) {
-                WaterRouter.route(from, at, settings.craft, MapTiles.dir(context.filesDir))
+                WaterRouter.route(from, at, settings.craft, dir)
             }
-            routing = false
             when (result) {
-                is RouteResult.Ok -> NavRepository.set(
-                    NavTarget(
-                        at, mode = NavMode.ROUTE, path = result.path,
-                        distanceM = pathLengthM(result.path),
-                        water = result.water, obstacles = result.obstacles,
-                        restrictedM = result.restrictedM,
-                        plannedFrom = if (planStart != null) from else null,
-                    ),
-                )
-                is RouteResult.Failed -> routeError = result.reason
+                is RouteResult.Ok -> { routing = false; uebernehmen(from, at, result) }
+                is RouteResult.Failed -> {
+                    // **Woran es liegt, statt nur dass es nicht geht.**
+                    //
+                    // „Kein durchgehender Wasserweg" ist wahr und trotzdem nutzlos, wenn
+                    // der Grund ein Verbot für das eingestellte Fahrzeug ist. Die Daten
+                    // liegen ohnehin schon auf dem Gerät, also wird die Strecke einmal
+                    // still mit dem anderen Fahrzeug gerechnet — geht sie damit durch,
+                    // war es kein fehlender Weg, sondern ein Verbot.
+                    val anderes = if (settings.craft == Craft.MOTORBOAT) Craft.CANOE else Craft.MOTORBOAT
+                    val zweit = if (result.reason == RouteError.NO_CONNECTION) {
+                        withContext(Dispatchers.IO) { WaterRouter.route(from, at, anderes, dir) }
+                    } else {
+                        null
+                    }
+                    routing = false
+                    if (zweit is RouteResult.Ok) {
+                        craftHint = CraftHint(from, at, anderes, zweit)
+                    } else {
+                        routeError = result.reason
+                    }
+                }
             }
         }
     }
@@ -367,6 +407,7 @@ fun LiveMapScreen(
                 navPath = if (weatherMode) emptyList() else navTarget?.path.orEmpty(),
                 navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
                 obstacles = if (weatherMode) emptyList() else navTarget?.obstacles.orEmpty(),
+                navBlockedPaths = if (weatherMode) emptyList() else navTarget?.restricted.orEmpty(),
                 courseDeg = course?.deg,
                 // In der Wetteransicht wird nicht gefolgt, also auch nicht weitergerechnet.
                 speedMs = if (weatherMode) null else speedMs,
@@ -523,6 +564,18 @@ fun LiveMapScreen(
                         }
                     }
                 }
+            }
+
+            // Fahrzeug oben links. Ein Verbot gilt je Fahrzeug — dann muss auch zu sehen
+            // sein, welches eingestellt ist, sonst sucht man den Fehler im Fluss.
+            if (!weatherMode) {
+                CraftButton(
+                    craft = settings.craft,
+                    modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+                    onClick = {
+                        onCraft(if (settings.craft == Craft.CANOE) Craft.MOTORBOAT else Craft.CANOE)
+                    },
+                )
             }
 
             // Die Nadel steht oben rechts und ist zugleich der Schalter für die
@@ -738,6 +791,56 @@ fun LiveMapScreen(
                 TextButton(onClick = { askTarget = null }) {
                     Text(stringResource(R.string.cancel))
                 }
+            },
+        )
+    }
+
+    // Gescheitert am Fahrzeug: Grund nennen und den Ausweg gleich anbieten.
+    craftHint?.let { hint ->
+        val km = pathLengthM(hint.route.path) / 1000.0
+        val gesperrt = hint.route.restrictedM / 1000.0
+        AlertDialog(
+            onDismissRequest = { craftHint = null },
+            title = {
+                Text(
+                    stringResource(
+                        if (hint.craft == Craft.CANOE) R.string.nav_blocked_motorboat
+                        else R.string.nav_blocked_canoe,
+                    ),
+                )
+            },
+            text = {
+                Text(
+                    stringResource(
+                        if (hint.craft == Craft.CANOE) R.string.nav_blocked_try_canoe
+                        else R.string.nav_blocked_try_motorboat,
+                        km.roundToInt(),
+                    ) + if (gesperrt >= 0.5) {
+                        " " + stringResource(R.string.nav_blocked_of_which, gesperrt.roundToInt())
+                    } else {
+                        ""
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    // Auch die Einstellung wechselt mit. Eine Kanu-Route zu zeigen, während
+                    // im Menü Motorboot steht, wäre genau die Unklarheit, die hier behoben
+                    // werden soll.
+                    onCraft(hint.craft)
+                    uebernehmen(hint.from, hint.at, hint.route)
+                    craftHint = null
+                }) {
+                    Text(
+                        stringResource(
+                            if (hint.craft == Craft.CANOE) R.string.nav_as_canoe
+                            else R.string.nav_as_motorboat,
+                        ),
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { craftHint = null }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }

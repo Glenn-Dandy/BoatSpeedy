@@ -35,6 +35,8 @@ data class NavTarget(
     val obstacles: List<Obstacle> = emptyList(),
     /** Strecke über Abschnitte mit allgemeinem Bootsverbot, in Metern. */
     val restrictedM: Double = 0.0,
+    /** Dieselben Abschnitte als Linienzüge, für die rote Linie auf der Karte. */
+    val restricted: List<List<LatLon>> = emptyList(),
     /**
      * Gesetzt, wenn die Strecke von einem **festgelegten Startpunkt** aus geplant wurde
      * und nicht vom Boot. Eine geplante Strecke hängt nicht am eigenen Fahren: Sie wird
@@ -135,6 +137,8 @@ sealed interface RouteResult {
          * Strecke liegen. Beim Kanu sperrt das nicht, aber es gehört gesagt.
          */
         val restrictedM: Double = 0.0,
+        /** Dieselben Abschnitte als Linienzüge — die Karte zeichnet sie rot. */
+        val restricted: List<List<LatLon>> = emptyList(),
     ) : RouteResult
     data class Failed(val reason: RouteError) : RouteResult
 }
@@ -361,6 +365,7 @@ object WaterRouter {
             water = water,
             obstacles = onPath(quelle.obstacles, water),
             restrictedM = eingeschraenkteLaenge(knoten, quelle.eingeschraenkt),
+            restricted = eingeschraenkteZuege(knoten, quelle.eingeschraenkt),
         )
     }
 
@@ -378,6 +383,30 @@ object WaterRouter {
             if (a in punkte && b in punkte) m += distanceM(a.toLatLon(), b.toLatLon())
         }
         return m
+    }
+
+    /**
+     * Dieselben Stücke als **zusammenhängende Züge**, damit die Karte sie zeichnen kann.
+     *
+     * Eine Kilometerzahl sagt, wie viel gesperrt ist, aber nicht wo. Als eigene Linie über
+     * der Route sieht man auf einen Blick, welcher Teil der Fahrt es betrifft — und ob er
+     * am Anfang liegt, in der Mitte oder kurz vor dem Ziel.
+     */
+    private fun eingeschraenkteZuege(path: List<Node>, punkte: Set<Node>): List<List<LatLon>> {
+        if (punkte.isEmpty()) return emptyList()
+        val zuege = ArrayList<List<LatLon>>()
+        var lauf: ArrayList<LatLon>? = null
+        for ((a, b) in path.zipWithNext()) {
+            if (a in punkte && b in punkte) {
+                val z = lauf ?: ArrayList<LatLon>().also { it.add(a.toLatLon()); lauf = it }
+                z.add(b.toLatLon())
+            } else {
+                lauf?.let { zuege.add(it) }
+                lauf = null
+            }
+        }
+        lauf?.let { zuege.add(it) }
+        return zuege
     }
 
     /* ------------------------------ Daten holen ------------------------------ */

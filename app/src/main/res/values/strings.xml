@@ -300,7 +300,7 @@
     <string name="nav_route">Route</string>
     <string name="nav_routing">Looking for a way through…</string>
     <string name="nav_clear">Remove destination</string>
-    <string name="nav_err_far">Too far for a route without stored map data. With tiles downloaded it goes up to 400 km — the straight line works either way.</string>
+    <string name="nav_err_far">Too far for a route without stored map data. With tiles downloaded it goes up to 600 km — the straight line works either way.</string>
     <string name="nav_err_busy">The map service is overloaded and not answering. Try again later — the straight line works right away.</string>
     <string name="nav_err_offline">No connection to the map data. Out here that is normal — the straight line works without one.</string>
     <string name="nav_err_nodata">No waterways are mapped around here.</string>
@@ -335,6 +335,13 @@
     <string name="nav_obstacles_weirs">%d weirs nearby</string>
     <string name="nav_obstacles_weir_one">1 weir nearby</string>
     <string name="nav_restricted">%s km restricted</string>
+    <string name="nav_blocked_motorboat">Closed to motorboats</string>
+    <string name="nav_blocked_canoe">Closed to canoes</string>
+    <string name="nav_blocked_try_canoe">By canoe it would be %1$d km.</string>
+    <string name="nav_blocked_try_motorboat">By motorboat it would be %1$d km.</string>
+    <string name="nav_blocked_of_which">%1$d km of it under a boating ban.</string>
+    <string name="nav_as_canoe">Route as canoe</string>
+    <string name="nav_as_motorboat">Route as motorboat</string>
     <!-- Map data -->
     <string name="group_mapdata">Map data</string>
     <string name="cat_mapdata_desc">Store waterways for the trip</string>

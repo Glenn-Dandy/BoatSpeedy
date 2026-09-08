@@ -30,22 +30,26 @@ class RouteTilesTest {
     }
 
     @Test
-    fun `kurze Strecke bleibt sparsam`() {
-        // Zwei Punkte 2 km auseinander: der Mindestrand gilt, nicht ein Fünftel von nichts.
-        val a = LatLon(50.72, 11.34)
-        val b = LatLon(50.73, 11.36)
-        assertEquals(listOf(TileId(50, 11)), MapTiles.tilesForRoute(a, b))
+    fun `auch eine kurze Strecke bekommt den Nachbarn`() {
+        // Zwei Punkte 2 km auseinander. Sparsam war hier das Falsche: Wie weit ein Fluss
+        // ausholt, hängt nicht davon ab, wie weit man fährt — siehe die untere Saale, wo
+        // 0,215° Rand um 0,12° zu wenig waren. Der Rand ist deshalb mindestens eine
+        // Kachelbreite, und die Nachbarkachel ist per Bauart dabei.
+        val t = MapTiles.tilesForRoute(LatLon(50.72, 11.34), LatLon(50.73, 11.36))
+        assertEquals(9, t.size)
+        assertTrue(t.contains(TileId(50, 11)))
+        assertTrue(t.contains(TileId(51, 12)))
+        assertTrue(t.contains(TileId(49, 10)))
     }
 
     @Test
     fun `Rand waechst, bleibt aber gedeckelt`() {
         // Über ganz Europa darf der Rand nicht ins Uferlose wachsen.
         val weit = MapTiles.tilesForRoute(LatLon(43.0, 3.0), LatLon(55.0, 15.0))
-        // Spannweite 12 Grad, ein Fünftel wären 2,4 — gedeckelt auf 1 Grad je Seite.
-        assertEquals(15, 1 + 55 - 43 + 2)   // erwartete Zeilenzahl: 43-1 bis 55+1
+        // Spannweite 12 Grad, ein Fünftel wären 2,4 — gedeckelt auf 2 Grad je Seite.
         val lats = weit.map { it.lat }.distinct().sorted()
-        assertEquals(42, lats.first())
-        assertEquals(56, lats.last())
+        assertEquals(41, lats.first())
+        assertEquals(57, lats.last())
     }
 
     @Test

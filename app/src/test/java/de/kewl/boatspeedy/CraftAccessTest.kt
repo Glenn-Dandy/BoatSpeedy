@@ -2,6 +2,7 @@ package de.kewl.boatspeedy
 
 import de.kewl.boatspeedy.data.Craft
 import de.kewl.boatspeedy.nav.LatLon
+import de.kewl.boatspeedy.nav.MapTiles
 import de.kewl.boatspeedy.nav.RouteResult
 import de.kewl.boatspeedy.nav.WaterRouter
 import org.junit.Assert.assertEquals
@@ -35,18 +36,23 @@ class CraftAccessTest {
         """{"type":"way","tags":{$tags},"geometry":[""" +
             """{"lat":50.5,"lon":$vonLon},{"lat":50.5,"lon":$bisLon}]}"""
 
-    /** Schreibt die zwei Kacheln, die [WaterRouter] für diese Strecke anfasst. */
+    /**
+     * Schreibt **alle** Kacheln, die [WaterRouter] für diese Strecke anfasst — die eine mit
+     * den Wegen, die übrigen leer. Fehlt auch nur eine, fällt der Router auf Overpass
+     * zurück, und der Test hinge am Netz statt an der Regel, die er prüfen soll. Welche es
+     * sind, sagt [MapTiles.tilesForRoute] selbst; eine feste Liste veraltete beim ersten
+     * Mal, als der Rand größer wurde.
+     */
     private fun kacheln(vararg wege: String): File {
         val dir = createTempDir("zugang")
-        val inhalt = """{"version":1,"tile":"n50e011","generated":"2026-09-08",""" +
-            """"elements":[${wege.joinToString(",")}]}"""
-        GZIPOutputStream(File(dir, "n50e011.json.gz").outputStream()).use {
-            it.write(inhalt.toByteArray())
-        }
-        // Der Rand um die Strecke greift in die Nachbarkachel; fehlt sie, fällt der Router
-        // auf Overpass zurück und der Test hinge am Netz.
-        GZIPOutputStream(File(dir, "n50e010.json.gz").outputStream()).use {
-            it.write("""{"version":1,"tile":"n50e010","generated":"2026-09-08","elements":[]}""".toByteArray())
+        for (id in MapTiles.tilesForRoute(west, ost)) {
+            val elemente = if (id.name == "n50e011") wege.joinToString(",") else ""
+            GZIPOutputStream(File(dir, "${id.name}.json.gz").outputStream()).use {
+                it.write(
+                    ("""{"version":1,"tile":"${id.name}","generated":"2026-09-08",""" +
+                        """"elements":[$elemente]}""").toByteArray(),
+                )
+            }
         }
         return dir
     }
@@ -71,6 +77,32 @@ class CraftAccessTest {
             "die gesperrte Strecke muss gemeldet werden",
             gesperrtM, ok.restrictedM, 50.0,
         )
+    }
+
+    /**
+     * Eine Kilometerzahl sagt, **wie viel** gesperrt ist, aber nicht **wo**. Die Karte legt
+     * die Abschnitte deshalb rot über die Route — dafür braucht sie sie als Linienzüge.
+     */
+    @Test
+    fun `der gesperrte Abschnitt kommt als Linienzug zurueck`() {
+        val r = fahre(Craft.CANOE, frei, weg(""""waterway":"river","boat":"no"""", naht.lon, ost.lon))
+        val ok = r as RouteResult.Ok
+        assertEquals("ein zusammenhängendes Stück", 1, ok.restricted.size)
+        val zug = ok.restricted.first()
+        assertTrue("mindestens zwei Punkte, war ${zug.size}", zug.size >= 2)
+        // Er beginnt an der Naht und endet am Ostende — nicht schon am Start.
+        assertEquals(naht.lon, zug.first().lon, 1e-4)
+        assertEquals(ost.lon, zug.last().lon, 1e-4)
+        assertEquals(
+            "die Länge des Zuges muss zur gemeldeten passen",
+            ok.restrictedM, de.kewl.boatspeedy.nav.pathLengthM(zug), 1.0,
+        )
+    }
+
+    @Test
+    fun `ohne Sperre gibt es auch keinen roten Zug`() {
+        val r = fahre(Craft.CANOE, frei, weg(""""waterway":"river"""", naht.lon, ost.lon))
+        assertTrue((r as RouteResult.Ok).restricted.isEmpty())
     }
 
     @Test
