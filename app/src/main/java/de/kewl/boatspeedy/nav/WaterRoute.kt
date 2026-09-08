@@ -342,12 +342,7 @@ object WaterRouter {
         tileDir: java.io.File?,
     ): Quelle? {
         if (tileDir == null || !tileDir.isDirectory) return null
-        val ids = MapTiles.tilesFor(
-            minOf(from.lat, to.lat) - BBOX_PADDING_DEG,
-            minOf(from.lon, to.lon) - BBOX_PADDING_DEG,
-            maxOf(from.lat, to.lat) + BBOX_PADDING_DEG,
-            maxOf(from.lon, to.lon) + BBOX_PADDING_DEG,
-        )
+        val ids = MapTiles.tilesForRoute(from, to)
         if (ids.size > MAX_TILES) return null
         if (MapTiles.missing(tileDir, ids).isNotEmpty()) return null
 

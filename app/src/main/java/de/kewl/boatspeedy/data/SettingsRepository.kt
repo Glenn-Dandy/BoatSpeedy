@@ -57,6 +57,7 @@ class SettingsRepository(private val context: Context) {
         val DEV_MODE = booleanPreferencesKey("dev_mode")
         val CRAFT = stringPreferencesKey("craft")
         val SEAMARKS = booleanPreferencesKey("seamarks")
+        val MAP_ORIENTATION = stringPreferencesKey("map_orientation")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -98,6 +99,8 @@ class SettingsRepository(private val context: Context) {
             devMode = p[Keys.DEV_MODE] ?: false,
             craft = p[Keys.CRAFT]?.let { enumOrNull<Craft>(it) } ?: Craft.MOTORBOAT,
             seamarks = p[Keys.SEAMARKS] ?: true,
+            mapOrientation = p[Keys.MAP_ORIENTATION]?.let { enumOrNull<MapOrientation>(it) }
+                ?: MapOrientation.NORTH,
         )
     }
 
@@ -138,6 +141,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDevMode(value: Boolean) = edit { it[Keys.DEV_MODE] = value }
     suspend fun setCraft(value: Craft) = edit { it[Keys.CRAFT] = value.name }
     suspend fun setSeamarks(value: Boolean) = edit { it[Keys.SEAMARKS] = value }
+    suspend fun setMapOrientation(value: MapOrientation) =
+        edit { it[Keys.MAP_ORIENTATION] = value.name }
     suspend fun setWeatherSound(value: AlarmSound) = edit { it[Keys.WEATHER_SOUND] = value.name }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {

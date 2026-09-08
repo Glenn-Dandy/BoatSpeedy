@@ -213,10 +213,10 @@ fun LiveMapScreen(
         // Fehlen Kacheln für die Strecke, erst fragen — nicht erst eine Minute lang
         // vergeblich einen fremden Server bemühen.
         val dir = MapTiles.dir(context.filesDir)
-        val needed = MapTiles.tilesFor(
-            minOf(from.lat, at.lat) - 0.05, minOf(from.lon, at.lon) - 0.05,
-            maxOf(from.lat, at.lat) + 0.05, maxOf(from.lon, at.lon) + 0.05,
-        )
+        // Dieselbe Funktion wie im Router — zwei getrennte Rechnungen wären mit
+        // Sicherheit irgendwann auseinandergelaufen, und dann fragt die App nach
+        // Kacheln, die sie hinterher gar nicht benutzt (oder umgekehrt).
+        val needed = MapTiles.tilesForRoute(from, at)
         val gaps = MapTiles.missing(dir, needed)
         if (gaps.isNotEmpty()) {
             askDownload = gaps to at
@@ -248,6 +248,19 @@ fun LiveMapScreen(
         }
         val dir = MapTiles.dir(context.filesDir)
         seamarks = withContext(Dispatchers.IO) {
+            // Fehlt das Feld für den Ausschnitt, wird es geholt. Ohne das gäbe es
+            // Seezeichen nur dort, wo man ohnehin schon Kartendaten geladen hat — also
+            // nicht da, wo man gerade hinsieht.
+            //
+            // Vertretbar, weil es bei dieser Zoomstufe höchstens ein oder zwei Felder
+            // sind, rund 130 kB je Stück. Bei mehr wird nicht geladen: Dann sieht man so
+            // weit, dass die Zeichen ohnehin nicht einzeln zu treffen wären.
+            val gebraucht = MapTiles.tilesFor(
+                box.latSouth, box.lonWest, box.latNorth, box.lonEast,
+            )
+            if (gebraucht.size <= SEAMARK_MAX_FETCH) {
+                MapTiles.missing(dir, gebraucht).forEach { MapTiles.download(dir, it) }
+            }
             MapTiles.readSeamarks(dir, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
                 .take(MAX_SEAMARKS)
         }
@@ -354,6 +367,13 @@ fun LiveMapScreen(
                 speedSigns = speedSigns,
                 seamarks = seamarks,
                 planStart = if (weatherMode) null else planStart,
+                // In der Wetteransicht bleibt Norden oben: dort betrachtet man Regen,
+                // man fährt nicht.
+                orientation = if (weatherMode) {
+                    de.kewl.boatspeedy.data.MapOrientation.NORTH
+                } else {
+                    settings.mapOrientation
+                },
                 onViewport = { box, zoom -> mapBox = box; zoomLevel = zoom },
                 recenterKey = recenterKey,
                 modifier = Modifier.fillMaxSize(),
@@ -479,6 +499,15 @@ fun LiveMapScreen(
                         }
                     }
                 }
+            }
+
+            // Nordpfeil nur, wenn die Karte sich auch dreht — bei "Norden oben" stünde er
+            // senkrecht und sagte nichts.
+            if (!weatherMode && settings.mapOrientation == de.kewl.boatspeedy.data.MapOrientation.COURSE) {
+                NorthArrow(
+                    mapRotationDeg = course?.deg?.let { -it } ?: 0f,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                )
             }
 
             if (routing) {
@@ -734,6 +763,13 @@ private const val SEAMARK_MIN_ZOOM = 13.0
  * Zoomstufe 13 liegen sie ohnehin weit genug auseinander, um jedes einzeln zu treffen.
  */
 private const val MAX_SEAMARKS = 1500
+
+/**
+ * So viele Felder werden für die Seezeichen höchstens nachgeholt. Mehr hieße, dass man
+ * zu weit herausgezoomt ist, um ein einzelnes Zeichen zu treffen — dann lohnt der
+ * Download nicht.
+ */
+private const val SEAMARK_MAX_FETCH = 2
 
 /** Eine Zeile im Auswahldialog — über die ganze Breite antippbar, nicht nur der Text. */
 @Composable

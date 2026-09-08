@@ -64,6 +64,34 @@ object MapTiles {
     }
 
     /**
+     * Kacheln für eine Strecke von [from] nach [to].
+     *
+     * Der Rand wächst **mit der Länge**, und das ist der Kern: Ein Fluss läuft nicht im
+     * Rechteck zwischen Start und Ziel. Der Main zieht bei Frankfurt über den fünfzigsten
+     * Breitengrad nach Norden, bevor er nach Aschaffenburg zurückschwenkt — mit festen
+     * 0,05° Rand fehlte genau diese Reihe, und die Route von Basel scheiterte mit „kein
+     * durchgehender Wasserweg", obwohl der Weg existiert. Nachgerechnet: mit neun Kacheln
+     * findet sich nichts, mit zwölf sind es 425 km.
+     *
+     * Ein Fünftel der Spannweite deckt auch großzügige Bögen ab; bei kurzen Strecken
+     * bleibt es bei den 0,05°, damit ein Ziel um die Ecke nicht ein halbes Land lädt.
+     */
+    fun tilesForRoute(from: LatLon, to: LatLon): List<TileId> {
+        val latSpan = kotlin.math.abs(from.lat - to.lat)
+        val lonSpan = kotlin.math.abs(from.lon - to.lon)
+        val rand = (0.2 * maxOf(latSpan, lonSpan)).coerceIn(MIN_ROUTE_PAD, MAX_ROUTE_PAD)
+        return tilesFor(
+            minOf(from.lat, to.lat) - rand,
+            minOf(from.lon, to.lon) - rand,
+            maxOf(from.lat, to.lat) + rand,
+            maxOf(from.lon, to.lon) + rand,
+        )
+    }
+
+    private const val MIN_ROUTE_PAD = 0.05
+    private const val MAX_ROUTE_PAD = 1.0
+
+    /**
      * Kacheln im Umkreis von [radiusKm] um einen Punkt. Der Umweg über ein Rechteck ist
      * Absicht: Kacheln sind Rechtecke, und ein exakter Kreis würde am Rand einzelne
      * herausfallen lassen, die man beim nächsten Kilometer doch braucht.

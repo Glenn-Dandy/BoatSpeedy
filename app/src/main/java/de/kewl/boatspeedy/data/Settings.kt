@@ -45,6 +45,9 @@ enum class NotifField(val line: Int) {
 }
 
 /** Farbe der Track-Linie auf der Karte (ARGB). */
+/** Wonach die Karte ausgerichtet wird. */
+enum class MapOrientation { NORTH, COURSE }
+
 /** Womit gefahren wird – bestimmt, welche Wasserwege für die Route in Frage kommen. */
 enum class Craft { MOTORBOAT, CANOE }
 
@@ -160,4 +163,6 @@ data class Settings(
     val craft: Craft = Craft.MOTORBOAT,
     /** Seezeichen (OpenSeaMap) über der Karte einblenden. */
     val seamarks: Boolean = true,
+    /** Norden oben, oder die Karte in Fahrtrichtung drehen. */
+    val mapOrientation: MapOrientation = MapOrientation.NORTH,
 )

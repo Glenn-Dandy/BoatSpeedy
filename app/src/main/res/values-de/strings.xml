@@ -292,7 +292,7 @@
     <string name="delete_confirm">%1$d Fahrten endgültig löschen? Das lässt sich nicht rückgängig machen.</string>
     <string name="delete_do">Löschen</string>
     <string name="nav_target">Ziel setzen</string>
-    <string name="nav_pick_hint">Luftlinie oder Route entlang der Wasserwege? Die Route braucht Empfang und ist nur so gut wie die Kartendaten — sie kennt weder Tiefen noch Durchfahrtshöhen.</string>
+    <string name="nav_pick_hint">Kennt keine Tiefen und Durchfahrtshöhen.</string>
     <string name="nav_line">Luftlinie</string>
     <string name="nav_route">Route</string>
     <string name="nav_routing">Suche einen Weg …</string>
@@ -334,7 +334,7 @@
     <!-- Kartendaten -->
     <string name="group_mapdata">Kartendaten</string>
     <string name="cat_mapdata_desc">Wasserwege für unterwegs speichern</string>
-    <string name="mapdata_intro">Einmal geladen, rechnet das Routing ohne Internet — auf dem Wasser gibt es meist keins. Am besten im WLAN laden.</string>
+    <string name="mapdata_intro">Am besten im WLAN laden.</string>
     <string name="mapdata_no_position">Noch keine Position. Warte auf GPS, dann weiß die App, welches Gebiet du brauchst.</string>
     <string name="mapdata_load">Gebiet um mich laden</string>
     <string name="mapdata_load_size">%1$d Felder laden · rund %2$.1f MB</string>
@@ -348,7 +348,7 @@
     <string name="mapdata_generated">Stand %1$s</string>
     <string name="mapdata_delete">Löschen</string>
     <string name="mapdata_index_loading">Verzeichnis wird geladen…</string>
-    <string name="mapdata_attribution">Wasserwege: © OpenStreetMap-Mitwirkende (ODbL). Es ist eine Hilfe, keine Seekarte — Tiefen, Durchfahrtshöhen und Sperrungen stehen nicht darin.</string>
+    <string name="mapdata_attribution">© OpenStreetMap-Mitwirkende (ODbL). Keine Seekarte.</string>
     <string name="seamark_asking">Frage nach…</string>
     <string name="seamark_title">Seezeichen</string>
     <string name="seamark_none_title">Nichts gefunden</string>
@@ -358,11 +358,15 @@
     <string name="mapdata_missing">Für diese Strecke fehlen %1$d Felder. Geladen rechnet die App sofort und ohne Netz — auch für jedes weitere Ziel in der Gegend.</string>
     <string name="mapdata_download_now">Laden</string>
     <string name="mapdata_online_instead">Online rechnen</string>
-    <string name="nav_pick_hint_planned">Ab dem festgelegten Startpunkt gerechnet, nicht ab dem Boot.</string>
+    <string name="nav_pick_hint_planned">Ab Startpunkt · keine Tiefen und Durchfahrtshöhen.</string>
     <string name="nav_set_start">Als Startpunkt festlegen</string>
     <string name="nav_move_start">Startpunkt hierher verschieben</string>
     <string name="nav_clear_start">Startpunkt verwerfen</string>
     <string name="nav_to_start">zum Start %1$s</string>
     <string name="mapdata_outdated">%1$d Felder sind älter als die Daten auf dem Server. Veraltete Felder sehen vollständig aus, können aber Lücken haben — dann bricht eine Route ab, obwohl der Weg existiert.</string>
     <string name="mapdata_refresh">%1$d Felder auffrischen</string>
+    <string name="map_orientation">Kartenausrichtung</string>
+    <string name="map_north_up">Norden oben</string>
+    <string name="map_course_up">Fahrtrichtung</string>
+    <string name="map_orientation_hint">Bei Fahrtrichtung dreht sich die Karte mit dem Kurs; ein Nordpfeil zeigt dann, wo Norden liegt. Gilt auch für die kleine Karte auf dem Dashboard.</string>
 </resources>

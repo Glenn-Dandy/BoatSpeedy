@@ -164,7 +164,7 @@ fun DashboardScreen(
                     Spacer(Modifier.height(12.dp))
                 }
                 if (settings.showMapTile) {
-                    MapMiniTile(livePoints, gps.latitude, gps.longitude, gps.speedMs, onOpenMap)
+                    MapMiniTile(livePoints, gps.latitude, gps.longitude, gps.speedMs, settings.mapOrientation, onOpenMap)
                     Spacer(Modifier.height(12.dp))
                 }
 
@@ -196,6 +196,7 @@ private fun MapMiniTile(
     lat: Double?,
     lon: Double?,
     speedMs: Float?,
+    orientation: de.kewl.boatspeedy.data.MapOrientation,
     onOpenMap: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -213,6 +214,7 @@ private fun MapMiniTile(
                 navWaterPath = navTarget?.water.orEmpty(),
                 courseDeg = mapCourse?.deg,
                 speedMs = speedMs,
+                orientation = orientation,
                 modifier = Modifier.matchParentSize(),
             )
             // Nicht-interaktive Vorschau: Overlay fängt den Tap (→ große Karte),

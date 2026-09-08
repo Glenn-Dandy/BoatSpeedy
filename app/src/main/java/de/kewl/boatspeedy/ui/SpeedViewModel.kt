@@ -469,6 +469,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setDevMode(v: Boolean) = viewModelScope.launch { settingsRepo.setDevMode(v) }
     fun setCraft(v: de.kewl.boatspeedy.data.Craft) = viewModelScope.launch { settingsRepo.setCraft(v) }
     fun setSeamarks(v: Boolean) = viewModelScope.launch { settingsRepo.setSeamarks(v) }
+    fun setMapOrientation(v: de.kewl.boatspeedy.data.MapOrientation) =
+        viewModelScope.launch { settingsRepo.setMapOrientation(v) }
     fun setWeatherSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setWeatherSound(v) }
     fun testWeatherSound() = AlarmPlayer.play(getApplication(), settings.value.weatherSound, loop = false)
 

@@ -2,6 +2,20 @@ package de.kewl.boatspeedy.ui
 
 import android.graphics.Color
 import android.view.MotionEvent
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -88,6 +102,9 @@ fun OsmMap(
     seamarks: List<de.kewl.boatspeedy.nav.SeamarkPoi> = emptyList(),
     /** Festgelegter Startpunkt einer geplanten Strecke; null = es wird ab Boot gerechnet. */
     planStart: de.kewl.boatspeedy.nav.LatLon? = null,
+    /** Norden oben, oder die Karte in Fahrtrichtung drehen. */
+    orientation: de.kewl.boatspeedy.data.MapOrientation =
+        de.kewl.boatspeedy.data.MapOrientation.NORTH,
     /**
      * Meldet den sichtbaren Ausschnitt samt Zoomstufe — aber nur, wenn er sich wirklich
      * geändert hat. Bei jedem Durchlauf zu melden würde den ganzen Bildschirm im
@@ -575,6 +592,21 @@ fun OsmMap(
      *
      * Gezeichnet wird im Takt des Bildschirms, nicht in einer festen 16-ms-Schleife.
      */
+    // Karte drehen, wenn sie der Fahrtrichtung folgen soll. osmdroid dreht gegen den
+    // Uhrzeigersinn, der Kompasskurs läuft mit — daher das umgekehrte Vorzeichen. Ohne
+    // Kurs (im Stand) bleibt die letzte Ausrichtung stehen statt zu kreiseln.
+    LaunchedEffect(orientation, courseDeg) {
+        val drehung = if (orientation == de.kewl.boatspeedy.data.MapOrientation.COURSE) {
+            courseDeg?.let { -it }
+        } else {
+            0f
+        }
+        if (drehung != null && mapView.mapOrientation != drehung) {
+            mapView.mapOrientation = drehung
+            mapView.invalidate()
+        }
+    }
+
     val reckoner = remember(mapView) { DeadReckoner() }
 
     LaunchedEffect(recenterKey) {
@@ -800,4 +832,35 @@ private fun seamarkHitArea(context: android.content.Context): android.graphics.d
     val px = (36 * context.resources.displayMetrics.density).toInt().coerceAtLeast(28)
     val bmp = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888)
     return android.graphics.drawable.BitmapDrawable(context.resources, bmp)
+}
+
+/**
+ * Zeigt, wo Norden liegt — und ist damit erst bei gedrehter Karte wirklich nötig. Bei
+ * „Norden oben" steht er senkrecht und bestätigt bloß, was man ohnehin annimmt; sobald
+ * sich die Karte dreht, ist er die einzige Auskunft darüber, wohin man eigentlich sieht.
+ */
+@Composable
+fun NorthArrow(mapRotationDeg: Float, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.size(38.dp),
+        shape = androidx.compose.foundation.shape.CircleShape,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        tonalElevation = 3.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.Filled.Navigation,
+                contentDescription = "Norden",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(20.dp).rotate(mapRotationDeg),
+            )
+            Text(
+                "N",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.offset(y = 12.dp),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
 }

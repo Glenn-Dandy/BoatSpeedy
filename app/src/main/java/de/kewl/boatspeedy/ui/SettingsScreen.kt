@@ -56,6 +56,7 @@ import de.kewl.boatspeedy.data.AlarmSound
 import de.kewl.boatspeedy.data.NotifField
 import de.kewl.boatspeedy.data.RangeSmoothing
 import de.kewl.boatspeedy.data.Craft
+import de.kewl.boatspeedy.data.MapOrientation
 import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.data.Smoothing
 import de.kewl.boatspeedy.data.SpeedUnit
@@ -408,6 +409,7 @@ fun NavigationSettingsScreen(
     settings: Settings,
     onCraft: (Craft) -> Unit,
     onSeamarks: (Boolean) -> Unit,
+    onMapOrientation: (MapOrientation) -> Unit,
     onMapData: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -425,6 +427,20 @@ fun NavigationSettingsScreen(
             onSelect = onCraft,
         )
         HintText(stringResource(R.string.nav_craft_hint))
+        HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+        SegmentedRow(
+            label = stringResource(R.string.map_orientation),
+            options = listOf(MapOrientation.NORTH, MapOrientation.COURSE),
+            selected = settings.mapOrientation,
+            labelOf = {
+                when (it) {
+                    MapOrientation.NORTH -> stringResource(R.string.map_north_up)
+                    MapOrientation.COURSE -> stringResource(R.string.map_course_up)
+                }
+            },
+            onSelect = onMapOrientation,
+        )
+        HintText(stringResource(R.string.map_orientation_hint))
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
         SwitchRow(stringResource(R.string.nav_seamarks), settings.seamarks, onSeamarks)
         HintText(stringResource(R.string.nav_seamarks_hint))

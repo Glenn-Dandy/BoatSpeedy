@@ -295,7 +295,7 @@
     <string name="delete_confirm">Delete %1$d trips for good? This cannot be undone.</string>
     <string name="delete_do">Delete</string>
     <string name="nav_target">Set destination</string>
-    <string name="nav_pick_hint">Straight line, or a route along the waterways? A route needs a connection and is only as good as the map data — it knows nothing about depth or clearance.</string>
+    <string name="nav_pick_hint">Knows no depths or clearances.</string>
     <string name="nav_line">Straight line</string>
     <string name="nav_route">Route</string>
     <string name="nav_routing">Looking for a way through…</string>
@@ -337,7 +337,7 @@
     <!-- Map data -->
     <string name="group_mapdata">Map data</string>
     <string name="cat_mapdata_desc">Store waterways for the trip</string>
-    <string name="mapdata_intro">Once downloaded, routing works without internet — out on the water there usually is none. Best done on wifi.</string>
+    <string name="mapdata_intro">Best done on wifi.</string>
     <string name="mapdata_no_position">No position yet. Wait for GPS so the app knows which area you need.</string>
     <string name="mapdata_load">Download area around me</string>
     <string name="mapdata_load_size">Download %1$d tiles · about %2$.1f MB</string>
@@ -351,7 +351,7 @@
     <string name="mapdata_generated">As of %1$s</string>
     <string name="mapdata_delete">Delete</string>
     <string name="mapdata_index_loading">Loading the tile list…</string>
-    <string name="mapdata_attribution">Waterways: © OpenStreetMap contributors (ODbL). It is an aid, not a nautical chart — depths, clearances and closures are not in it.</string>
+    <string name="mapdata_attribution">© OpenStreetMap contributors (ODbL). Not a nautical chart.</string>
     <string name="seamark_asking">Asking…</string>
     <string name="seamark_title">Seamark</string>
     <string name="seamark_none_title">Nothing found</string>
@@ -361,11 +361,15 @@
     <string name="mapdata_missing">%1$d tiles are missing for this stretch. With them the app computes instantly and without a network — for every other destination nearby too.</string>
     <string name="mapdata_download_now">Download</string>
     <string name="mapdata_online_instead">Compute online</string>
-    <string name="nav_pick_hint_planned">Computed from the set start point, not from the boat.</string>
+    <string name="nav_pick_hint_planned">From the start point · no depths or clearances.</string>
     <string name="nav_set_start">Set as start point</string>
     <string name="nav_move_start">Move start point here</string>
     <string name="nav_clear_start">Discard start point</string>
     <string name="nav_to_start">to start %1$s</string>
     <string name="mapdata_outdated">%1$d tiles are older than the data on the server. Outdated tiles look complete but can have gaps — a route then breaks although the way exists.</string>
     <string name="mapdata_refresh">Refresh %1$d tiles</string>
+    <string name="map_orientation">Map orientation</string>
+    <string name="map_north_up">North up</string>
+    <string name="map_course_up">Course up</string>
+    <string name="map_orientation_hint">Course up turns the map with your heading; a north arrow then shows where north is. Applies to the small map on the dashboard too.</string>
 </resources>
