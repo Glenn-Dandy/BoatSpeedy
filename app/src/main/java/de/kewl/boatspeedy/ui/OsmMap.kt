@@ -193,12 +193,19 @@ fun OsmMap(
             outlinePaint.color = Color.parseColor("#FF6D00")
             outlinePaint.strokeWidth = 8f
             outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(18f, 12f), 0f)
+            // **Die Linie verschluckt keinen Tipp.** Ohne eigenen Zuhörer ruft osmdroid
+            // `onClickDefault`, öffnet ein Fenster mit dem Titel der Linie und meldet den
+            // Tipp als verbraucht. Die Linien werden nach den Hindernissen eingehängt und
+            // liegen genau über der Schleuse — wer die antippen wollte, bekam die Route.
+            // Sie haben ohnehin nichts zu sagen; `false` reicht den Tipp weiter.
+            setOnClickListener { _, _, _ -> false }
         }
     }
     val navWaterLine = remember(mapView) {
         Polyline(mapView).apply {
             outlinePaint.color = Color.parseColor("#FF6D00")
             outlinePaint.strokeWidth = 9f
+            setOnClickListener { _, _, _ -> false }
         }
     }
     // Gesperrte Abschnitte, rot und etwas dicker als die Route — sie liegen darüber und
@@ -453,7 +460,7 @@ fun OsmMap(
                     context,
                     if (o.kind == de.kewl.boatspeedy.nav.ObstacleKind.WEIR ||
                         o.kind == de.kewl.boatspeedy.nav.ObstacleKind.DAM
-                    ) R.drawable.ic_obstacle_weir else R.drawable.ic_obstacle_lock,
+                    ) R.drawable.ic_marker_weir else R.drawable.ic_marker_lock,
                 )
                 title = o.name
                 // Nur was zu sagen hat, wird antippbar. Ein Tor ohne Merkmale würde nur
@@ -517,6 +524,15 @@ fun OsmMap(
             }
             seamarkMarkers.add(m)
             mapView.overlays.add(m)
+        }
+        // **Die Schleuse liegt über den Seezeichen.** osmdroid reicht einen Tipp in
+        // umgekehrter Reihenfolge durch die Ebenen, das zuletzt Eingehängte fragt zuerst.
+        // Bei Wettin liegen im Umkreis von 400 m ein Hafen, eine Slipanlage, ein Liegeplatz
+        // und eine Tonne — die fingen den Tipp ab, und die Schleuse war kaum zu treffen.
+        // Was auf der eigenen Route liegt, hat Vorrang vor dem, was daneben steht.
+        obstacleMarkers.forEach {
+            mapView.overlays.remove(it)
+            mapView.overlays.add(it)
         }
         mapView.invalidate()
         onDispose { }
@@ -593,6 +609,7 @@ fun OsmMap(
             val linie = Polyline(mapView).apply {
                 outlinePaint.color = Color.parseColor("#D32F2F")
                 outlinePaint.strokeWidth = 11f
+                setOnClickListener { _, _, _ -> false }
                 setPoints(zug.map { GeoPoint(it.lat, it.lon) })
             }
             navBlockedLines.add(linie)

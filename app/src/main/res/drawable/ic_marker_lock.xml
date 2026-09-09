@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Schleuse: kostet Zeit, ist aber passierbar → gedämpftes Blau — Fassung für die Karte.
+
+     **48 dp groß, das Zeichen darin unverändert 26 dp.** osmdroid prüft den Treffer gegen
+     die Fläche des Symbols; bei 26 dp war das ein Nadelöhr, und das Antippen einer
+     Schleuse misslang öfter, als es gelang. Der durchsichtige Rand ringsum vergrößert nur
+     die Trefferfläche auf das übliche Fingermaß — zu sehen ist dasselbe wie vorher.
+
+     Eigene Datei, weil `ic_obstacle_lock` zusätzlich im Kasten unten links steht: Dort wird
+     das Symbol auf 16 dp gezogen, und der Rand würde das Zeichen darin schrumpfen lassen. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="44" android:viewportHeight="44">
+    <group android:translateX="10" android:translateY="10">
+    <path android:fillColor="#FFFFFF" android:pathData="M12,1 A11,11 0 1,1 11.99,1 Z" />
+    <path android:fillColor="#1565C0" android:pathData="M12,3 A9,9 0 1,1 11.99,3 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M7,10 h10 v2 h-10 Z M7,14 h10 v2 h-10 Z" />
+    </group>
+</vector>
