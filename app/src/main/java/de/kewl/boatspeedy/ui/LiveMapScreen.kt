@@ -86,6 +86,22 @@ import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 /**
+ * Was vor einer Route noch zu holen wäre.
+ *
+ * Fehlend und veraltet werden getrennt gezählt, weil es zwei verschiedene Aussagen sind:
+ * Ohne die einen lässt sich gar nicht rechnen, mit den anderen rechnet man auf altem
+ * Stand. Beides gehört vorher gesagt — auf dem Wasser will niemand erst hinterher
+ * erfahren, dass es eine neuere Fassung gab.
+ */
+private data class Holen(
+    val fehlend: List<TileId>,
+    val veraltet: List<TileId>,
+    val ziel: LatLon,
+) {
+    val alle: List<TileId> get() = fehlend + veraltet
+}
+
+/**
  * Eine Route, die mit dem eingestellten Fahrzeug nicht geht, mit dem anderen aber schon.
  * Dann liegt es nicht am fehlenden Weg, sondern an einem Verbot — und das gehört gesagt.
  */
@@ -179,8 +195,11 @@ fun LiveMapScreen(
         null
     }
 
-    // Fehlende Kacheln samt Ziel, über das gefragt wird.
-    var askDownload by remember { mutableStateOf<Pair<List<TileId>, LatLon>?>(null) }
+    // Was vor dieser Route noch zu holen wäre, samt Ziel.
+    var askDownload by remember { mutableStateOf<Holen?>(null) }
+    // Das Verzeichnis des Servers, einmal je Sitzung geholt. Bei jeder Route neu zu fragen
+    // hieße, für dieselbe Auskunft immer wieder ins Netz zu gehen.
+    var serverIndex by remember { mutableStateOf<MapTiles.Index?>(null) }
     var downloading by remember { mutableIntStateOf(-1) }
     var downloadTotal by remember { mutableIntStateOf(0) }
 
@@ -261,11 +280,32 @@ fun LiveMapScreen(
         // Kacheln, die sie hinterher gar nicht benutzt (oder umgekehrt).
         val needed = MapTiles.tilesForRoute(from, at)
         val gaps = MapTiles.missing(dir, needed)
-        if (gaps.isNotEmpty()) {
-            askDownload = gaps to at
-            return
+        scope.launch {
+            // **Auch veraltete Kacheln werden vorher angeboten.**
+            //
+            // Bisher wurde nur nach fehlenden gefragt; wer welche hatte, fuhr auf altem
+            // Stand weiter, ohne es zu erfahren. Genau daran ist eine Fahrt gescheitert:
+            // Auf dem Gerät lagen Kacheln ohne den Grand Canal d'Alsace, während der
+            // Server die vollständigen längst hatte.
+            //
+            // Nachgesehen wird mit kurzen Fristen. Ohne Netz ist ohnehin nichts zu holen,
+            // und dann soll die Frage nicht die Route aufhalten — geroutet wird mit dem,
+            // was da ist.
+            val index = serverIndex ?: withContext(Dispatchers.IO) {
+                MapTiles.fetchIndex(
+                    connectMs = MapTiles.PEEK_CONNECT_MS,
+                    readMs = MapTiles.PEEK_READ_MS,
+                )
+            }?.also { serverIndex = it }
+            val alt = withContext(Dispatchers.IO) {
+                MapTiles.outdated(dir, index).map { it.id }.filter { it in needed }
+            }
+            if (gaps.isNotEmpty() || alt.isNotEmpty()) {
+                askDownload = Holen(gaps, alt, at)
+            } else {
+                startRoute(from, at)
+            }
         }
-        startRoute(from, at)
     }
 
     // Geschwindigkeitszeichen für den sichtbaren Ausschnitt. Nachgeladen wird erst, wenn
@@ -696,7 +736,9 @@ fun LiveMapScreen(
     // Fehlen Kacheln, erst fragen. Der Vorrat lohnt sich fast immer: er ist in derselben
     // Zeit geladen, in der ein überlasteter Overpass-Server nur wartet, und er gilt
     // danach für jedes weitere Ziel in der Gegend.
-    askDownload?.let { (gaps, target) ->
+    askDownload?.let { holen ->
+        val gaps = holen.alle
+        val target = holen.ziel
         // Derselbe Ausgangspunkt wie beim Setzen des Ziels — sonst würde nach dem
         // Herunterladen plötzlich vom Boot statt vom geplanten Start gerechnet.
         val from = planStart ?: if (currentLat != null && currentLon != null) {
@@ -706,10 +748,28 @@ fun LiveMapScreen(
         }
         AlertDialog(
             onDismissRequest = { askDownload = null },
-            title = { Text(stringResource(R.string.mapdata_missing_title)) },
+            title = {
+                Text(
+                    stringResource(
+                        if (holen.fehlend.isEmpty()) R.string.mapdata_stale_title
+                        else R.string.mapdata_missing_title,
+                    ),
+                )
+            },
             text = {
                 Column {
-                    Text(stringResource(R.string.mapdata_missing, gaps.size))
+                    Text(
+                        when {
+                            holen.fehlend.isEmpty() ->
+                                stringResource(R.string.mapdata_stale, holen.veraltet.size)
+                            holen.veraltet.isEmpty() ->
+                                stringResource(R.string.mapdata_missing, holen.fehlend.size)
+                            else -> stringResource(
+                                R.string.mapdata_missing_and_stale,
+                                holen.fehlend.size, holen.veraltet.size,
+                            )
+                        },
+                    )
                     if (downloading >= 0) {
                         Spacer(Modifier.size(12.dp))
                         Text(stringResource(R.string.mapdata_loading, downloading, downloadTotal))

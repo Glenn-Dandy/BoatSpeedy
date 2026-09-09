@@ -96,6 +96,10 @@ object MapTiles {
         )
     }
 
+    /** Fristen für die Nachfrage vor einer Route — kurz, damit sie ohne Netz nicht bremst. */
+    const val PEEK_CONNECT_MS = 2_500
+    const val PEEK_READ_MS = 5_000
+
     /** Eine volle Kachelreihe — der Nachbar ist damit immer dabei. */
     private const val MIN_ROUTE_PAD = 1.0
     private const val MAX_ROUTE_PAD = 2.0
@@ -228,8 +232,17 @@ object MapTiles {
         val dates: Map<String, String> = emptyMap(),
     )
 
-    fun fetchIndex(base: String = DEFAULT_BASE): Index? = runCatching {
-        val body = get("${base.trimEnd('/')}/index.json") ?: return null
+    /**
+     * @param connectMs Kurze Fristen für die Frage vor einer Route: Dort wird nur
+     *   nachgesehen, ob es etwas Neueres gibt, und wer unterwegs kein Netz hat, will
+     *   nicht zehn Sekunden auf eine Zeitüberschreitung warten, bevor gerechnet wird.
+     */
+    fun fetchIndex(
+        base: String = DEFAULT_BASE,
+        connectMs: Int = CONNECT_MS,
+        readMs: Int = READ_MS,
+    ): Index? = runCatching {
+        val body = get("${base.trimEnd('/')}/index.json", connectMs, readMs) ?: return null
         val o = JSONObject(String(body))
         val tiles = o.optJSONObject("tiles") ?: return null
         val sizes = HashMap<String, Long>()
@@ -258,10 +271,14 @@ object MapTiles {
         }.getOrNull()
     }
 
-    private fun get(url: String): ByteArray? = runCatching {
+    private fun get(
+        url: String,
+        connectMs: Int = CONNECT_MS,
+        readMs: Int = READ_MS,
+    ): ByteArray? = runCatching {
         val c = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = CONNECT_MS
-            readTimeout = READ_MS
+            connectTimeout = connectMs
+            readTimeout = readMs
             setRequestProperty("User-Agent", "BoatSpeedy")
         }
         try {

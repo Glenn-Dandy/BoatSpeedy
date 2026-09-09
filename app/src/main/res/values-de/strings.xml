@@ -363,6 +363,9 @@
     <string name="seamark_none">An dieser Stelle ist kein Seezeichen verzeichnet. Näher herantippen oder weiter heranzoomen.</string>
     <string name="close">Schließen</string>
     <string name="mapdata_missing_title">Kartendaten fehlen</string>
+    <string name="mapdata_stale_title">Neuere Kartendaten da</string>
+    <string name="mapdata_stale">Für diese Strecke gibt es %1$d neuere Felder. Auf altem Stand zu rechnen kann eine Route zerreißen, die es längst gibt.</string>
+    <string name="mapdata_missing_and_stale">Für diese Strecke fehlen %1$d Felder, %2$d weitere sind veraltet.</string>
     <string name="mapdata_missing">Für diese Strecke fehlen %1$d Felder. Geladen rechnet die App sofort und ohne Netz — auch für jedes weitere Ziel in der Gegend.</string>
     <string name="mapdata_download_now">Laden</string>
     <string name="mapdata_online_instead">Online rechnen</string>
