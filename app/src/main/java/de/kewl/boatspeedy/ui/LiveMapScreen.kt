@@ -407,9 +407,40 @@ fun LiveMapScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
-                // Kein Wetter-Schalter mehr: das Radar hat sein eigenes Menü, und die
-                // Live-Karte ist zum Fahren da.
-                actions = {},
+                // **Fahrzeug und Ausrichtung stehen hier, nicht auf der Karte.**
+                //
+                // Auf der Karte lagen sie über dem, was man sehen will — oben links und
+                // oben rechts genau dort, wo bei einer Fahrt flussaufwärts das nächste
+                // Stück Wasser liegt. In der Titelzeile ist ohnehin Platz, sie sind
+                // genauso schnell erreichbar, und die Karte bleibt frei.
+                actions = {
+                    if (!weatherMode) {
+                        CraftButton(
+                            craft = settings.craft,
+                            modifier = Modifier.padding(end = 6.dp),
+                            onClick = {
+                                onCraft(if (settings.craft == Craft.CANOE) Craft.MOTORBOAT else Craft.CANOE)
+                            },
+                        )
+                        NorthArrow(
+                            mapRotationDeg = { mapRotation.floatValue },
+                            modifier = Modifier.padding(end = 10.dp),
+                            courseUp = settings.mapOrientation ==
+                                de.kewl.boatspeedy.data.MapOrientation.COURSE,
+                            onClick = {
+                                onMapOrientation(
+                                    if (settings.mapOrientation ==
+                                        de.kewl.boatspeedy.data.MapOrientation.COURSE
+                                    ) {
+                                        de.kewl.boatspeedy.data.MapOrientation.NORTH
+                                    } else {
+                                        de.kewl.boatspeedy.data.MapOrientation.COURSE
+                                    },
+                                )
+                            },
+                        )
+                    }
+                },
             )
         },
         floatingActionButton = {
@@ -481,11 +512,20 @@ fun LiveMapScreen(
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
             ) {
-                Box(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                ) { WeatherLine(currentWeather) }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        WeatherLine(currentWeather, fontSize = 19.sp)
+                    }
+                    // Woher der Wind kommt, als Bild statt als zwei Buchstaben im
+                    // Fließtext. Auf dem Wasser ist das die Angabe, nach der man sich
+                    // umdreht, bevor man ablegt.
+                    currentWeather?.windDirDeg?.let { WindBadge(it) }
+                }
             }
         }
 
@@ -607,40 +647,6 @@ fun LiveMapScreen(
                         }
                     }
                 }
-            }
-
-            // Fahrzeug oben links. Ein Verbot gilt je Fahrzeug — dann muss auch zu sehen
-            // sein, welches eingestellt ist, sonst sucht man den Fehler im Fluss.
-            if (!weatherMode) {
-                CraftButton(
-                    craft = settings.craft,
-                    modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
-                    onClick = {
-                        onCraft(if (settings.craft == Craft.CANOE) Craft.MOTORBOAT else Craft.CANOE)
-                    },
-                )
-            }
-
-            // Die Nadel steht oben rechts und ist zugleich der Schalter für die
-            // Ausrichtung — der Weg über die Einstellungen war für etwas, das man
-            // unterwegs wechselt, zu weit. Sie zeigt in **beiden** Ausrichtungen; nur bei
-            // gedrehter Karte zu erscheinen hieße, sie wäre genau dann weg, wenn man
-            // zurückschalten will.
-            if (!weatherMode) {
-                NorthArrow(
-                    mapRotationDeg = { mapRotation.floatValue },
-                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-                    courseUp = settings.mapOrientation == de.kewl.boatspeedy.data.MapOrientation.COURSE,
-                    onClick = {
-                        onMapOrientation(
-                            if (settings.mapOrientation == de.kewl.boatspeedy.data.MapOrientation.COURSE) {
-                                de.kewl.boatspeedy.data.MapOrientation.NORTH
-                            } else {
-                                de.kewl.boatspeedy.data.MapOrientation.COURSE
-                            },
-                        )
-                    },
-                )
             }
 
             if (routing) {
