@@ -335,6 +335,12 @@
     <string name="nav_obstacles_weirs">%d weirs nearby</string>
     <string name="nav_obstacles_weir_one">1 weir nearby</string>
     <string name="nav_restricted">%s km restricted</string>
+    <string name="lock_hours">Hours</string>
+    <string name="lock_phone">Phone</string>
+    <string name="lock_vhf">VHF channel</string>
+    <string name="lock_size">Chamber</string>
+    <string name="lock_cemt">Class</string>
+    <string name="lock_call">Call</string>
     <string name="nav_blocked_motorboat">Closed to motorboats</string>
     <string name="nav_blocked_canoe">Closed to canoes</string>
     <string name="nav_blocked_try_canoe">By canoe it would be %1$d km.</string>

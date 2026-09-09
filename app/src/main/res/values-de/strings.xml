@@ -332,6 +332,12 @@
     <string name="nav_obstacles_weirs">%d Wehre in der Nähe</string>
     <string name="nav_obstacles_weir_one">1 Wehr in der Nähe</string>
     <string name="nav_restricted">%s km gesperrt</string>
+    <string name="lock_hours">Zeiten</string>
+    <string name="lock_phone">Telefon</string>
+    <string name="lock_vhf">UKW-Kanal</string>
+    <string name="lock_size">Kammer</string>
+    <string name="lock_cemt">Klasse</string>
+    <string name="lock_call">Anrufen</string>
     <string name="nav_blocked_motorboat">Für Motorboote gesperrt</string>
     <string name="nav_blocked_canoe">Für Kanus gesperrt</string>
     <string name="nav_blocked_try_canoe">Mit dem Kanu wären es %1$d km.</string>

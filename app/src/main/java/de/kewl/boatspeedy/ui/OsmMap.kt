@@ -102,6 +102,8 @@ fun OsmMap(
     recenterKey: Int = 0,
     /** Schleusen und Wehre auf der Route. */
     obstacles: List<de.kewl.boatspeedy.nav.Obstacle> = emptyList(),
+    /** Antippen eines Hindernisses — für die Auskunft zu einer Schleuse. */
+    onObstacle: ((de.kewl.boatspeedy.nav.Obstacle) -> Unit)? = null,
     /** Tonnen, Baken und Hinweiszeichen von OpenSeaMap einblenden. */
     showSeamarks: Boolean = false,
     /** Geschwindigkeitszeichen mit ihrem Wert; die Kacheln zeigen nur das leere Schild. */
@@ -440,7 +442,7 @@ fun OsmMap(
 
     // Schleusen und Wehre als eigene Marker; Wehre in Rot, weil sie meist das Ende sind.
     val obstacleMarkers = remember(mapView) { mutableListOf<Marker>() }
-    LaunchedEffect(obstacles) {
+    LaunchedEffect(obstacles, onObstacle != null) {
         obstacleMarkers.forEach { mapView.overlays.remove(it) }
         obstacleMarkers.clear()
         obstacles.forEach { o ->
@@ -454,6 +456,13 @@ fun OsmMap(
                     ) R.drawable.ic_obstacle_weir else R.drawable.ic_obstacle_lock,
                 )
                 title = o.name
+                // Nur was zu sagen hat, wird antippbar. Ein Tor ohne Merkmale würde nur
+                // eine leere Blase öffnen und den Eindruck erwecken, es sei etwas kaputt.
+                if (onObstacle != null && o.hasInfo) {
+                    setOnMarkerClickListener { _, _ -> onObstacle(o); true }
+                } else {
+                    setOnMarkerClickListener { _, _ -> false }
+                }
             }
             obstacleMarkers.add(m)
             mapView.overlays.add(m)

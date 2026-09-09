@@ -13,8 +13,34 @@ data class LatLon(val lat: Double, val lon: Double)
 /** Was auf dem Weg liegen kann. Ein Wehr heißt in aller Regel: hier ist Schluss. */
 enum class ObstacleKind { LOCK, WEIR, SLUICE, DAM }
 
-/** Eine Schleuse, ein Wehr oder Ähnliches auf der Route. */
-data class Obstacle(val lat: Double, val lon: Double, val kind: ObstacleKind, val name: String?)
+/**
+ * Eine Schleuse, ein Wehr oder Ähnliches auf der Route.
+ *
+ * Die Angaben stammen aus OpenStreetMap und werden **unverändert** weitergereicht — die
+ * Öffnungszeiten stehen dort in einer festen Schreibweise, und sie zu übersetzen hieße,
+ * sie zu raten. Wer vor einer Schleuse steht, will lesen, was dort gilt, nicht eine
+ * Auslegung davon.
+ */
+data class Obstacle(
+    val lat: Double,
+    val lon: Double,
+    val kind: ObstacleKind,
+    val name: String?,
+    val openingHours: String? = null,
+    val phone: String? = null,
+    /** Funkkanal, auf dem die Schleuse gerufen wird. */
+    val vhf: String? = null,
+    val maxLengthM: String? = null,
+    val maxWidthM: String? = null,
+    /** Wasserstraßenklasse nach CEMT. */
+    val cemt: String? = null,
+) {
+    /** Ob es überhaupt etwas zu lesen gibt — sonst lohnt kein Antippen. */
+    val hasInfo: Boolean
+        get() = !name.isNullOrBlank() || !openingHours.isNullOrBlank() ||
+            !phone.isNullOrBlank() || !vhf.isNullOrBlank() ||
+            !maxLengthM.isNullOrBlank() || !cemt.isNullOrBlank()
+}
 
 /** Wie zum Ziel gerechnet wird. */
 enum class NavMode { LINE, ROUTE }
@@ -339,7 +365,7 @@ object WaterRouter {
         val ways = quelle.ways
         if (ways.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
-        val graph = buildGraph(ways, quelle.barriers)
+        val graph = buildGraph(ways, quelle.barriers, quelle.eingeschraenkt)
         if (graph.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
         // Nicht einfach den nächsten Knoten nehmen: der liegt schnell auf einem
@@ -668,12 +694,19 @@ object WaterRouter {
         (0 until elements.length()).mapNotNull { i ->
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags") ?: return@mapNotNull null
-            val kind = when (tags.optString("waterway")) {
-                "lock_gate" -> ObstacleKind.LOCK
-                "weir" -> ObstacleKind.WEIR
-                "sluice_gate" -> ObstacleKind.SLUICE
-                "dam" -> ObstacleKind.DAM
-                else -> return@mapNotNull null
+            // `lock=yes` gehört dazu, und zwar als Erstes: Die Schleusenkammer trägt in
+            // OSM `waterway=canal` und daneben `lock=yes` — an ihr hängen Name,
+            // Öffnungszeiten und Telefon. Wer nur auf `waterway` schaut, findet höchstens
+            // die Tore, und die wissen nichts.
+            val kind = when {
+                tags.optString("lock") == "yes" -> ObstacleKind.LOCK
+                else -> when (tags.optString("waterway")) {
+                    "lock_gate" -> ObstacleKind.LOCK
+                    "weir" -> ObstacleKind.WEIR
+                    "sluice_gate" -> ObstacleKind.SLUICE
+                    "dam" -> ObstacleKind.DAM
+                    else -> return@mapNotNull null
+                }
             }
             val lat: Double
             val lon: Double
@@ -685,16 +718,51 @@ object WaterRouter {
                 val mid = geom.getJSONObject(geom.length() / 2)
                 lat = mid.getDouble("lat"); lon = mid.getDouble("lon")
             }
-            Obstacle(lat, lon, kind, tags.optString("name").takeIf { it.isNotBlank() })
+            fun tag(key: String) = tags.optString(key).takeIf { it.isNotBlank() }
+            Obstacle(
+                lat, lon, kind,
+                // `lock_name` ist der genauere: `name` trägt an einem Schleusenkanal
+                // gelegentlich den Namen des Kanals statt den der Schleuse.
+                name = tag("lock_name") ?: tag("name"),
+                openingHours = tag("opening_hours"),
+                phone = tag("phone"),
+                vhf = tag("vhf"),
+                maxLengthM = tag("maxlength"),
+                maxWidthM = tag("maxwidth"),
+                cemt = tag("CEMT"),
+            )
         }
     }.getOrDefault(emptyList())
 
     /** Welche Hindernisse dicht genug am Weg liegen, um ihn zu betreffen. */
     private fun onPath(all: List<Obstacle>, path: List<LatLon>): List<Obstacle> =
-        all.filter { o ->
-            val p = LatLon(o.lat, o.lon)
-            path.any { distanceM(it, p) <= OBSTACLE_NEAR_M }
-        }.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) }
+        zusammenlegen(
+            all.filter { o ->
+                val p = LatLon(o.lat, o.lon)
+                path.any { distanceM(it, p) <= OBSTACLE_NEAR_M }
+            }.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) },
+        )
+
+    /** So nah beieinander gehört zu **einer** Schleuse. */
+    private const val LOCK_SAME_M = 200.0
+
+    /**
+     * Eine Schleuse besteht in OSM aus mehreren Stücken: die Kammer mit `lock=yes` und je
+     * ein Tor an beiden Enden. Ungefiltert stünden dreimal „Schleuse" auf derselben
+     * Stelle, und zwei davon wüssten nichts. Beisammenliegende werden deshalb zu einer
+     * zusammengelegt — es bleibt die mit der Auskunft.
+     */
+    private fun zusammenlegen(alle: List<Obstacle>): List<Obstacle> {
+        val raus = ArrayList<Obstacle>()
+        for (o in alle.sortedByDescending { it.hasInfo }) {
+            val doppelt = raus.any {
+                it.kind == o.kind && o.kind == ObstacleKind.LOCK &&
+                    distanceM(LatLon(it.lat, it.lon), LatLon(o.lat, o.lon)) <= LOCK_SAME_M
+            }
+            if (!doppelt) raus.add(o)
+        }
+        return raus
+    }
 
     /* ------------------------------ Wegenetz ------------------------------ */
 
@@ -731,14 +799,38 @@ object WaterRouter {
         }.toSet()
     }.getOrDefault(emptySet())
 
-    private fun buildGraph(ways: List<List<Node>>, barriers: Set<Node>): Map<Node, List<Pair<Node, Double>>> {
+    /**
+     * Aufschlag auf Abschnitte mit allgemeinem Bootsverbot — **nur beim Vergleichen**.
+     *
+     * Ein solcher Abschnitt ist fürs Kanu befahrbar, aber er soll nicht gewählt werden,
+     * wenn es eine freie Möglichkeit gibt. Der Wegsuche sind Meter sonst gleich viel wert:
+     * Bei Wettin an der Saale nahm sie den Kraftwerksgraben (`boat=no`, 1598 m) statt des
+     * Schleusenarms, weil der 27 m länger war. Zählt der Graben dreifach, gewinnt der
+     * Schleusenarm — und die Fahrt ist tatsächlich nur 30 m länger.
+     *
+     * Der Faktor beantwortet die Frage „wie weit darf der Umweg sein, damit er sich
+     * lohnt": bis zum Dreifachen. Genug Luft für eine Schleuse, die einen Bogen macht,
+     * ohne dass jemand zehn Kilometer paddelt, um 500 m Verbot auszuweichen.
+     *
+     * **Er verbietet nichts.** Gibt es nur den gesperrten Weg — bei Zeutsch sind es 44 km
+     * am Stück —, wird er genommen. Und er verfälscht keine Anzeige: Länge, Verbrauch und
+     * die roten Abschnitte werden hinterher aus den echten Koordinaten gerechnet.
+     */
+    private const val RESTRICTED_COST = 3.0
+
+    private fun buildGraph(
+        ways: List<List<Node>>,
+        barriers: Set<Node>,
+        eingeschraenkt: Set<Node> = emptySet(),
+    ): Map<Node, List<Pair<Node, Double>>> {
         val g = HashMap<Node, MutableList<Pair<Node, Double>>>()
         for (way in ways) {
             for ((a, b) in way.zipWithNext()) {
                 if (a == b) continue
                 // Kein Weg durch ein Wehr oder an einem Einfahrtsverbot vorbei.
                 if (a in barriers || b in barriers) continue
-                val d = distanceM(a.toLatLon(), b.toLatLon())
+                var d = distanceM(a.toLatLon(), b.toLatLon())
+                if (a in eingeschraenkt && b in eingeschraenkt) d *= RESTRICTED_COST
                 g.getOrPut(a) { mutableListOf() }.add(b to d)
                 g.getOrPut(b) { mutableListOf() }.add(a to d)
             }

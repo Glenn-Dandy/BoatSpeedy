@@ -186,6 +186,8 @@ fun LiveMapScreen(
     var routeError by remember { mutableStateOf<RouteError?>(null) }
     // Gescheitert am Fahrzeug, nicht am Weg: Vorschlag, es mit dem anderen zu rechnen.
     var craftHint by remember { mutableStateOf<CraftHint?>(null) }
+    // Angetippte Schleuse — Öffnungszeiten, Telefon, Maße.
+    var obstacleInfo by remember { mutableStateOf<de.kewl.boatspeedy.nav.Obstacle?>(null) }
     val scope = rememberCoroutineScope()
 
     // Verbrauch je Kilometer aus der laufenden Fahrt; erst ab etwas Strecke sinnvoll.
@@ -447,6 +449,7 @@ fun LiveMapScreen(
                 navPath = if (weatherMode) emptyList() else navTarget?.path.orEmpty(),
                 navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
                 obstacles = if (weatherMode) emptyList() else navTarget?.obstacles.orEmpty(),
+                onObstacle = { obstacleInfo = it },
                 navBlockedPaths = if (weatherMode) emptyList() else navTarget?.restricted.orEmpty(),
                 courseDeg = course?.deg,
                 // In der Wetteransicht wird nicht gefolgt, also auch nicht weitergerechnet.
@@ -855,6 +858,50 @@ fun LiveMapScreen(
         )
     }
 
+    // Auskunft zu einer angetippten Schleuse. Die Angaben stehen so da, wie OSM sie führt
+    // — die Öffnungszeiten zu übersetzen hieße, sie zu raten, und davor steht man dann am
+    // geschlossenen Tor.
+    obstacleInfo?.let { o ->
+        AlertDialog(
+            onDismissRequest = { obstacleInfo = null },
+            title = { Text(o.name ?: stringResource(R.string.nav_obstacles_lock_one)) },
+            text = {
+                Column {
+                    o.openingHours?.let {
+                        InfoZeile(stringResource(R.string.lock_hours), it)
+                    }
+                    o.phone?.let { InfoZeile(stringResource(R.string.lock_phone), it) }
+                    o.vhf?.let { InfoZeile(stringResource(R.string.lock_vhf), it) }
+                    val masse = listOfNotNull(o.maxLengthM, o.maxWidthM)
+                    if (masse.size == 2) {
+                        InfoZeile(stringResource(R.string.lock_size), "${masse[0]} × ${masse[1]} m")
+                    }
+                    o.cemt?.let { InfoZeile(stringResource(R.string.lock_cemt), it) }
+                }
+            },
+            confirmButton = {
+                // Anrufen ist bei einer Schleuse der übliche Weg — sie meldet sich auf
+                // Zuruf, nicht nach Fahrplan.
+                o.phone?.let { nummer ->
+                    TextButton(onClick = {
+                        obstacleInfo = null
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_DIAL,
+                                    android.net.Uri.parse("tel:" + nummer.filter { it.isDigit() || it == '+' }),
+                                ),
+                            )
+                        }
+                    }) { Text(stringResource(R.string.lock_call)) }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { obstacleInfo = null }) { Text(stringResource(R.string.close)) }
+            },
+        )
+    }
+
     // Gescheitert am Fahrzeug: Grund nennen und den Ausweg gleich anbieten.
     craftHint?.let { hint ->
         val km = pathLengthM(hint.route.path) / 1000.0
@@ -936,6 +983,15 @@ fun LiveMapScreen(
                 TextButton(onClick = { routeError = null }) { Text(stringResource(R.string.cancel)) }
             },
         )
+    }
+}
+
+/** Eine Zeile in der Schleusenauskunft: Bezeichnung und Wert. */
+@Composable
+private fun InfoZeile(label: String, wert: String) {
+    Row(modifier = Modifier.padding(vertical = 2.dp)) {
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(88.dp))
+        Text(wert, fontSize = 13.sp)
     }
 }
 
