@@ -44,6 +44,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.battery.BatteryData
 import de.kewl.boatspeedy.battery.ChargeState
@@ -138,6 +140,15 @@ fun DashboardScreen(
             ) {
                 Spacer(Modifier.height(16.dp))
 
+                // Zielzeile – erscheint nur, wenn ein Ziel gesetzt ist, und sitzt damit
+                // direkt unter der großen Zahl, wo beim Fahren ohnehin hingeschaut wird.
+                NavRow(
+                    lat = gps.latitude,
+                    lon = gps.longitude,
+                    tripDistanceM = tripStats.distanceM,
+                    tripChargeAh = tripStats.chargeAh,
+                )
+
                 if (weatherWarnings.isNotEmpty()) {
                     WeatherBanner(weatherWarnings)
                     Spacer(Modifier.height(12.dp))
@@ -153,7 +164,7 @@ fun DashboardScreen(
                     Spacer(Modifier.height(12.dp))
                 }
                 if (settings.showMapTile) {
-                    MapMiniTile(livePoints, gps.latitude, gps.longitude, onOpenMap)
+                    MapMiniTile(livePoints, gps.latitude, gps.longitude, gps.speedMs, settings.mapOrientation, onOpenMap)
                     Spacer(Modifier.height(12.dp))
                 }
 
@@ -180,14 +191,30 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun MapMiniTile(points: List<TrackPoint>, lat: Double?, lon: Double?, onOpenMap: () -> Unit) {
+private fun MapMiniTile(
+    points: List<TrackPoint>,
+    lat: Double?,
+    lon: Double?,
+    speedMs: Float?,
+    orientation: de.kewl.boatspeedy.data.MapOrientation,
+    onOpenMap: () -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+            // Der Weg zum Ziel gehört auch auf die kleine Kachel – sonst müsste man für
+            // einen Blick darauf jedes Mal die große Karte öffnen.
+            val navTarget by de.kewl.boatspeedy.nav.NavRepository.target.collectAsStateWithLifecycle()
+            val mapCourse by de.kewl.boatspeedy.nav.NavRepository.course.collectAsStateWithLifecycle()
             OsmMap(
                 points = points,
                 currentLat = lat,
                 currentLon = lon,
                 interactive = false,
+                navPath = navTarget?.path.orEmpty(),
+                navWaterPath = navTarget?.water.orEmpty(),
+                courseDeg = mapCourse?.deg,
+                speedMs = speedMs,
+                orientation = orientation,
                 modifier = Modifier.matchParentSize(),
             )
             // Nicht-interaktive Vorschau: Overlay fängt den Tap (→ große Karte),
@@ -446,8 +473,14 @@ private fun TripButton(tracking: Boolean, onStart: () -> Unit, onStop: () -> Uni
     }
 }
 
+/**
+ * Punkt, „Fix", Satellitenzahl und Genauigkeit. Sind die Satelliten-Details abgeschaltet,
+ * verschwindet die Zeile ganz — vorher blieben Punkt und „Fix" stehen, und genau die
+ * wollte man ja loswerden.
+ */
 @Composable
 private fun StatusRow(gps: GpsState, showSatDetails: Boolean) {
+    if (!showSatDetails) return
     val statusColor = when {
         !gps.hasFix -> StatusNone
         (gps.accuracyM ?: Float.MAX_VALUE) <= 10f && gps.satellitesUsed >= 4 -> StatusGood
@@ -461,22 +494,70 @@ private fun StatusRow(gps: GpsState, showSatDetails: Boolean) {
             text = if (gps.hasFix) stringResource(R.string.status_fix) else stringResource(R.string.status_no_fix),
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
         )
-        if (showSatDetails) {
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text = stringResource(R.string.sat_label, gps.satellitesUsed, gps.satellitesVisible),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+        )
+        gps.accuracyM?.let { acc ->
             Spacer(Modifier.width(16.dp))
             Text(
-                text = stringResource(R.string.sat_label, gps.satellitesUsed, gps.satellitesVisible),
+                text = stringResource(R.string.accuracy_label, acc.toInt()),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
             )
-            gps.accuracyM?.let { acc ->
-                Spacer(Modifier.width(16.dp))
-                Text(
-                    text = stringResource(R.string.accuracy_label, acc.toInt()),
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                )
-            }
         }
     }
 }
 
 private fun num(v: Float, unit: String) = String.format(Locale.getDefault(), "%.2f %s", v, unit)
 private fun watts(v: Float) = String.format(Locale.getDefault(), "%.0f W", v)
+
+/**
+ * Entfernung, geschätzter Verbrauch und der Kurspfeil zum gesetzten Ziel.
+ *
+ * Zeigt sich nur, solange ein Ziel gesetzt ist — ohne Ziel bleibt das Dashboard
+ * unverändert. Der Pfeil zeigt die Drehung zum Ziel, nicht die Himmelsrichtung.
+ */
+@Composable
+private fun NavRow(lat: Double?, lon: Double?, tripDistanceM: Double, tripChargeAh: Float) {
+    val target by de.kewl.boatspeedy.nav.NavRepository.target.collectAsStateWithLifecycle()
+    val course by de.kewl.boatspeedy.nav.NavRepository.course.collectAsStateWithLifecycle()
+    val t = target ?: return
+
+    val ahPerKm = if (tripDistanceM > 300.0 && tripChargeAh > 0f) {
+        (tripChargeAh / (tripDistanceM / 1000.0)).toFloat()
+    } else {
+        null
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (lat != null && lon != null) {
+            course?.let { c ->
+                CourseArrow(
+                    relativeDeg = de.kewl.boatspeedy.nav.relativeBearing(
+                        c.deg,
+                        de.kewl.boatspeedy.nav.bearingDeg(de.kewl.boatspeedy.nav.LatLon(lat, lon), t.target),
+                    ),
+                    stale = c.stale,
+                    size = 30.dp,
+                )
+                Spacer(Modifier.width(10.dp))
+            }
+        }
+        Text(
+            buildString {
+                append(String.format(Locale.getDefault(), "%.2f km", t.distanceM / 1000.0))
+                ahPerKm?.let {
+                    append(" · ~")
+                    append(String.format(Locale.getDefault(), "%.1f Ah", it * (t.distanceM / 1000.0)))
+                }
+            },
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}

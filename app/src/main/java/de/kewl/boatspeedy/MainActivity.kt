@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Anchor
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Route
@@ -70,6 +71,8 @@ import de.kewl.boatspeedy.ui.DiagnosticScreen
 import de.kewl.boatspeedy.ui.DashboardSettingsScreen
 import de.kewl.boatspeedy.ui.GeneralSettingsScreen
 import de.kewl.boatspeedy.ui.GpsSettingsScreen
+import de.kewl.boatspeedy.ui.MapDataScreen
+import de.kewl.boatspeedy.ui.NavigationSettingsScreen
 import de.kewl.boatspeedy.ui.NotificationSettingsScreen
 import de.kewl.boatspeedy.ui.LiveMapScreen
 import de.kewl.boatspeedy.ui.SettingsHomeScreen
@@ -83,7 +86,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_APPEARANCE, SETTINGS_DEV, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_NAV, SETTINGS_MAPDATA, SETTINGS_APPEARANCE, SETTINGS_DEV, WEATHER, ABOUT }
 
 class MainActivity : ComponentActivity() {
     // Von außen zum Import übergebene GPX-Datei (Öffnen-mit / Teilen an BoatSpeedy).
@@ -226,6 +229,17 @@ private fun BoatSpeedyApp(
             }
 
             // Bluetooth-Berechtigungen für die Batterie-Verbindung.
+            // Das Ziel räumt sich beim Ankommen selbst ab. Die Meldung dazu gehört hierher
+            // und nicht in einen einzelnen Bildschirm – ankommen kann man auch, während
+            // das Dashboard offen ist.
+            val arrived by de.kewl.boatspeedy.nav.NavRepository.arrived.collectAsStateWithLifecycle()
+            val arrivedText = stringResource(R.string.nav_arrived)
+            LaunchedEffect(arrived) {
+                if (arrived > 0) {
+                    android.widget.Toast.makeText(context, arrivedText, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+
             var pendingBt by remember { mutableStateOf<(() -> Unit)?>(null) }
             val btLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions(),
@@ -293,6 +307,7 @@ private fun BoatSpeedyApp(
                         DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen.name.startsWith("TRIP")) { goTo(Screen.TRIPS) }
                         DrawerItem(R.string.nav_battery, Icons.Filled.BatteryFull, screen == Screen.BATTERY) { goTo(Screen.BATTERY) }
                         DrawerItem(R.string.nav_anchor, Icons.Filled.Anchor, screen == Screen.ANCHOR) { goTo(Screen.ANCHOR) }
+                        DrawerItem(R.string.nav_weather, Icons.Filled.Cloud, screen == Screen.WEATHER) { goTo(Screen.WEATHER) }
                         HorizontalDivider()
                         DrawerItem(R.string.settings, Icons.Filled.Settings, screen.name.startsWith("SETTINGS")) { goTo(Screen.SETTINGS) }
                         DrawerItem(R.string.about, Icons.Filled.Info, screen == Screen.ABOUT) { goTo(Screen.ABOUT) }
@@ -307,6 +322,7 @@ private fun BoatSpeedyApp(
                         onAppearance = { screen = Screen.SETTINGS_APPEARANCE },
                         onTracks = { screen = Screen.SETTINGS_TRACKS },
                         onGps = { screen = Screen.SETTINGS_GPS },
+                        onNavigation = { screen = Screen.SETTINGS_NAV },
                         onOpenMenu = { openDrawer() },
                         showDeveloper = settings.devMode,
                         onDeveloper = { screen = Screen.SETTINGS_DEV },
@@ -370,6 +386,21 @@ private fun BoatSpeedyApp(
                     Screen.SETTINGS_GPS -> GpsSettingsScreen(
                         gps = gps,
                         onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_NAV -> NavigationSettingsScreen(
+                        settings = settings,
+                        onCraft = vm::setCraft,
+                        onSeamarks = vm::setSeamarks,
+                        onMapOrientation = vm::setMapOrientation,
+                        onMapData = { screen = Screen.SETTINGS_MAPDATA },
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.SETTINGS_MAPDATA -> MapDataScreen(
+                        lat = gps.latitude,
+                        lon = gps.longitude,
+                        onBack = { screen = Screen.SETTINGS_NAV },
                     )
 
                     Screen.SETTINGS_APPEARANCE -> AppearanceSettingsScreen(
@@ -437,11 +468,28 @@ private fun BoatSpeedyApp(
                         onDevMode = vm::setDevMode,
                     )
 
+                    Screen.WEATHER -> LiveMapScreen(
+                        currentLat = gps.latitude,
+                        currentLon = gps.longitude,
+                        speedMs = gps.speedMs,
+                        points = livePoints,
+                        settings = settings,
+                        tripDistanceM = tripStats.distanceM,
+                        tripChargeAh = tripStats.chargeAh,
+                        weatherMode = true,
+                        onBack = { screen = Screen.SPEED },
+                    )
+
                     Screen.LIVE_MAP -> LiveMapScreen(
                         currentLat = gps.latitude,
                         currentLon = gps.longitude,
+                        speedMs = gps.speedMs,
                         points = livePoints,
                         settings = settings,
+                        tripDistanceM = tripStats.distanceM,
+                        tripChargeAh = tripStats.chargeAh,
+                        onMapOrientation = vm::setMapOrientation,
+                        onCraft = vm::setCraft,
                         onBack = { screen = Screen.SPEED },
                     )
 
@@ -458,6 +506,7 @@ private fun BoatSpeedyApp(
                         onRename = vm::renameBattery,
                         onBatteryBms = vm::setBatteryBms,
                         onBankMode = vm::setBankMode,
+                        onMeterCommand = { addr, cmd -> vm.sendMeterCommand(addr, cmd) },
                         onOpenMenu = { openDrawer() },
                     )
 

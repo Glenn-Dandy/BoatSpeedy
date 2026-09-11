@@ -395,7 +395,14 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         lastDisplayMs = null
         badTicks = 0
         collectJob = viewModelScope.launch {
-            locationProvider.state.collect { _gps.value = it }
+            locationProvider.state.collect { g ->
+                _gps.value = g
+                // Ziel abräumen, sobald es erreicht ist.
+                val la = g.latitude
+                val lo = g.longitude
+                if (la != null && lo != null) de.kewl.boatspeedy.nav.NavRepository.onLocation(la, lo)
+                de.kewl.boatspeedy.nav.NavRepository.onCourse(g.bearingDeg, g.speedMs)
+            }
         }
     }
 
@@ -460,6 +467,10 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun setWeatherAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setWeatherAlarmOn(v) }
     fun setDevMode(v: Boolean) = viewModelScope.launch { settingsRepo.setDevMode(v) }
+    fun setCraft(v: de.kewl.boatspeedy.data.Craft) = viewModelScope.launch { settingsRepo.setCraft(v) }
+    fun setSeamarks(v: Boolean) = viewModelScope.launch { settingsRepo.setSeamarks(v) }
+    fun setMapOrientation(v: de.kewl.boatspeedy.data.MapOrientation) =
+        viewModelScope.launch { settingsRepo.setMapOrientation(v) }
     fun setWeatherSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setWeatherSound(v) }
     fun testWeatherSound() = AlarmPlayer.play(getApplication(), settings.value.weatherSound, loop = false)
 
@@ -520,6 +531,10 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Batterie umbenennen (Typ/MAC bleiben erhalten). */
+    /** Einstellbefehl an das Shunt-Messgerät (Zähler nullen, auf voll setzen, Strom abgleichen). */
+    fun sendMeterCommand(address: String, command: ByteArray): Boolean =
+        BatteryRepository.send(address, command)
+
     fun renameBattery(address: String, name: String) {
         val clean = name.trim().take(24)
         if (clean.isEmpty()) return

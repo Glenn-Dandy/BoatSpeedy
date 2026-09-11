@@ -2,6 +2,23 @@ package de.kewl.boatspeedy.ui
 
 import android.graphics.Color
 import android.view.MotionEvent
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DirectionsBoat
+import androidx.compose.material.icons.filled.Kayaking
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -21,9 +38,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import de.kewl.boatspeedy.R
+import de.kewl.boatspeedy.nav.LatLon
 import de.kewl.boatspeedy.trip.TrackPoint
 import org.osmdroid.config.Configuration
+import androidx.compose.runtime.withFrameNanos
+import de.kewl.boatspeedy.nav.DeadReckoner
+import org.osmdroid.tileprovider.MapTileProviderBasic
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.XYTileSource
+import org.osmdroid.views.overlay.TilesOverlay
 import org.osmdroid.util.GeoPoint
 import kotlinx.coroutines.delay
 import org.osmdroid.views.CustomZoomButtonsController
@@ -54,6 +77,58 @@ fun OsmMap(
     radarTimes: List<String> = emptyList(),
     radarFrameIndex: Int = 0,
     showLightning: Boolean = false,
+    /** Langer Druck auf die Karte – für das Setzen eines Ziels. */
+    onLongPress: ((Double, Double) -> Unit)? = null,
+    /** Kurzer Druck auf die Karte – für die Auskunft zu einem Seezeichen. */
+    onTap: ((Double, Double) -> Unit)? = null,
+    /** Weg zum Ziel (Luftlinie oder Route); leer = kein Ziel gesetzt. */
+    navPath: List<LatLon> = emptyList(),
+    /** Der Abschnitt entlang des Fahrwassers; davor und danach wird frei gefahren. */
+    navWaterPath: List<LatLon> = emptyList(),
+    /**
+     * Abschnitte der Route mit allgemeinem Bootsverbot. Werden rot über die Route gelegt:
+     * Eine Kilometerzahl sagt, **wie viel** gesperrt ist, aber nicht **wo**.
+     */
+    navBlockedPaths: List<List<LatLon>> = emptyList(),
+    /** Kurs über Grund in Grad; dreht den Positionsmarker in Fahrtrichtung. */
+    courseDeg: Float? = null,
+    /** Fahrt über Grund in m/s – damit rechnet die Koppelnavigation zwischen den Fixes. */
+    speedMs: Float? = null,
+    /**
+     * Zähler zum einmaligen Zurückspringen auf die eigene Position. Gedacht für Karten,
+     * die der Position **nicht** folgen: dort schiebt man weit weg und findet sonst nicht
+     * zurück. Jede Erhöhung mittet einmal ein, ohne das Folgen einzuschalten.
+     */
+    recenterKey: Int = 0,
+    /** Schleusen und Wehre auf der Route. */
+    obstacles: List<de.kewl.boatspeedy.nav.Obstacle> = emptyList(),
+    /** Antippen eines Hindernisses — für die Auskunft zu einer Schleuse. */
+    onObstacle: ((de.kewl.boatspeedy.nav.Obstacle) -> Unit)? = null,
+    /** Tonnen, Baken und Hinweiszeichen von OpenSeaMap einblenden. */
+    showSeamarks: Boolean = false,
+    /** Geschwindigkeitszeichen mit ihrem Wert; die Kacheln zeigen nur das leere Schild. */
+    speedSigns: List<de.kewl.boatspeedy.nav.SpeedSign> = emptyList(),
+    /** Antippbare Seezeichen aus den Kartendaten – die Kacheln selbst sind nur Bilder. */
+    seamarks: List<de.kewl.boatspeedy.nav.SeamarkPoi> = emptyList(),
+    /** Festgelegter Startpunkt einer geplanten Strecke; null = es wird ab Boot gerechnet. */
+    planStart: de.kewl.boatspeedy.nav.LatLon? = null,
+    /** Norden oben, oder die Karte in Fahrtrichtung drehen. */
+    orientation: de.kewl.boatspeedy.data.MapOrientation =
+        de.kewl.boatspeedy.data.MapOrientation.NORTH,
+    /**
+     * Nimmt entgegen, wie die Karte gerade steht — für die Kompassnadel daneben.
+     *
+     * Bewusst ein Zustandswert statt einer Rückmeldung: Er wird bei jedem Bild gesetzt,
+     * und ein Aufruf nach oben würde damit sechzigmal in der Sekunde den halben Bildschirm
+     * neu zusammensetzen lassen. Wer ihn erst in der Zeichenphase liest, kommt ohne aus.
+     */
+    mapRotation: androidx.compose.runtime.MutableFloatState? = null,
+    /**
+     * Meldet den sichtbaren Ausschnitt samt Zoomstufe — aber nur, wenn er sich wirklich
+     * geändert hat. Bei jedem Durchlauf zu melden würde den ganzen Bildschirm im
+     * Sekundentakt neu zeichnen lassen, ohne dass sich etwas bewegt hat.
+     */
+    onViewport: ((org.osmdroid.util.BoundingBox, Double) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val pointsState = rememberUpdatedState(points)
@@ -78,6 +153,24 @@ fun OsmMap(
             )
         }
     }
+    /**
+     * OpenSeaMap liefert die Seezeichen als fertige, durchsichtige Kachelebene — eigene
+     * Symbole zu zeichnen wäre viel Arbeit für ein schlechteres Ergebnis. Die Kacheln
+     * stehen unter CC-BY-SA, der Hinweis dazu steht in den Einstellungen.
+     */
+    val seamarkOverlay = remember(mapView) {
+        val source = XYTileSource(
+            "OpenSeaMap", 3, 18, 256, ".png",
+            arrayOf("https://tiles.openseamap.org/seamark/"),
+            "© OpenSeaMap (CC-BY-SA)",
+        )
+        TilesOverlay(MapTileProviderBasic(context, source), context).apply {
+            // Ohne das legt osmdroid graue Platzhalter über die Grundkarte.
+            loadingBackgroundColor = Color.TRANSPARENT
+            loadingLineColor = Color.TRANSPARENT
+        }
+    }
+
     var centered by remember { mutableStateOf(false) }
     val line = remember(mapView) {
         Polyline(mapView).apply {
@@ -85,8 +178,46 @@ fun OsmMap(
             outlinePaint.strokeWidth = 9f
         }
     }
+    // Richtungspfeil statt Stecknadel: er dreht sich in Fahrtrichtung, also muss er um
+    // seinen Mittelpunkt hängen – eine Nadel mit Spitze unten würde beim Drehen wandern.
     val marker = remember(mapView) {
-        Marker(mapView).apply { setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) }
+        Marker(mapView).apply {
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+            icon = ContextCompat.getDrawable(context, R.drawable.ic_nav_arrow)
+        }
+    }
+    // Zwei Linien, weil zwei verschiedene Dinge gemeint sind: gestrichelt, wo man selbst
+    // navigiert (Anfahrt und Auslauf), durchgezogen entlang des Fahrwassers.
+    val navLine = remember(mapView) {
+        Polyline(mapView).apply {
+            outlinePaint.color = Color.parseColor("#FF6D00")
+            outlinePaint.strokeWidth = 8f
+            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(18f, 12f), 0f)
+            // **Die Linie verschluckt keinen Tipp.** Ohne eigenen Zuhörer ruft osmdroid
+            // `onClickDefault`, öffnet ein Fenster mit dem Titel der Linie und meldet den
+            // Tipp als verbraucht. Die Linien werden nach den Hindernissen eingehängt und
+            // liegen genau über der Schleuse — wer die antippen wollte, bekam die Route.
+            // Sie haben ohnehin nichts zu sagen; `false` reicht den Tipp weiter.
+            setOnClickListener { _, _, _ -> false }
+        }
+    }
+    val navWaterLine = remember(mapView) {
+        Polyline(mapView).apply {
+            outlinePaint.color = Color.parseColor("#FF6D00")
+            outlinePaint.strokeWidth = 9f
+            setOnClickListener { _, _, _ -> false }
+        }
+    }
+    // Gesperrte Abschnitte, rot und etwas dicker als die Route — sie liegen darüber und
+    // sollen auch dann zu sehen sein, wenn sie kurz sind. Mehrere, weil ein Bootsverbot
+    // die Strecke an mehreren Stellen treffen kann.
+    val navBlockedLines = remember(mapView) { mutableListOf<Polyline>() }
+    // Zielfahne; der Fuß der Stange sitzt auf dem Zielpunkt.
+    val navMarker = remember(mapView) {
+        Marker(mapView).apply {
+            setAnchor(Marker.ANCHOR_LEFT, Marker.ANCHOR_BOTTOM)
+            icon = ContextCompat.getDrawable(context, R.drawable.ic_dest_flag)
+        }
     }
     val bubbleMarker = remember(mapView) {
         Marker(mapView).apply {
@@ -100,19 +231,26 @@ fun OsmMap(
     val radarOverlay = remember(mapView) { RadarImageOverlay() }
     val lightningOverlay = remember(mapView) { RadarImageOverlay() }
 
-    // PNG-Bytes je Frame; dekodiert wird nur der sichtbare.
+    // PNG-Bytes je Frame, immer für das feste Gebiet. Dekodiert wird nur, was gezeigt
+    // wird. Der Ausschnitt spielt hier keine Rolle mehr – deshalb löst Zoomen und
+    // Schwenken auch keinen Abruf mehr aus.
     val framePngs = remember(radarTimes) { mutableStateMapOf<Int, ByteArray>() }
-    var fetchedArea by remember(radarTimes) { mutableStateOf<MercatorBox?>(null) }
     var lightningPng by remember { mutableStateOf<ByteArray?>(null) }
-    // Ein Zähler, der einen Neu-Abruf auslöst, wenn der Ausschnitt weggewandert ist.
-    var viewEpoch by remember { mutableIntStateOf(0) }
-    // Fertig geglättete Frames. Ohne den Zwischenspeicher wird bei jedem Wechsel neu
-    // interpoliert – beim Schieben des Reglers reiht sich das auf und ruckelt.
-    val smoothedFrames = remember(radarTimes) { mutableMapOf<Int, Pair<Int, android.graphics.Bitmap>>() }
-    // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner) und zu welchem Abruf.
+    // Zähler für das *Darstellungsfenster*. Steigt, wenn sich der Blick so weit geändert
+    // hat, dass neu gerechnet werden soll — ohne Netzverkehr.
+    var windowEpoch by remember { mutableIntStateOf(0) }
+    var renderWindow by remember { mutableStateOf<MercatorBox?>(null) }
+    // Fertig gerechnete Frames für das aktuelle Fenster, mit der Fläche, auf der sie
+    // sitzen. Ohne den Zwischenspeicher wird bei jedem Wechsel neu interpoliert – beim
+    // Schieben des Reglers reiht sich das auf und ruckelt.
+    val renderedFrames = remember(radarTimes) {
+        mutableMapOf<Int, Triple<Int, android.graphics.Bitmap, org.osmdroid.util.BoundingBox>>()
+    }
+    // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner) und zu welchem Fenster.
     var shownFrame by remember { mutableIntStateOf(-1) }
     var shownEpoch by remember { mutableIntStateOf(-1) }
     var lightningArea by remember { mutableStateOf<MercatorBox?>(null) }
+    val radarCache = remember(context) { radarCacheDir(context) }
 
     DisposableEffect(Unit) {
         mapView.onResume()
@@ -130,6 +268,22 @@ fun OsmMap(
             mapView.overlays.remove(radarOverlay)
             radarOverlay.setImage(null, null)
             shownFrame = -1
+            shownEpoch = -1
+        }
+        mapView.invalidate()
+        onDispose { }
+    }
+
+    DisposableEffect(showSeamarks) {
+        if (showSeamarks) {
+            if (!mapView.overlays.contains(seamarkOverlay)) {
+                var at = 0
+                if (mapView.overlays.contains(radarOverlay)) at++
+                if (mapView.overlays.contains(lightningOverlay)) at++
+                mapView.overlays.add(at.coerceAtMost(mapView.overlays.size), seamarkOverlay)
+            }
+        } else {
+            mapView.overlays.remove(seamarkOverlay)
         }
         mapView.invalidate()
         onDispose { }
@@ -149,41 +303,71 @@ fun OsmMap(
         onDispose { }
     }
 
-    // Merkt, wenn der sichtbare Bereich den geladenen verlässt → neu holen.
-    LaunchedEffect(showRadar || showLightning) {
-        while (showRadar || showLightning) {
-            delay(1200)
-            val loaded = fetchedArea
-            val now = runCatching { mapView.boundingBox.toMercator() }.getOrNull()
-            // Neu holen, wenn der Blick den geladenen Bereich verlässt – aber auch, wenn
-            // er deutlich kleiner geworden ist: sonst bleibt nach dem Herauszoomen und
-            // Wiederhineinzoomen das grobe Übersichtsbild stehen und wirkt „kaputt".
-            val wanderedOff = loaded != null && now != null && !loaded.contains(now)
-            val zoomedIn = loaded != null && now != null && now.width > 0 &&
-                loaded.width / now.width > RADAR_PAD * 2.2
-            // Nur nachfordern. Das vorhandene Bild bleibt stehen, bis das neue fertig
-            // ist – es sitzt ja weiterhin richtig auf dem Boden, nur gröber.
-            if (wanderedOff || zoomedIn) viewEpoch++
+    val followState = rememberUpdatedState(follow)
+    val viewportListener = rememberUpdatedState(onViewport)
+    LaunchedEffect(mapView) {
+        while (!awaitMapReady(mapView) { centered }) delay(500)
+        var lastBox: org.osmdroid.util.BoundingBox? = null
+        var lastZoom = Double.NaN
+        while (true) {
+            val cb = viewportListener.value
+            if (cb != null) {
+                val box = runCatching { mapView.boundingBox }.getOrNull()
+                val zoom = mapView.zoomLevelDouble
+                if (box != null && box.latitudeSpan > 0) {
+                    val moved = lastBox == null ||
+                        kotlin.math.abs(zoom - lastZoom) >= 0.5 ||
+                        !lastBox!!.contains(box.latNorth, box.lonEast) ||
+                        !lastBox!!.contains(box.latSouth, box.lonWest)
+                    if (moved) {
+                        lastBox = box
+                        lastZoom = zoom
+                        cb(box, zoom)
+                    }
+                }
+            }
+            delay(700)
         }
     }
 
-    // Alle Frames holen – der sichtbare zuerst, damit sofort etwas zu sehen ist,
-    // der Rest danach in kleinen Gruppen parallel. Seriell wären 21 Anfragen à 2–4 s
-    // über eine Minute; alle auf einmal überlastet den DWD-Server.
-    LaunchedEffect(showRadar, radarTimes, viewEpoch) {
+    // Merkt, wenn der Blick das gerechnete Fenster verlässt oder deutlich näher
+    // herangeht → neu **rechnen**. Geholt wird dabei nichts: die Bilder decken ohnehin
+    // das ganze Gebiet ab.
+    LaunchedEffect(showRadar) {
+        if (!showRadar) return@LaunchedEffect
+        while (!awaitMapReady(mapView) { centered }) delay(500)
+        while (showRadar) {
+            val now = runCatching { mapView.boundingBox.toMercator() }.getOrNull()
+            if (now != null) {
+                val w = renderWindow
+                // Verglichen wird gegen das **unbeschnittene** Fenster. Gegen das auf das
+                // Radargebiet beschnittene verglichen wäre die Bedingung an der Grenze
+                // Deutschlands nie erfüllbar – es würde alle 400 ms neu gerechnet.
+                val wanderedOff = w == null || !w.contains(now)
+                val zoomedIn = w != null && now.width > 0 && w.width / now.width > 2.2
+                if (wanderedOff || zoomedIn) {
+                    renderWindow = now.expand(RENDER_PAD)
+                    windowEpoch++
+                }
+            }
+            delay(400)
+        }
+    }
+
+    // Alle Frames holen – für das **feste Gebiet**, unabhängig vom Ausschnitt, und nur
+    // einmal. Der sichtbare zuerst, damit sofort etwas zu sehen ist, der Rest danach in
+    // kleinen Gruppen. Was auf der Platte liegt, wird nicht noch einmal geholt.
+    LaunchedEffect(showRadar, radarTimes) {
         if (!showRadar || radarTimes.isEmpty()) return@LaunchedEffect
-        while (!awaitMapReady(mapView) { centered }) delay(500) // nicht aufgeben
-        val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
-        // Großzügiger Rand: kleine Schwenks sollen kein Nachladen auslösen.
-        val area = view.expand(RADAR_PAD).clampToWorld()
-        val px = radarPixels(area, area.toBoundingBox().centerLatitude)
-        framePngs.clear()
-        smoothedFrames.clear()
-        fetchedArea = area
+        withContext(Dispatchers.IO) { pruneRadarCache(radarCache) }
 
         suspend fun load(i: Int) {
+            if (framePngs.containsKey(i)) return
+            val time = radarTimes[i]
             val png = withContext(Dispatchers.IO) {
-                fetchRadarPng(DWD_RADAR_LAYER, radarTimes[i], area, px.first, px.second)
+                readCachedRadar(radarCache, DWD_RADAR_LAYER, time)
+                    ?: fetchRadarPng(DWD_RADAR_LAYER, time, RADAR_AREA_GER, RADAR_AREA_W, RADAR_AREA_H)
+                        ?.also { writeCachedRadar(radarCache, DWD_RADAR_LAYER, time, it) }
             }
             if (png != null) framePngs[i] = png
         }
@@ -194,24 +378,26 @@ fun OsmMap(
         radarTimes.indices.filter { it != first }.chunked(4).forEach { group ->
             coroutineScope { group.forEach { i -> launch { load(i) } } }
         }
+    }
 
-        // Die Frames im Voraus glätten, solange niemand hinschaut. Sonst rechnet der
-        // erste Durchlauf der Schleife bei jedem Wechsel neu und ruckelt.
+    // Die Frames für das aktuelle Fenster im Voraus rechnen, solange niemand hinschaut.
+    // Sonst rechnet der erste Durchlauf der Schleife bei jedem Wechsel neu und ruckelt.
+    LaunchedEffect(showRadar, radarTimes, framePngs.size, windowEpoch) {
+        if (!showRadar || radarTimes.isEmpty()) return@LaunchedEffect
+        val window = renderWindow ?: return@LaunchedEffect
+        val epoch = windowEpoch
         for (i in radarTimes.indices) {
-            if (smoothedFrames[i]?.first == viewEpoch) continue
+            if (renderedFrames[i]?.first == epoch) continue
+            if (epoch != windowEpoch) return@LaunchedEffect // Blick hat sich weitergedreht
             val png = framePngs[i] ?: continue
-            val bmp = withContext(Dispatchers.Default) {
-                decodeRadar(png)?.let { raw ->
-                    runCatching { smoothRadar(raw, RADAR_EDGE) }.getOrDefault(raw)
-                }
-            } ?: continue
-            smoothedFrames[i] = viewEpoch to bmp
-            trimSmoothed(smoothedFrames, shownFrame)
+            val made = withContext(Dispatchers.Default) { buildFrame(png, window) } ?: continue
+            renderedFrames[i] = Triple(epoch, made.first, made.second)
+            trimRendered(renderedFrames, shownFrame)
         }
     }
 
     // Blitze (nur Ist-Zeit).
-    LaunchedEffect(showLightning, viewEpoch) {
+    LaunchedEffect(showLightning, windowEpoch) {
         if (!showLightning) { lightningPng = null; return@LaunchedEffect }
         while (!awaitMapReady(mapView) { centered }) delay(500)
         val view = runCatching { mapView.boundingBox.toMercator() }.getOrNull() ?: return@LaunchedEffect
@@ -223,49 +409,212 @@ fun OsmMap(
         }
     }
 
-    // Nur den gezeigten Frame dekodieren und das alte Bild danach freigeben. Fehlt der
-    // Frame noch, bleibt das bisherige Bild stehen – sonst blinkt die Schleife leer.
-    LaunchedEffect(showRadar, radarFrameIndex, framePngs.size, viewEpoch) {
+    // Nur den gezeigten Frame aufbereiten und das alte Bild danach freigeben. Fehlt der
+    // Frame noch, bleibt das bisherige Bild stehen – sonst blinkt die Schleife leer. Weil
+    // Bild und Fläche zusammengehören, werden sie immer gemeinsam gesetzt: getrennt zeigt
+    // das Overlay zwischendurch das alte Bild auf der neuen Fläche und springt.
+    LaunchedEffect(showRadar, radarFrameIndex, framePngs.size, windowEpoch) {
         if (!showRadar) { shownFrame = -1; return@LaunchedEffect }
         val idx = radarFrameIndex.coerceIn(0, (radarTimes.size - 1).coerceAtLeast(0))
-        if (idx == shownFrame && shownEpoch == viewEpoch && radarOverlay.image != null) {
+        if (idx == shownFrame && shownEpoch == windowEpoch && radarOverlay.image != null) {
             return@LaunchedEffect
         }
-        val area = fetchedArea ?: return@LaunchedEffect
-        val box = area.toBoundingBox()
+        val window = renderWindow ?: return@LaunchedEffect
 
-        // Schon geglättet? Dann sofort zeigen – ohne Umweg über einen Hintergrundlauf,
+        // Schon gerechnet? Dann sofort zeigen – ohne Umweg über einen Hintergrundlauf,
         // damit das Durchschieben des Reglers unmittelbar folgt.
-        smoothedFrames[idx]?.takeIf { it.first == viewEpoch }?.let { (_, ready) ->
-            radarOverlay.setImage(ready, box)
+        renderedFrames[idx]?.takeIf { it.first == windowEpoch }?.let { (_, bmp, box) ->
+            radarOverlay.setImage(bmp, box)
             shownFrame = idx
-            shownEpoch = viewEpoch
+            shownEpoch = windowEpoch
             mapView.invalidate()
             return@LaunchedEffect
         }
 
         val png = framePngs[idx] ?: return@LaunchedEffect
-        val bmp = withContext(Dispatchers.Default) {
-            // Sollte der Speicher einmal nicht reichen, lieber das ungeglättete Bild
-            // zeigen als abstürzen.
-            decodeRadar(png)?.let { raw ->
-                runCatching { smoothRadar(raw, RADAR_EDGE) }.getOrDefault(raw)
-            }
-        } ?: return@LaunchedEffect
-        smoothedFrames[idx] = viewEpoch to bmp
-        trimSmoothed(smoothedFrames, idx)
-        // Bild und Fläche gehören zusammen und werden deshalb gemeinsam gesetzt. Getrennt
-        // gesetzt zeigt das Overlay zwischendurch das alte Bild auf der neuen Fläche –
-        // es springt und wirkt, als hinge es am Finger statt am Boden.
-        radarOverlay.setImage(bmp, box)
+        val made = withContext(Dispatchers.Default) { buildFrame(png, window) } ?: return@LaunchedEffect
+        renderedFrames[idx] = Triple(windowEpoch, made.first, made.second)
+        trimRendered(renderedFrames, idx)
+        radarOverlay.setImage(made.first, made.second)
         shownFrame = idx
-        shownEpoch = viewEpoch
+        shownEpoch = windowEpoch
         mapView.invalidate()
     }
 
     LaunchedEffect(lightningPng) {
         val bmp = lightningPng?.let { withContext(Dispatchers.Default) { decodeRadar(it) } }
         lightningOverlay.setImage(bmp, lightningArea?.toBoundingBox())
+        mapView.invalidate()
+    }
+
+    // Schleusen und Wehre als eigene Marker; Wehre in Rot, weil sie meist das Ende sind.
+    val obstacleMarkers = remember(mapView) { mutableListOf<Marker>() }
+    LaunchedEffect(obstacles, onObstacle != null) {
+        obstacleMarkers.forEach { mapView.overlays.remove(it) }
+        obstacleMarkers.clear()
+        obstacles.forEach { o ->
+            val m = Marker(mapView).apply {
+                position = GeoPoint(o.lat, o.lon)
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                icon = ContextCompat.getDrawable(
+                    context,
+                    if (o.kind == de.kewl.boatspeedy.nav.ObstacleKind.WEIR ||
+                        o.kind == de.kewl.boatspeedy.nav.ObstacleKind.DAM
+                    ) R.drawable.ic_marker_weir else R.drawable.ic_marker_lock,
+                )
+                title = o.name
+                // Nur was zu sagen hat, wird antippbar. Ein Tor ohne Merkmale würde nur
+                // eine leere Blase öffnen und den Eindruck erwecken, es sei etwas kaputt.
+                if (onObstacle != null && o.hasInfo) {
+                    setOnMarkerClickListener { _, _ -> onObstacle(o); true }
+                } else {
+                    setOnMarkerClickListener { _, _ -> false }
+                }
+            }
+            obstacleMarkers.add(m)
+            mapView.overlays.add(m)
+        }
+        mapView.invalidate()
+    }
+
+    // Der geplante Startpunkt bekommt ein eigenes Zeichen — sonst sieht man der Strecke
+    // nicht an, worauf sie sich bezieht, und wundert sich, warum sie nicht beim Boot
+    // beginnt.
+    val startMarker = remember(mapView) {
+        Marker(mapView).apply {
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            icon = ContextCompat.getDrawable(context, R.drawable.ic_dest_flag)
+            alpha = 0.75f
+        }
+    }
+    DisposableEffect(planStart) {
+        val p = planStart
+        if (p != null) {
+            startMarker.position = GeoPoint(p.lat, p.lon)
+            if (!mapView.overlays.contains(startMarker)) mapView.overlays.add(startMarker)
+        } else {
+            mapView.overlays.remove(startMarker)
+        }
+        mapView.invalidate()
+        onDispose { }
+    }
+
+    /**
+     * Seezeichen zum Antippen. Der Marker selbst ist **durchsichtig** — gezeichnet hat
+     * die Kachel von OpenSeaMap das Symbol längst, hier geht es nur um die Trefferfläche
+     * und die Sprechblase.
+     *
+     * Vorher wurde bei jedem Tipp irgendwo auf der Karte nachgefragt, was dort steht.
+     * Das hieß Warten und meistens „nichts gefunden". Aus den Kartendaten wissen wir
+     * vorher, wo etwas ist — und was.
+     */
+    val seamarkMarkers = remember(mapView) { mutableListOf<Marker>() }
+    DisposableEffect(seamarks) {
+        seamarkMarkers.forEach { mapView.overlays.remove(it) }
+        seamarkMarkers.clear()
+        val hit = seamarkHitArea(context)
+        seamarks.forEach { poi ->
+            val info = de.kewl.boatspeedy.nav.SeamarkSource.describe(poi.tags) ?: return@forEach
+            val m = Marker(mapView).apply {
+                position = GeoPoint(poi.lat, poi.lon)
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                icon = hit
+                title = info.title
+                snippet = (info.lines + info.raw).joinToString("\n")
+            }
+            seamarkMarkers.add(m)
+            mapView.overlays.add(m)
+        }
+        // **Die Schleuse liegt über den Seezeichen.** osmdroid reicht einen Tipp in
+        // umgekehrter Reihenfolge durch die Ebenen, das zuletzt Eingehängte fragt zuerst.
+        // Bei Wettin liegen im Umkreis von 400 m ein Hafen, eine Slipanlage, ein Liegeplatz
+        // und eine Tonne — die fingen den Tipp ab, und die Schleuse war kaum zu treffen.
+        // Was auf der eigenen Route liegt, hat Vorrang vor dem, was daneben steht.
+        obstacleMarkers.forEach {
+            mapView.overlays.remove(it)
+            mapView.overlays.add(it)
+        }
+        mapView.invalidate()
+        onDispose { }
+    }
+
+    // Geschwindigkeitszeichen: eigene Marker, weil die Kacheln zwar das Schild zeichnen,
+    // aber die Zahl darin frei lassen. Unsere liegen genau darauf und decken es ab.
+    val signMarkers = remember(mapView) { mutableListOf<Marker>() }
+    DisposableEffect(speedSigns, showSeamarks) {
+        signMarkers.forEach { mapView.overlays.remove(it) }
+        signMarkers.clear()
+        if (showSeamarks) {
+            speedSigns.forEach { sign ->
+                val m = Marker(mapView).apply {
+                    position = GeoPoint(sign.lat, sign.lon)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    icon = speedSignDrawable(context, sign.kmh)
+                    title = sign.raw
+                }
+                signMarkers.add(m)
+                mapView.overlays.add(m)
+            }
+        }
+        mapView.invalidate()
+        onDispose { }
+    }
+
+    // Kurzer Druck fragt nach dem Seezeichen an der Stelle, langer setzt ein Ziel.
+    DisposableEffect(onLongPress, onTap) {
+        val overlay = if (onLongPress == null && onTap == null) null else {
+            org.osmdroid.views.overlay.MapEventsOverlay(
+                object : org.osmdroid.events.MapEventsReceiver {
+                    override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
+                        val cb = onTap ?: return false
+                        p?.let { cb(it.latitude, it.longitude) }
+                        return true
+                    }
+                    override fun longPressHelper(p: GeoPoint?): Boolean {
+                        val cb = onLongPress ?: return false
+                        p?.let { cb(it.latitude, it.longitude) }
+                        return true
+                    }
+                },
+            ).also { mapView.overlays.add(it) }
+        }
+        onDispose { overlay?.let { mapView.overlays.remove(it) } }
+    }
+
+    // Weg zum Ziel zeichnen.
+    LaunchedEffect(navPath, navWaterPath, navBlockedPaths) {
+        if (navPath.size >= 2) {
+            navLine.setPoints(navPath.map { GeoPoint(it.lat, it.lon) })
+            if (!mapView.overlays.contains(navLine)) mapView.overlays.add(navLine)
+            navMarker.position = GeoPoint(navPath.last().lat, navPath.last().lon)
+            if (!mapView.overlays.contains(navMarker)) mapView.overlays.add(navMarker)
+        } else {
+            mapView.overlays.remove(navLine)
+            mapView.overlays.remove(navMarker)
+        }
+        if (navWaterPath.size >= 2) {
+            navWaterLine.setPoints(navWaterPath.map { GeoPoint(it.lat, it.lon) })
+            if (!mapView.overlays.contains(navWaterLine)) mapView.overlays.add(navWaterLine)
+        } else {
+            mapView.overlays.remove(navWaterLine)
+        }
+
+        // Erst die alten roten Linien weg, dann die neuen. Wiederverwenden wäre Buchhaltung
+        // über wechselnde Anzahlen; es sind wenige, und sie entstehen nur beim Rechnen
+        // einer Route, nicht bei jedem Bild.
+        navBlockedLines.forEach { mapView.overlays.remove(it) }
+        navBlockedLines.clear()
+        for (zug in navBlockedPaths) {
+            if (zug.size < 2) continue
+            val linie = Polyline(mapView).apply {
+                outlinePaint.color = Color.parseColor("#D32F2F")
+                outlinePaint.strokeWidth = 11f
+                setOnClickListener { _, _, _ -> false }
+                setPoints(zug.map { GeoPoint(it.lat, it.lon) })
+            }
+            navBlockedLines.add(linie)
+            mapView.overlays.add(linie)
+        }
         mapView.invalidate()
     }
 
@@ -295,6 +644,114 @@ fun OsmMap(
         }
     }
 
+    /**
+     * Der Marker **gleitet**, statt von Fix zu Fix zu wandern.
+     *
+     * Interpoliert man zwischen zwei Messungen, läuft der Marker auf eine Stelle zu, an
+     * der man längst vorbei ist, und setzt danach neu an — das war das Stocken. Hier
+     * rechnet [DeadReckoner] aus Fahrt und Kurs fortlaufend weiter, wo das Boot jetzt
+     * sein müsste, und zieht die Schätzung sanft nach, wenn eine Messung eintrifft.
+     *
+     * Gezeichnet wird im Takt des Bildschirms, nicht in einer festen 16-ms-Schleife.
+     */
+    val reckoner = remember(mapView) { DeadReckoner() }
+
+    LaunchedEffect(recenterKey) {
+        if (recenterKey <= 0) return@LaunchedEffect
+        val la = reckoner.lat ?: currentLat ?: return@LaunchedEffect
+        val lo = reckoner.lon ?: currentLon ?: return@LaunchedEffect
+        mapView.controller.animateTo(GeoPoint(la, lo), mapView.zoomLevelDouble, 600L)
+    }
+    LaunchedEffect(currentLat, currentLon, courseDeg, speedMs) {
+        if (currentLat == null || currentLon == null) return@LaunchedEffect
+        reckoner.onFix(currentLat, currentLon, courseDeg, speedMs, System.currentTimeMillis())
+    }
+
+    /**
+     * Wohin die Karte gedreht sein soll. Bei „Fahrtrichtung oben" gegen den Kurs, sonst
+     * Norden.
+     *
+     * Genommen wird der **geglättete** Kurs aus [DeadReckoner], nicht der rohe aus dem
+     * GPS. Der kommt einmal je Sekunde und sprang die Karte in Stufen weiter — genau das
+     * Stocken, das beim Marker längst behoben war.
+     */
+    fun sollDrehung(): Float {
+        if (orientation != de.kewl.boatspeedy.data.MapOrientation.COURSE) return 0f
+        // Solange die Koppelnavigation noch keine Position hat, steht ihr Kurs auf null —
+        // die Karte bliebe nach Norden ausgerichtet, und zwischen den beiden Einstellungen
+        // wäre kein Unterschied zu sehen. Bis dahin zählt der rohe Kurs aus dem GPS.
+        val kurs = if (reckoner.lat != null) reckoner.headingDeg else courseDeg ?: return 0f
+        return -kurs
+    }
+
+    /**
+     * Setzt Position, Kartendrehung und Pfeilrichtung in einem Zug.
+     *
+     * **Der Pfeil hängt an der Kartendrehung.** osmdroid dreht die Zeichenfläche um die
+     * Ausrichtung der Karte und rechnet sie bei einem Marker wieder heraus
+     * (`-Ausrichtung - Peilung`), sodass am Ende schlicht `-Peilung` auf dem Schirm steht.
+     * Bei „Norden oben" stimmte das. Bei gedrehter Karte zeigte der Pfeil weiter in die
+     * Himmelsrichtung, während sich alles andere darunter drehte — er schien in einer
+     * beliebigen Richtung festzuhängen. Gewollt ist: Schirmwinkel = Kurs + Kartendrehung,
+     * also senkrecht nach oben, sobald die Karte der Fahrt folgt.
+     */
+    fun male() {
+        // **Zuerst drehen, dann den Marker setzen.** Andersherum stand der Ausstieg
+        // „noch keine Schätzung vorhanden" vor der Drehung, und die Karte blieb nach
+        // Norden stehen, obwohl der Kurs längst bekannt war.
+        val drehung = sollDrehung()
+        if (mapView.mapOrientation != drehung) {
+            // **Ohne Layoutlauf.** `mapOrientation = x` ruft in osmdroid requestLayout()
+            // *und* invalidate(). Bei jedem Bild neu vermessen zu lassen — die Kartenansicht
+            // steckt in einer eingebetteten Android-Ansicht, das zieht den ganzen Baum mit —
+            // war das Stocken beim Drehen. Die zweistellige Fassung setzt nur den Wert; das
+            // Neuzeichnen stoßen wir unten selbst an, und die Ausrichtung wird ohnehin erst
+            // beim Zeichnen ausgewertet.
+            mapView.setMapOrientation(drehung, false)
+        }
+        mapRotation?.floatValue = drehung
+        val la = reckoner.lat
+        val lo = reckoner.lon
+        if (la != null && lo != null) {
+            val at = GeoPoint(la, lo)
+            marker.position = at
+            marker.rotation = de.kewl.boatspeedy.nav.markerBearingDeg(reckoner.headingDeg, drehung)
+            if (followState.value && centered) mapView.controller.setCenter(at)
+        }
+        mapView.invalidate()
+    }
+
+    LaunchedEffect(mapView, currentLat == null, orientation) {
+        if (currentLat == null) {
+            // Ohne Position gibt es keinen Kurs — dann bleibt Norden oben, sonst stünde
+            // die Karte für immer schief, wie der letzte Fix sie hinterlassen hat.
+            if (mapView.mapOrientation != 0f) {
+                mapView.mapOrientation = 0f
+                mapRotation?.floatValue = 0f
+                mapView.invalidate()
+            }
+            return@LaunchedEffect
+        }
+        var lastNanos = 0L
+        while (true) {
+            // Steht alles still, kostet das Zeichnen nur Strom. Dann warten wir auf die
+            // nächste Messung, statt jedes Bild durchzurechnen — nur ein Umschalten der
+            // Ausrichtung wird auch im Stand sofort übernommen.
+            if (!reckoner.isBusy(System.currentTimeMillis())) {
+                lastNanos = 0L
+                if (mapView.mapOrientation != sollDrehung()) male()
+                delay(200)
+                continue
+            }
+            withFrameNanos { now ->
+                val dt = if (lastNanos == 0L) 0.0 else (now - lastNanos) / 1_000_000_000.0
+                lastNanos = now
+                if (dt > 0.0) reckoner.advance(dt, System.currentTimeMillis())
+                male()
+            }
+        }
+    }
+
     LaunchedEffect(points, currentLat, currentLon, follow) {
         val geo = points.map { GeoPoint(it.lat, it.lon) }
         line.setPoints(geo)
@@ -304,8 +761,8 @@ fun OsmMap(
             mapView.overlays.remove(line)
         }
 
+        // Die Position setzt der Animationslauf oben; hier wird der Marker nur eingehängt.
         if (currentLat != null && currentLon != null) {
-            marker.position = GeoPoint(currentLat, currentLon)
             if (!mapView.overlays.contains(marker)) mapView.overlays.add(marker)
         }
 
@@ -314,14 +771,13 @@ fun OsmMap(
             geo.isNotEmpty() -> geo.last()
             else -> null
         }
-        if (target != null) {
-            if (!centered) {
-                mapView.controller.setZoom(zoom)
-                mapView.controller.setCenter(target)
-                centered = true
-            } else if (follow) {
-                mapView.controller.setCenter(target) // ohne Animation → kein Dauer-„Gleiten"
-            }
+        // Nur das erste Einmitten passiert hier. Danach führt der Bildlauf oben die Karte
+        // an der geglätteten Position nach – zwei Stellen, die zentrieren, kämen sich in
+        // die Quere und ergäben genau das Ruckeln, das wir loswerden wollen.
+        if (target != null && !centered) {
+            mapView.controller.setZoom(zoom)
+            mapView.controller.setCenter(target)
+            centered = true
         }
         mapView.invalidate()
     }
@@ -391,35 +847,46 @@ fun AnchorMap(
 }
 
 /**
- * Bildgröße für einen Radarabruf: **ein Bildpunkt je Kilometer**, also genau die
- * Auflösung der Messdaten.
- *
- * Mehr anzufordern bringt nichts — der DWD vergrößert dann selbst mit harten Kanten, und
- * genau die wollen wir nicht. Weniger würde Daten wegwerfen. Aus diesem kleinen Bild
- * rechnet [smoothRadar] die Zwischenwerte, und das Ergebnis wird beim Zeichnen auf die
- * Karte skaliert. Nebenbei sinkt die Downloadgröße auf wenige Kilobyte je Frame.
+ * Bildgröße für den Blitz-Abruf: **ein Bildpunkt je Kilometer**, also die Auflösung der
+ * Messdaten. Mehr anzufordern bringt nichts — der DWD vergrößert dann selbst mit harten
+ * Kanten. Das Radar rechnet nicht mehr so: es holt immer das feste Gebiet.
  */
 private fun radarPixels(box: MercatorBox, centerLat: Double): Pair<Int, Int> {
     // In Web-Mercator ist ein Meter am Boden 1/cos(Breite) Mercator-Meter.
     val metersPerCell = 1000.0 / kotlin.math.cos(Math.toRadians(centerLat.coerceIn(-80.0, 80.0)))
-    // Nach oben begrenzt: ein Ausschnitt über hunderte Kilometer braucht die
-    // Kilometer-Auflösung nicht, und das Glätten danach kostet sonst zu viel Speicher.
     val w = (box.width / metersPerCell).toInt().coerceIn(16, 600)
     val h = (box.height / metersPerCell).toInt().coerceIn(16, 600)
     return w to h
 }
 
 /**
- * Längste Kante des geglätteten Frames. Am Bildschirm ausprobiert: bei dieser Größe sind
- * die Umrisse rund und die Farbgrenzen scharf, und ein Frame belegt rund anderthalb
- * Megabyte — so passt die ganze Schleife in den Speicher, statt bei jedem Wechsel neu
- * gerechnet werden zu müssen. Was danach beim Zeichnen noch vergrößert wird, wirkt wie
- * Kantenglättung, nicht wie Unschärfe.
+ * Bereitet einen Frame für das Fenster auf: Bild dekodieren, den sichtbaren Teil
+ * herausrechnen und vergrößern. Lohnt die Vergrößerung nicht — weil ohnehin etwa ein
+ * Bildpunkt je Rasterzelle bliebe —, wird das Deutschlandbild unverändert genommen und
+ * die Filterung beim Zeichnen erledigt den Rest.
  */
-private const val RADAR_EDGE = 640
+private fun buildFrame(
+    png: ByteArray,
+    window: MercatorBox,
+): Pair<android.graphics.Bitmap, org.osmdroid.util.BoundingBox>? {
+    val src = decodeRadar(png) ?: return null
+    val zoomed = runCatching { renderRadarWindow(src, RADAR_AREA_GER, window) }.getOrNull()
+    return if (zoomed != null) {
+        src.recycle()
+        zoomed to renderedWindowBox(RADAR_AREA_GER, window).toBoundingBox()
+    } else {
+        src to RADAR_AREA_GER.toBoundingBox()
+    }
+}
 
-/** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt ein Abruf ohne Nachladen. */
+/** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt der Blitz-Abruf. */
 private const val RADAR_PAD = 1.8
+
+/**
+ * Rand um das gerechnete Fenster. Kleiner als der Abruf-Rand früher, weil hier nichts
+ * mehr geladen wird: ein größeres Fenster kostet nur Rechenzeit und Auflösung.
+ */
+private const val RENDER_PAD = 1.4
 
 /**
  * Wartet, bis die Karte vermessen und auf die Position zentriert ist. Ohne das liefert
@@ -444,7 +911,10 @@ private suspend fun awaitMapReady(map: MapView, centered: () -> Boolean): Boolea
  * dreistellige Megabyte belegen. Geworfen wird der jeweils älteste Eintrag, nie der
  * gerade gezeigte.
  */
-private fun trimSmoothed(cache: MutableMap<Int, Pair<Int, android.graphics.Bitmap>>, keep: Int) {
+private fun trimRendered(
+    cache: MutableMap<Int, Triple<Int, android.graphics.Bitmap, org.osmdroid.util.BoundingBox>>,
+    keep: Int,
+) {
     val budget = 40 * 1024 * 1024
     var used = cache.values.sumOf { it.second.allocationByteCount }
     if (used <= budget) return
@@ -452,5 +922,109 @@ private fun trimSmoothed(cache: MutableMap<Int, Pair<Int, android.graphics.Bitma
     while (used > budget && order.isNotEmpty()) {
         val victim = order.removeAt(0)
         used -= cache.remove(victim)?.second?.allocationByteCount ?: 0
+    }
+}
+
+
+/**
+ * Durchsichtige Trefferfläche für ein Seezeichen. Gezeichnet hat das Symbol längst die
+ * Kachel von OpenSeaMap — hier geht es nur darum, dass man es treffen kann. Ein Finger
+ * ist ungenauer als ein Zeiger, deshalb deutlich größer als das Symbol darunter.
+ */
+private fun seamarkHitArea(context: android.content.Context): android.graphics.drawable.Drawable {
+    val px = (36 * context.resources.displayMetrics.density).toInt().coerceAtLeast(28)
+    val bmp = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888)
+    return android.graphics.drawable.BitmapDrawable(context.resources, bmp)
+}
+
+/**
+ * Zeigt, wo Norden liegt — und schaltet auf Antippen zwischen „Norden oben" und
+ * „Fahrtrichtung oben" um.
+ *
+ * Er steht in **beiden** Ausrichtungen da. Nur bei gedrehter Karte zu erscheinen wäre
+ * folgerichtig gewesen, solange er bloß Auskunft gab; als Schalter wäre er damit aber
+ * genau dann verschwunden, wenn man ihn zum Zurückschalten braucht.
+ *
+ * @param mapRotationDeg als Funktion, nicht als Wert: So wird die Drehung erst beim
+ *   Zeichnen gelesen. Als Wert übergeben, würde jedes Bild den Aufbau neu anstoßen.
+ */
+@Composable
+fun NorthArrow(
+    mapRotationDeg: () -> Float,
+    modifier: Modifier = Modifier,
+    courseUp: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
+    // Die eingeschaltete Fahrtrichtung ist **ausgefüllt**, Norden bleibt hell. Allein an
+    // der Nadel war die Einstellung nicht abzulesen: Sie steht bei Norden immer senkrecht,
+    // und bei Fahrtrichtung tut sie das auch — nämlich immer dann, wenn man gerade nach
+    // Norden fährt. Zwei gleich aussehende Zustände an einem Schalter sind keiner.
+    val grund = if (courseUp) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+    }
+    val schrift = if (courseUp) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    Surface(
+        modifier = modifier.size(40.dp).let {
+            if (onClick != null) it.clickable(onClick = onClick) else it
+        },
+        shape = androidx.compose.foundation.shape.CircleShape,
+        color = grund,
+        tonalElevation = 3.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.Filled.Navigation,
+                contentDescription = if (courseUp) "Fahrtrichtung oben" else "Norden oben",
+                tint = if (courseUp) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer { rotationZ = mapRotationDeg() },
+            )
+            Text(
+                "N",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.offset(y = 12.dp),
+                color = schrift,
+            )
+        }
+    }
+}
+
+/**
+ * Zeigt das eingestellte Fahrzeug und wechselt es auf Antippen.
+ *
+ * Der Weg über die Einstellungen war nicht das Problem — dass die Einstellung auf der
+ * Karte **nicht abzulesen** war, schon. Zweimal ist deshalb an derselben Stelle gesucht
+ * worden, obwohl die Antwort „mit dem Motorboot darfst du dort nicht" lautete. Ein Verbot
+ * gilt je Fahrzeug; dann muss auch zu sehen sein, welches gemeint ist.
+ */
+@Composable
+fun CraftButton(
+    craft: de.kewl.boatspeedy.data.Craft,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val kanu = craft == de.kewl.boatspeedy.data.Craft.CANOE
+    Surface(
+        modifier = modifier.size(40.dp).clickable(onClick = onClick),
+        shape = androidx.compose.foundation.shape.CircleShape,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        tonalElevation = 3.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                if (kanu) Icons.Filled.Kayaking else Icons.Filled.DirectionsBoat,
+                contentDescription = if (kanu) "Kanu" else "Motorboot",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(22.dp),
+            )
+        }
     }
 }

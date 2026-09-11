@@ -1,0 +1,9 @@
+1.4.0
+* Ziel auf der Karte setzen: Luftlinie oder Route entlang der Wasserwege,
+  mit Entfernung und geschätzten Amperestunden
+* Kartendaten für unterwegs laden — Routing dann ohne Netz
+* Motorboot oder Kanu entscheidet, welche Verbote gelten
+* Schleusen und Wehre auf der Route; Schleuse antippen für Zeiten und Telefon
+* Seezeichen antippen; Schilder zeigen ihre Geschwindigkeit
+* Karte dreht sich in Fahrtrichtung, Marker und Karte gleiten
+* Wetteransicht mit Radar, Messwerten und Windrichtung

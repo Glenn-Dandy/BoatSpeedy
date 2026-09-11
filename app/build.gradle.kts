@@ -44,8 +44,8 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 39                       // manuell, altes kleines Schema (steigt je Release)
-        versionName = "1.3.4"                   // manuell (F-Droid-lesbar + reproduzierbar)
+        versionCode = 41                       // manuell, altes kleines Schema (steigt je Release)
+        versionName = "1.4.0"                   // manuell (F-Droid-lesbar + reproduzierbar)
         resValue("string", "app_name", "BoatSpeedy")
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }
@@ -62,16 +62,13 @@ android {
     }
 
     buildTypes {
-        // DEV als eigenes Paket (…​.debug) + eigenes Label „BoatSpeedy DEV" → liegt neben
-        // der echten App. Signiert mit dem Release-Keystore, damit Dev-über-Dev-Updates
-        // ohne Deinstallieren funktionieren.
+        // Der Debug-Typ ist nur noch für Android Studio da: eigenes Paket, damit er die
+        // echte App auf dem Gerät nicht ersetzt. Die veröffentlichten DEV-Builds sind
+        // seit jeher etwas anderes — siehe den „dev"-Typ unten.
         debug {
             applicationIdSuffix = ".debug"
-            // Fortlaufende Nummer je CI-Lauf: -PdevBuild=<n> → "1.3.3-dev142".
-            // Lokal ohne Eigenschaft bleibt es schlicht "-dev". Betrifft nur den
-            // Debug-Build; das versionName oben, das F-Droid ausliest, bleibt unberührt.
-            versionNameSuffix = "-dev" + (project.findProperty("devBuild") ?: "")
-            resValue("string", "app_name", "BoatSpeedy DEV")
+            versionNameSuffix = "-debug"
+            resValue("string", "app_name", "BoatSpeedy Debug")
             if (hasKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -91,6 +88,16 @@ android {
             if (hasKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             }
+        }
+        // DEV ist ein **richtiger Release-Build** — gleicher Keystore, gleiches R8,
+        // gleiches Paket —, nur die Versionsnummer trägt „-devN". Deshalb installiert er
+        // sich über die normale App und ist nicht fünfzigmal so groß wie sie: der
+        // Debug-Typ schrumpft nichts, und material-icons-extended bringt rund zehntausend
+        // Symbole mit, von denen wir zweiundvierzig benutzen.
+        // Bauen: ./gradlew assembleDev -PdevBuild=<n>
+        create("dev") {
+            initWith(getByName("release"))
+            versionNameSuffix = "-dev" + (project.findProperty("devBuild") ?: "")
         }
     }
 
@@ -127,4 +134,9 @@ dependencies {
 
     // Nur für `./gradlew test` – landet nicht in der App und ändert das Release-APK nicht.
     testImplementation(libs.junit)
+    // Android bringt org.json selbst mit, im Unit-Test steht dort aber nur eine Attrappe,
+    // die bei jedem Aufruf wirft. Der Router fängt das ab und sah dadurch aus, als gäbe es
+    // schlicht keine Wasserwege — die Routenrechnung war so gar nicht prüfbar. Mit der
+    // echten Bibliothek auf dem Testpfad läuft derselbe Code wie auf dem Gerät.
+    testImplementation(libs.json)
 }

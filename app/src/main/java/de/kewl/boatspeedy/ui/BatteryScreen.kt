@@ -27,6 +27,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +59,7 @@ import de.kewl.boatspeedy.battery.BatteryData
 import de.kewl.boatspeedy.battery.BatteryHub
 import de.kewl.boatspeedy.battery.BatteryLive
 import de.kewl.boatspeedy.battery.BmsType
+import de.kewl.boatspeedy.battery.MeterProtocol
 import de.kewl.boatspeedy.battery.LinkState
 import de.kewl.boatspeedy.battery.ScanDevice
 import de.kewl.boatspeedy.data.BankMode
@@ -77,6 +82,7 @@ fun BatteryScreen(
     onRename: (String, String) -> Unit,
     onBatteryBms: (String, BmsType) -> Unit,
     onBankMode: (BankMode) -> Unit,
+    onMeterCommand: (String, ByteArray) -> Unit,
     onOpenMenu: () -> Unit,
 ) {
     // Welche Batterie ist gerade aufgeklappt (Detailkarte sichtbar)?
@@ -142,6 +148,7 @@ fun BatteryScreen(
                                 saved = saved,
                                 d = hub.links[saved.address]?.data,
                                 onBms = { onBatteryBms(saved.address, it) },
+                                onMeterCommand = onMeterCommand,
                             )
                         }
                     }
@@ -174,16 +181,32 @@ fun BatteryScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BmsSelector(selected: BmsType, locked: Boolean, onBms: (BmsType) -> Unit) {
+    var open by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(stringResource(R.string.bms), style = MaterialTheme.typography.titleSmall)
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            BmsType.entries.forEachIndexed { i, t ->
-                SegmentedButton(
-                    selected = selected == t,
-                    onClick = { if (!locked) onBms(t) },
-                    enabled = !locked,
-                    shape = SegmentedButtonDefaults.itemShape(i, BmsType.entries.size),
-                ) { Text(t.display.substringBefore(" ")) }
+        // Ausklappliste statt Balkenreihe: die Namen passen ausgeschrieben hinein, und
+        // ein fünfter Typ sprengt die Reihe nicht mehr.
+        ExposedDropdownMenuBox(
+            expanded = open && !locked,
+            onExpandedChange = { if (!locked) open = !open },
+        ) {
+            OutlinedTextField(
+                value = selected.display,
+                onValueChange = {},
+                readOnly = true,
+                enabled = !locked,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = open) },
+                modifier = Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth(),
+            )
+            ExposedDropdownMenu(expanded = open && !locked, onDismissRequest = { open = false }) {
+                BmsType.entries.forEach { t ->
+                    DropdownMenuItem(
+                        text = { Text(t.display) },
+                        onClick = { onBms(t); open = false },
+                    )
+                }
             }
         }
         if (!selected.tested) {
@@ -280,12 +303,52 @@ private fun BatteryRow(
         }
     }
 }
+/** Die drei Einstellbefehle des Shunt-Messgeräts. */
+private enum class MeterCmd { ZERO, FULL, CLEAR }
+
 @Composable
 private fun BatteryDetailCard(
     saved: SavedBattery,
     d: BatteryData?,
     onBms: (BmsType) -> Unit,
+    onMeterCommand: (String, ByteArray) -> Unit = { _, _ -> },
 ) {
+    var confirmCmd by remember { mutableStateOf<MeterCmd?>(null) }
+
+    confirmCmd?.let { cmd ->
+        AlertDialog(
+            onDismissRequest = { confirmCmd = null },
+            title = { Text(stringResource(R.string.meter_actions)) },
+            text = {
+                Text(
+                    stringResource(
+                        when (cmd) {
+                            MeterCmd.ZERO -> R.string.meter_zero_confirm
+                            MeterCmd.FULL -> R.string.meter_full_confirm
+                            MeterCmd.CLEAR -> R.string.meter_clear_confirm
+                        },
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onMeterCommand(
+                        saved.address,
+                        when (cmd) {
+                            MeterCmd.ZERO -> MeterProtocol.Commands.ZERO_CURRENT
+                            MeterCmd.FULL -> MeterProtocol.Commands.SET_FULL
+                            MeterCmd.CLEAR -> MeterProtocol.Commands.CLEAR_ENERGY
+                        },
+                    )
+                    confirmCmd = null
+                }) { Text(stringResource(R.string.meter_send)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmCmd = null }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // BMS zuerst – falls die automatische Erkennung danebenlag, hier umstellen.
@@ -310,12 +373,13 @@ private fun BatteryDetailCard(
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
-                return@Column
             }
-            ValueRow(stringResource(R.string.bat_power), fmt0(kotlin.math.abs(d.powerW), "W"))
-            ValueRow(stringResource(R.string.bat_voltage), fmt(d.voltage, "V"))
-            ValueRow(stringResource(R.string.bat_current), fmt(d.currentA, "A"))
-            ValueRow(stringResource(R.string.bat_soc), "${d.soc} %")
+            // Auch ohne Verbindung werden alle Zeilen gezeigt, nur eben mit „--". Sonst
+            // sieht man gar nicht, was das Gerät überhaupt liefern kann.
+            ValueRow(stringResource(R.string.bat_power), d?.let { fmt0(kotlin.math.abs(it.powerW), "W") } ?: "--")
+            ValueRow(stringResource(R.string.bat_voltage), d?.let { fmt(it.voltage, "V") } ?: "--")
+            ValueRow(stringResource(R.string.bat_current), d?.let { fmt(it.currentA, "A") } ?: "--")
+            ValueRow(stringResource(R.string.bat_soc), d?.let { "${it.soc} %" } ?: "--")
             // Rest und Temperatur immer zeigen – „--", solange das BMS nichts liefert.
             // Die Nennkapazität nur als Bezug zeigen, solange sie einer sein kann.
             // Manche BMS (Redodo) haben eine zu klein hinterlegte Kapazität, dann steht
@@ -323,7 +387,7 @@ private fun BatteryDetailCard(
             ValueRow(
                 stringResource(R.string.bat_remaining),
                 when {
-                    d.remainingAh <= 0f && d.nominalAh <= 0f -> "--"
+                    d == null || (d.remainingAh <= 0f && d.nominalAh <= 0f) -> "--"
                     d.nominalAh >= d.remainingAh && d.nominalAh > 0f ->
                         fmt(d.remainingAh, "Ah") + " / " + fmt(d.nominalAh, "Ah")
                     else -> fmt(d.remainingAh, "Ah")
@@ -331,9 +395,34 @@ private fun BatteryDetailCard(
             )
             ValueRow(
                 stringResource(R.string.bat_temp),
-                d.tempC?.let { fmt(it, "°C") } ?: "--",
+                d?.tempC?.let { fmt(it, "°C") } ?: "--",
             )
-            if (d.cycles != null || d.dischargedAhTotal != null) {
+            if (saved.bms == BmsType.METER) {
+                ValueRow(
+                    stringResource(R.string.bat_energy_total),
+                    d?.energyKWh?.let { fmt(it, "kWh") } ?: "--",
+                )
+            }
+            if (saved.bms == BmsType.METER) {
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                // Die Befehle verstellen den Zähler im Gerät und lassen sich nicht
+                // zurücknehmen – deshalb wird vorher gefragt, wie beim Löschen von Fahrten.
+                Text(stringResource(R.string.meter_actions), style = MaterialTheme.typography.titleSmall)
+                // Ohne Verbindung sichtbar, aber ausgegraut – man sieht, was es gibt,
+                // und dass es gerade nicht geht.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(enabled = d != null, onClick = { confirmCmd = MeterCmd.ZERO }) {
+                        Text(stringResource(R.string.meter_zero))
+                    }
+                    TextButton(enabled = d != null, onClick = { confirmCmd = MeterCmd.FULL }) {
+                        Text(stringResource(R.string.meter_full))
+                    }
+                    TextButton(enabled = d != null, onClick = { confirmCmd = MeterCmd.CLEAR }) {
+                        Text(stringResource(R.string.meter_clear))
+                    }
+                }
+            }
+            if (d != null && (d.cycles != null || d.dischargedAhTotal != null)) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text(stringResource(R.string.bat_history), style = MaterialTheme.typography.titleSmall)
                 d.cycles?.let { ValueRow(stringResource(R.string.bat_cycles), "$it") }
@@ -341,7 +430,7 @@ private fun BatteryDetailCard(
                     ValueRow(stringResource(R.string.bat_discharged_total), fmt0(it, "Ah"))
                 }
             }
-            if (d.cells.isNotEmpty()) {
+            if (d != null && d.cells.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text(stringResource(R.string.bat_cells), style = MaterialTheme.typography.titleSmall)
                 d.cells.forEachIndexed { i, v ->
@@ -388,7 +477,13 @@ private fun AddDialog(
     onDismiss: () -> Unit,
 ) {
     var askType by remember { mutableStateOf<ScanDevice?>(null) }
+    var showOthers by remember { mutableStateOf(false) }
     val results = hub.scanResults.filter { it.address !in alreadySaved }
+    // Erkannte zuerst; alles Übrige wandert hinter „Weitere Geräte". Seit ungefiltert
+    // gescannt wird, liegen dort auch Kopfhörer und Uhren — aber eben auch Akkus und
+    // Messgeräte, die keine Service-UUID bewerben und sonst unsichtbar blieben.
+    val known = results.filter { it.bms != null }
+    val others = results.filter { it.bms == null }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -409,7 +504,7 @@ private fun AddDialog(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
                 }
-                results.forEach { dev ->
+                known.forEach { dev ->
                     Card(
                         modifier = Modifier.fillMaxWidth().clickable {
                             if (dev.bms != null) { onAdd(dev, dev.bms); onDismiss() } else askType = dev
@@ -436,6 +531,43 @@ private fun AddDialog(
                                 color = if (dev.bms != null) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                             )
+                        }
+                    }
+                }
+
+                if (others.isNotEmpty()) {
+                    TextButton(onClick = { showOthers = !showOthers }) {
+                        Text(
+                            stringResource(
+                                if (showOthers) R.string.bat_hide_others else R.string.bat_show_others,
+                                others.size,
+                            ),
+                        )
+                    }
+                    if (showOthers) {
+                        others.forEach { dev ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { askType = dev },
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(dev.name ?: dev.address, fontWeight = FontWeight.SemiBold)
+                                        Text(
+                                            dev.address,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                        )
+                                    }
+                                    Text(
+                                        "${dev.rssi} dBm",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    )
+                                }
+                            }
                         }
                     }
                 }

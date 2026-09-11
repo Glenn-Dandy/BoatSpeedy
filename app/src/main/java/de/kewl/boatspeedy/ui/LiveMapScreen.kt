@@ -27,6 +27,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,16 +42,75 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import java.util.Locale
 import de.kewl.boatspeedy.R
+import de.kewl.boatspeedy.data.Craft
 import de.kewl.boatspeedy.data.Settings
+import de.kewl.boatspeedy.nav.LatLon
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import de.kewl.boatspeedy.nav.MapTiles
+import de.kewl.boatspeedy.nav.NavMode
+import de.kewl.boatspeedy.nav.NavRepository
+import de.kewl.boatspeedy.nav.NavTarget
+import de.kewl.boatspeedy.nav.ObstacleKind
+import de.kewl.boatspeedy.nav.SpeedSign
+import de.kewl.boatspeedy.nav.SeamarkPoi
+import de.kewl.boatspeedy.nav.TileId
+import de.kewl.boatspeedy.nav.SpeedSignSource
+import de.kewl.boatspeedy.nav.RouteError
+import de.kewl.boatspeedy.nav.RouteResult
+import de.kewl.boatspeedy.nav.WaterRouter
+import de.kewl.boatspeedy.nav.bearingDeg
+import de.kewl.boatspeedy.nav.distanceM
+import de.kewl.boatspeedy.nav.relativeBearing
+import de.kewl.boatspeedy.nav.pathLengthM
 import de.kewl.boatspeedy.trip.TrackPoint
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+
+/**
+ * Was vor einer Route noch zu holen wäre.
+ *
+ * Fehlend und veraltet werden getrennt gezählt, weil es zwei verschiedene Aussagen sind:
+ * Ohne die einen lässt sich gar nicht rechnen, mit den anderen rechnet man auf altem
+ * Stand. Beides gehört vorher gesagt — auf dem Wasser will niemand erst hinterher
+ * erfahren, dass es eine neuere Fassung gab.
+ */
+private data class Holen(
+    val fehlend: List<TileId>,
+    val veraltet: List<TileId>,
+    val ziel: LatLon,
+) {
+    val alle: List<TileId> get() = fehlend + veraltet
+}
+
+/**
+ * Eine Route, die mit dem eingestellten Fahrzeug nicht geht, mit dem anderen aber schon.
+ * Dann liegt es nicht am fehlenden Weg, sondern an einem Verbot — und das gehört gesagt.
+ */
+private data class CraftHint(
+    val from: LatLon,
+    val at: LatLon,
+    val craft: Craft,
+    val route: RouteResult.Ok,
+)
 
 /** Vollbild-Live-Karte: Position + Track (folgt/verlassen) und DWD-Wetterradar (Regen + optional Blitze). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,13 +118,27 @@ import kotlin.math.roundToInt
 fun LiveMapScreen(
     currentLat: Double?,
     currentLon: Double?,
+    /** Fahrt über Grund; die Karte rechnet damit zwischen den GPS-Meldungen weiter. */
+    speedMs: Float?,
     points: List<TrackPoint>,
     settings: Settings,
+    /** Verbrauch der laufenden Fahrt, um den Bedarf bis zum Ziel zu schätzen. */
+    tripDistanceM: Double = 0.0,
+    tripChargeAh: Float = 0f,
+    /**
+     * Wetteransicht: dieselbe Karte, aber das Radar ist von vornherein an und lässt sich
+     * nicht abschalten. So gibt es die Karte einmal und nicht zweimal fast gleich.
+     */
+    weatherMode: Boolean = false,
+    /** Ausrichtung umstellen — die Nadel auf der Karte schaltet damit um. */
+    onMapOrientation: (de.kewl.boatspeedy.data.MapOrientation) -> Unit = {},
+    /** Fahrzeug umstellen — der Knopf oben links auf der Karte. */
+    onCraft: (Craft) -> Unit = {},
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     var follow by remember { mutableStateOf(true) }
-    var showWeather by remember { mutableStateOf(false) }
+    var showWeather by remember { mutableStateOf(weatherMode) }
     var showLightning by remember { mutableStateOf(false) }
     // Start pausiert auf „Jetzt": während der Pause lädt der Preload alle Frames im
     // Hintergrund; „Play" läuft dann sofort flüssig.
@@ -82,6 +159,231 @@ fun LiveMapScreen(
     val radarTimes = remember(frames) { frames.map { it.timeIso } }
     val bubble: (TrackPoint) -> String = { p -> buildTrackBubble(context, settings, p) }
 
+    // --- Ziel setzen (langer Druck auf die Karte) ---
+    var askTarget by remember { mutableStateOf<LatLon?>(null) }
+    // Festgelegter Startpunkt für die Planung; ist keiner gesetzt, wird vom Boot gerechnet.
+    val planStart by NavRepository.planStart.collectAsStateWithLifecycle()
+    // Der zuletzt gewählte Punkt, damit man nach einer gescheiterten Route direkt die
+    // Luftlinie nehmen kann, ohne noch einmal zu zielen.
+    var navTargetFallback by remember { mutableStateOf<LatLon?>(null) }
+    val navTarget by NavRepository.target.collectAsStateWithLifecycle()
+    val course by NavRepository.course.collectAsStateWithLifecycle()
+    // Aktuelle Lage der nächsten DWD-Station; alle zehn Minuten frisch, das ist der Takt,
+    // in dem die Stationen selbst melden.
+    val currentWeather by de.kewl.boatspeedy.weather.WeatherRepository.current.collectAsStateWithLifecycle()
+    LaunchedEffect(weatherMode, currentLat != null) {
+        if (!weatherMode) return@LaunchedEffect
+        while (true) {
+            val la = currentLat
+            val lo = currentLon
+            if (la != null && lo != null) {
+                de.kewl.boatspeedy.weather.WeatherRepository.refreshCurrent(la, lo)
+            }
+            delay(10 * 60_000L)
+        }
+    }
+    var routing by remember { mutableStateOf(false) }
+    var routeError by remember { mutableStateOf<RouteError?>(null) }
+    // Gescheitert am Fahrzeug, nicht am Weg: Vorschlag, es mit dem anderen zu rechnen.
+    var craftHint by remember { mutableStateOf<CraftHint?>(null) }
+    // Angetippte Schleuse — Öffnungszeiten, Telefon, Maße.
+    var obstacleInfo by remember { mutableStateOf<de.kewl.boatspeedy.nav.Obstacle?>(null) }
+    val scope = rememberCoroutineScope()
+
+    // Verbrauch je Kilometer aus der laufenden Fahrt; erst ab etwas Strecke sinnvoll.
+    val ahPerKm: Float? = if (tripDistanceM > 300.0 && tripChargeAh > 0f) {
+        (tripChargeAh / (tripDistanceM / 1000.0)).toFloat()
+    } else {
+        null
+    }
+
+    // Was vor dieser Route noch zu holen wäre, samt Ziel.
+    var askDownload by remember { mutableStateOf<Holen?>(null) }
+    // Das Verzeichnis des Servers, einmal je Sitzung geholt. Bei jeder Route neu zu fragen
+    // hieße, für dieselbe Auskunft immer wieder ins Netz zu gehen.
+    var serverIndex by remember { mutableStateOf<MapTiles.Index?>(null) }
+    var downloading by remember { mutableIntStateOf(-1) }
+    var downloadTotal by remember { mutableIntStateOf(0) }
+
+    /**
+     * Bittet zuerst um die Kartendaten, statt blind ins Netz zu gehen.
+     *
+     * Vorher lief jede Route ohne Kacheln direkt zu Overpass — bei überlasteten Servern
+     * eine Minute Warten und danach eine Fehlermeldung. Der Vorrat wäre in derselben
+     * Zeit geladen gewesen und hätte alle weiteren Routen gleich mit erledigt.
+     */
+    fun uebernehmen(from: LatLon, at: LatLon, r: RouteResult.Ok) {
+        NavRepository.set(
+            NavTarget(
+                at, mode = NavMode.ROUTE, path = r.path,
+                distanceM = pathLengthM(r.path),
+                water = r.water, obstacles = r.obstacles,
+                restrictedM = r.restrictedM, restricted = r.restricted,
+                plannedFrom = if (planStart != null) from else null,
+            ),
+        )
+    }
+
+    fun startRoute(from: LatLon, at: LatLon) {
+        routing = true
+        scope.launch {
+            val dir = MapTiles.dir(context.filesDir)
+            val result = withContext(Dispatchers.IO) {
+                WaterRouter.route(from, at, settings.craft, dir)
+            }
+            when (result) {
+                is RouteResult.Ok -> { routing = false; uebernehmen(from, at, result) }
+                is RouteResult.Failed -> {
+                    // **Woran es liegt, statt nur dass es nicht geht.**
+                    //
+                    // „Kein durchgehender Wasserweg" ist wahr und trotzdem nutzlos, wenn
+                    // der Grund ein Verbot für das eingestellte Fahrzeug ist. Die Daten
+                    // liegen ohnehin schon auf dem Gerät, also wird die Strecke einmal
+                    // still mit dem anderen Fahrzeug gerechnet — geht sie damit durch,
+                    // war es kein fehlender Weg, sondern ein Verbot.
+                    val anderes = if (settings.craft == Craft.MOTORBOAT) Craft.CANOE else Craft.MOTORBOAT
+                    val zweit = if (result.reason == RouteError.NO_CONNECTION) {
+                        withContext(Dispatchers.IO) { WaterRouter.route(from, at, anderes, dir) }
+                    } else {
+                        null
+                    }
+                    routing = false
+                    if (zweit is RouteResult.Ok) {
+                        craftHint = CraftHint(from, at, anderes, zweit)
+                    } else {
+                        routeError = result.reason
+                    }
+                }
+            }
+        }
+    }
+
+    fun setTarget(mode: NavMode, at: LatLon) {
+        // Ab dem festgelegten Startpunkt, sonst ab Boot. Beides ist gewollt: unterwegs
+        // will man von hier aus fahren, zu Hause die Fahrt von der Slippe planen.
+        val boot = if (currentLat != null && currentLon != null) LatLon(currentLat, currentLon) else null
+        val from = planStart ?: boot ?: return
+        routeError = null
+        navTargetFallback = at
+        if (mode == NavMode.LINE) {
+            NavRepository.set(
+                NavTarget(
+                    at, mode, listOf(from, at), distanceM(from, at),
+                    plannedFrom = planStart,
+                ),
+            )
+            return
+        }
+        // Fehlen Kacheln für die Strecke, erst fragen — nicht erst eine Minute lang
+        // vergeblich einen fremden Server bemühen.
+        val dir = MapTiles.dir(context.filesDir)
+        // Dieselbe Funktion wie im Router — zwei getrennte Rechnungen wären mit
+        // Sicherheit irgendwann auseinandergelaufen, und dann fragt die App nach
+        // Kacheln, die sie hinterher gar nicht benutzt (oder umgekehrt).
+        val needed = MapTiles.tilesForRoute(from, at)
+        val gaps = MapTiles.missing(dir, needed)
+        scope.launch {
+            // **Auch veraltete Kacheln werden vorher angeboten.**
+            //
+            // Bisher wurde nur nach fehlenden gefragt; wer welche hatte, fuhr auf altem
+            // Stand weiter, ohne es zu erfahren. Genau daran ist eine Fahrt gescheitert:
+            // Auf dem Gerät lagen Kacheln ohne den Grand Canal d'Alsace, während der
+            // Server die vollständigen längst hatte.
+            //
+            // Nachgesehen wird mit kurzen Fristen. Ohne Netz ist ohnehin nichts zu holen,
+            // und dann soll die Frage nicht die Route aufhalten — geroutet wird mit dem,
+            // was da ist.
+            val index = serverIndex ?: withContext(Dispatchers.IO) {
+                MapTiles.fetchIndex(
+                    connectMs = MapTiles.PEEK_CONNECT_MS,
+                    readMs = MapTiles.PEEK_READ_MS,
+                )
+            }?.also { serverIndex = it }
+            val alt = withContext(Dispatchers.IO) {
+                MapTiles.outdated(dir, index).map { it.id }.filter { it in needed }
+            }
+            if (gaps.isNotEmpty() || alt.isNotEmpty()) {
+                askDownload = Holen(gaps, alt, at)
+            } else {
+                startRoute(from, at)
+            }
+        }
+    }
+
+    // Geschwindigkeitszeichen für den sichtbaren Ausschnitt. Nachgeladen wird erst, wenn
+    // der Blick den geholten Bereich verlässt — Overpass ist eine gemeinsam genutzte
+    // Schnittstelle, und die Schilder wandern nicht.
+    var speedSigns by remember { mutableStateOf<List<SpeedSign>>(emptyList()) }
+    var signArea by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
+    var recenterKey by remember { mutableIntStateOf(0) }
+    // Wie die Karte gerade steht. Wird bei jedem Bild gesetzt und nur in der Zeichenphase
+    // gelesen — als gewoehnlicher Zustand wuerde die Nadel den Bildschirm sechzigmal in
+    // der Sekunde neu zusammensetzen lassen.
+    val mapRotation = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    // Auskunft zum angetippten Seezeichen: null = niemand hat gefragt,
+    // leere Liste = gefragt und nichts gefunden.
+    var mapBox by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
+    // Seezeichen aus den Kacheln – antippbar, ohne dafür ins Netz zu gehen.
+    var seamarks by remember { mutableStateOf<List<SeamarkPoi>>(emptyList()) }
+    var zoomLevel by remember { mutableStateOf(0.0) }
+
+    // Seezeichen für den sichtbaren Ausschnitt, gelesen aus den Kacheln auf dem Gerät.
+    // Weiter draußen wären es zu viele, um einzeln getroffen zu werden.
+    LaunchedEffect(settings.seamarks, weatherMode, mapBox, zoomLevel) {
+        val box = mapBox
+        if (!settings.seamarks || weatherMode || box == null || zoomLevel < SEAMARK_MIN_ZOOM) {
+            seamarks = emptyList()
+            return@LaunchedEffect
+        }
+        val dir = MapTiles.dir(context.filesDir)
+        seamarks = withContext(Dispatchers.IO) {
+            // Fehlt das Feld für den Ausschnitt, wird es geholt. Ohne das gäbe es
+            // Seezeichen nur dort, wo man ohnehin schon Kartendaten geladen hat — also
+            // nicht da, wo man gerade hinsieht.
+            //
+            // Vertretbar, weil es bei dieser Zoomstufe höchstens ein oder zwei Felder
+            // sind, rund 130 kB je Stück. Bei mehr wird nicht geladen: Dann sieht man so
+            // weit, dass die Zeichen ohnehin nicht einzeln zu treffen wären.
+            val gebraucht = MapTiles.tilesFor(
+                box.latSouth, box.lonWest, box.latNorth, box.lonEast,
+            )
+            if (gebraucht.size <= SEAMARK_MAX_FETCH) {
+                MapTiles.missing(dir, gebraucht).forEach { MapTiles.download(dir, it) }
+            }
+            MapTiles.readSeamarks(dir, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
+                .take(MAX_SEAMARKS)
+        }
+    }
+
+    LaunchedEffect(settings.seamarks, weatherMode, mapBox, zoomLevel, routing) {
+        if (!settings.seamarks || weatherMode) { speedSigns = emptyList(); signArea = null; return@LaunchedEffect }
+        // Während eine Route gerechnet wird, nicht dazwischenfunken: beide fragen
+        // dieselben Server, und die Route ist das Wichtigere.
+        if (routing) return@LaunchedEffect
+        val box = mapBox ?: return@LaunchedEffect
+        // Zu weit draußen stehen zu viele Schilder zu dicht beieinander, um lesbar zu sein.
+        if (zoomLevel < SpeedSignSource.MIN_ZOOM) { speedSigns = emptyList(); signArea = null; return@LaunchedEffect }
+        val have = signArea
+        val covered = have != null &&
+            have.latNorth >= box.latNorth && have.latSouth <= box.latSouth &&
+            have.lonEast >= box.lonEast && have.lonWest <= box.lonWest
+        if (covered) return@LaunchedEffect
+        // Deutlich größer holen als sichtbar: in Fahrt wandert der Ausschnitt ständig,
+        // und jede Bildschirmbreite eine Overpass-Anfrage wäre unhöflich. So ist erst
+        // nach zwei Bildschirmbreiten Fahrt wieder eine nötig.
+        val padLat = box.latitudeSpan
+        val padLon = box.longitudeSpanWithDateLine
+        val south = box.latSouth - padLat
+        val north = box.latNorth + padLat
+        val west = box.lonWest - padLon
+        val east = box.lonEast + padLon
+        val found = withContext(Dispatchers.IO) { SpeedSignSource.fetch(south, west, north, east) }
+        if (found != null) {
+            speedSigns = found
+            signArea = org.osmdroid.util.BoundingBox(north, east, south, west)
+        }
+    }
+
     // Vorhersage-Schleife (jetzt → +2 h), solange „Abspielen" aktiv.
     LaunchedEffect(showWeather, playing) {
         if (showWeather && playing) {
@@ -95,21 +397,63 @@ fun LiveMapScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.live_map)) },
+                title = {
+                    Text(
+                        stringResource(if (weatherMode) R.string.nav_weather else R.string.live_map),
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
+                // **Fahrzeug und Ausrichtung stehen hier, nicht auf der Karte.**
+                //
+                // Auf der Karte lagen sie über dem, was man sehen will — oben links und
+                // oben rechts genau dort, wo bei einer Fahrt flussaufwärts das nächste
+                // Stück Wasser liegt. In der Titelzeile ist ohnehin Platz, sie sind
+                // genauso schnell erreichbar, und die Karte bleibt frei.
                 actions = {
-                    IconToggleButton(checked = showWeather, onCheckedChange = { showWeather = it }) {
-                        Icon(Icons.Filled.Cloud, contentDescription = stringResource(R.string.weather_show))
+                    if (!weatherMode) {
+                        CraftButton(
+                            craft = settings.craft,
+                            modifier = Modifier.padding(end = 6.dp),
+                            onClick = {
+                                onCraft(if (settings.craft == Craft.CANOE) Craft.MOTORBOAT else Craft.CANOE)
+                            },
+                        )
+                        NorthArrow(
+                            mapRotationDeg = { mapRotation.floatValue },
+                            modifier = Modifier.padding(end = 10.dp),
+                            courseUp = settings.mapOrientation ==
+                                de.kewl.boatspeedy.data.MapOrientation.COURSE,
+                            onClick = {
+                                onMapOrientation(
+                                    if (settings.mapOrientation ==
+                                        de.kewl.boatspeedy.data.MapOrientation.COURSE
+                                    ) {
+                                        de.kewl.boatspeedy.data.MapOrientation.NORTH
+                                    } else {
+                                        de.kewl.boatspeedy.data.MapOrientation.COURSE
+                                    },
+                                )
+                            },
+                        )
                     }
                 },
             )
         },
         floatingActionButton = {
-            if (!follow) {
+            // In der Wetteransicht folgt die Karte nicht — gerade deshalb braucht es den
+            // Knopf: man schiebt beim Betrachten weit weg und fände sonst nicht zurück.
+            // Dort mittet er einmalig ein, in der Live-Karte schaltet er das Folgen an.
+            if (weatherMode) {
+                if (currentLat != null && currentLon != null) {
+                    FloatingActionButton(onClick = { recenterKey++ }) {
+                        Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.follow_position))
+                    }
+                }
+            } else if (!follow) {
                 FloatingActionButton(onClick = { follow = true }) {
                     Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.follow_position))
                 }
@@ -122,15 +466,206 @@ fun LiveMapScreen(
                 currentLat = currentLat,
                 currentLon = currentLon,
                 interactive = true,
-                follow = follow,
+                follow = follow && !weatherMode,
                 onUserPan = { follow = false },
                 bubbleText = bubble,
                 showRadar = showWeather,
                 radarTimes = radarTimes,
                 radarFrameIndex = frameIndex.coerceIn(0, frames.lastIndex),
                 showLightning = showWeather && showLightning,
+                // In der Wetteransicht wird nicht navigiert: kein Ziel setzen, keine
+                // Route zeichnen. Und die Karte bleibt stehen, wo man sie hingeschoben
+                // hat – sonst zieht sie einem beim Betrachten unter der Hand weg.
+                onLongPress = if (weatherMode) null else { lat, lon -> askTarget = LatLon(lat, lon) },
+                navPath = if (weatherMode) emptyList() else navTarget?.path.orEmpty(),
+                navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
+                obstacles = if (weatherMode) emptyList() else navTarget?.obstacles.orEmpty(),
+                onObstacle = { obstacleInfo = it },
+                navBlockedPaths = if (weatherMode) emptyList() else navTarget?.restricted.orEmpty(),
+                courseDeg = course?.deg,
+                // In der Wetteransicht wird nicht gefolgt, also auch nicht weitergerechnet.
+                speedMs = if (weatherMode) null else speedMs,
+                showSeamarks = settings.seamarks && !weatherMode,
+                speedSigns = speedSigns,
+                seamarks = seamarks,
+                planStart = if (weatherMode) null else planStart,
+                // In der Wetteransicht bleibt Norden oben: dort betrachtet man Regen,
+                // man fährt nicht.
+                orientation = if (weatherMode) {
+                    de.kewl.boatspeedy.data.MapOrientation.NORTH
+                } else {
+                    settings.mapOrientation
+                },
+                onViewport = { box, zoom -> mapBox = box; zoomLevel = zoom },
+                mapRotation = mapRotation,
+                recenterKey = recenterKey,
                 modifier = Modifier.fillMaxSize(),
             )
+
+            // Der Wetterstreifen gehört **in** die Karten-Box, nicht daneben in eine
+        // Spalte. Als Geschwisterelement lag er außerhalb der Zeichenfläche der
+        // Karte: die eingebettete Android-Ansicht malte darüber, und er blitzte nur
+        // beim Neuzeichnen kurz auf. Alle anderen Einblendungen sitzen hier drin und
+        // haben genau deshalb nie geflackert.
+        if (weatherMode) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        WeatherLine(currentWeather, fontSize = 19.sp)
+                    }
+                    // Woher der Wind kommt, als Bild statt als zwei Buchstaben im
+                    // Fließtext. Auf dem Wasser ist das die Angabe, nach der man sich
+                    // umdreht, bevor man ablegt.
+                    currentWeather?.windDirDeg?.let { WindBadge(it) }
+                }
+            }
+        }
+
+        // Entfernung und geschätzter Verbrauch bis zum Ziel.
+            navTarget?.takeIf { !weatherMode }?.let { t ->
+                Surface(
+                    modifier = Modifier.align(Alignment.TopCenter).padding(8.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                    tonalElevation = 3.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // Pfeil nur, wenn überhaupt einmal ein Kurs bekannt war.
+                        if (currentLat != null && currentLon != null) {
+                            course?.let { c ->
+                                // Bei geplanter Strecke zeigt der Pfeil zum **Start** —
+                                // dorthin muss man zuerst, das Ziel kommt danach.
+                                CourseArrow(
+                                    relativeDeg = relativeBearing(
+                                        c.deg,
+                                        bearingDeg(
+                                            LatLon(currentLat, currentLon),
+                                            t.plannedFrom ?: t.target,
+                                        ),
+                                    ),
+                                    stale = c.stale,
+                                )
+                                Spacer(Modifier.size(8.dp))
+                            }
+                        }
+                        // Bei geplanter Strecke zwei Angaben: erst der Weg zum Start,
+                        // dann die Strecke selbst. Nur eine Zahl wäre irreführend — sie
+                        // beginnt ja nicht dort, wo das Boot liegt.
+                        val zumStart = t.plannedFrom?.let { p ->
+                            if (currentLat != null && currentLon != null) {
+                                distanceM(LatLon(currentLat, currentLon), p)
+                            } else {
+                                null
+                            }
+                        }
+                        Text(
+                            buildString {
+                                if (zumStart != null) {
+                                    append(
+                                        stringResource(
+                                            R.string.nav_to_start,
+                                            String.format(Locale.getDefault(), "%.1f km", zumStart / 1000.0),
+                                        ),
+                                    )
+                                    append(" · ")
+                                }
+                                append(String.format(Locale.getDefault(), "%.2f km", t.distanceM / 1000.0))
+                                val ah = ahPerKm?.let { it * (t.distanceM / 1000.0) }
+                                if (ah != null) {
+                                    append(" · ~")
+                                    append(String.format(Locale.getDefault(), "%.1f Ah", ah))
+                                }
+                            },
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        IconButton(onClick = { NavRepository.clear() }) {
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.nav_clear))
+                        }
+                    }
+                }
+            }
+
+            // Schleusen und Wehre stehen für sich, nicht neben den Kilometern: dort war
+            // nur Platz für eine Zeile, und die zeigte das Wehr statt der Schleuse, durch
+            // die man tatsächlich fährt. Seit die Route an Wehren getrennt wird, kann ein
+            // Wehr gar nicht mehr auf ihr liegen – es steht daneben, meist neben der
+            // Schleuse. Deshalb zwei getrennte Angaben mit unterschiedlichem Gewicht.
+            navTarget?.takeIf { !weatherMode && it.mode == NavMode.ROUTE }?.let { t ->
+                val locks = t.obstacles.count { it.kind == ObstacleKind.LOCK || it.kind == ObstacleKind.SLUICE }
+                val weirs = t.obstacles.count { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
+                // Erst ab einem halben Kilometer. Kürzeres kommt an jeder zweiten Naht
+                // zustande, wo ein Weg mit Bootsverbot ein Stück weit mitläuft, und wäre
+                // als Warnung nur Rauschen.
+                val restrictedKm = (t.restrictedM / 1000.0).takeIf { it >= 0.5 }
+                if (locks > 0 || weirs > 0 || restrictedKm != null) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        tonalElevation = 3.dp,
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                            if (locks > 0) {
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_obstacle_lock,
+                                    text = if (locks == 1) stringResource(R.string.nav_obstacles_lock_one)
+                                    else stringResource(R.string.nav_obstacles_locks, locks),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                            if (weirs > 0) {
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_obstacle_weir,
+                                    text = if (weirs == 1) stringResource(R.string.nav_obstacles_weir_one)
+                                    else stringResource(R.string.nav_obstacles_weirs, weirs),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                            // Abschnitte mit allgemeinem Bootsverbot. Das Kanu fährt dort
+                            // nach OSM-Lesart legal, aber wissen sollte man es.
+                            restrictedKm?.let { km ->
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_restricted,
+                                    text = stringResource(
+                                        R.string.nav_restricted,
+                                        if (km < 10) String.format("%.1f", km) else km.roundToInt().toString(),
+                                    ),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (routing) {
+                Surface(
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    tonalElevation = 3.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.size(12.dp))
+                        Text(stringResource(R.string.nav_routing))
+                    }
+                }
+            }
 
             if (showWeather) {
                 Column(
@@ -160,8 +695,10 @@ fun LiveMapScreen(
                         }
                         val frame = frames[frameIndex.coerceIn(0, frames.lastIndex)]
                         // feste Breite → der Regler bleibt immer gleich lang
+                        // Feste Breite hält den Regler gleich lang. 64 dp reichten für
+                        // „+100 min" nicht – die Beschriftung brach um.
                         Column(
-                            modifier = Modifier.width(64.dp),
+                            modifier = Modifier.width(78.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
@@ -172,6 +709,8 @@ fun LiveMapScreen(
                             Text(
                                 frame.label.ifBlank { stringResource(R.string.radar_now) },
                                 fontSize = 11.sp,
+                                maxLines = 1,
+                                softWrap = false,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                 textAlign = TextAlign.Center,
                             )
@@ -202,4 +741,308 @@ fun LiveMapScreen(
             }
         }
     }
+
+    // Fehlen Kacheln, erst fragen. Der Vorrat lohnt sich fast immer: er ist in derselben
+    // Zeit geladen, in der ein überlasteter Overpass-Server nur wartet, und er gilt
+    // danach für jedes weitere Ziel in der Gegend.
+    askDownload?.let { holen ->
+        val gaps = holen.alle
+        val target = holen.ziel
+        // Derselbe Ausgangspunkt wie beim Setzen des Ziels — sonst würde nach dem
+        // Herunterladen plötzlich vom Boot statt vom geplanten Start gerechnet.
+        val from = planStart ?: if (currentLat != null && currentLon != null) {
+            LatLon(currentLat, currentLon)
+        } else {
+            null
+        }
+        AlertDialog(
+            onDismissRequest = { askDownload = null },
+            title = {
+                Text(
+                    stringResource(
+                        if (holen.fehlend.isEmpty()) R.string.mapdata_stale_title
+                        else R.string.mapdata_missing_title,
+                    ),
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        when {
+                            holen.fehlend.isEmpty() ->
+                                stringResource(R.string.mapdata_stale, holen.veraltet.size)
+                            holen.veraltet.isEmpty() ->
+                                stringResource(R.string.mapdata_missing, holen.fehlend.size)
+                            else -> stringResource(
+                                R.string.mapdata_missing_and_stale,
+                                holen.fehlend.size, holen.veraltet.size,
+                            )
+                        },
+                    )
+                    if (downloading >= 0) {
+                        Spacer(Modifier.size(12.dp))
+                        Text(stringResource(R.string.mapdata_loading, downloading, downloadTotal))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = downloading < 0,
+                    onClick = {
+                        downloading = 0
+                        downloadTotal = gaps.size
+                        scope.launch {
+                            val dir = MapTiles.dir(context.filesDir)
+                            for (id in gaps) {
+                                withContext(Dispatchers.IO) { MapTiles.download(dir, id) }
+                                downloading += 1
+                            }
+                            downloading = -1
+                            askDownload = null
+                            from?.let { startRoute(it, target) }
+                        }
+                    },
+                ) { Text(stringResource(R.string.mapdata_download_now)) }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = downloading < 0,
+                    onClick = {
+                        askDownload = null
+                        from?.let { startRoute(it, target) }
+                    },
+                ) { Text(stringResource(R.string.mapdata_online_instead)) }
+            },
+        )
+    }
+
+    // Langer Druck → fragen, wie gerechnet werden soll.
+    // Auswahl statt zweier Knöpfe: Mit dem Startpunkt sind es vier Möglichkeiten, und
+    // die passen nicht mehr in "bestätigen" und "abbrechen".
+    askTarget?.let { at ->
+        AlertDialog(
+            onDismissRequest = { askTarget = null },
+            title = { Text(stringResource(R.string.nav_target)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(
+                            if (planStart == null) R.string.nav_pick_hint
+                            else R.string.nav_pick_hint_planned,
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                    )
+                    Spacer(Modifier.size(12.dp))
+                    NavChoice(stringResource(R.string.nav_route)) {
+                        setTarget(NavMode.ROUTE, at); askTarget = null
+                    }
+                    NavChoice(stringResource(R.string.nav_line)) {
+                        setTarget(NavMode.LINE, at); askTarget = null
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                    NavChoice(
+                        stringResource(
+                            if (planStart == null) R.string.nav_set_start
+                            else R.string.nav_move_start,
+                        ),
+                    ) {
+                        NavRepository.setPlanStart(at); NavRepository.clear(); askTarget = null
+                    }
+                    if (planStart != null) {
+                        NavChoice(stringResource(R.string.nav_clear_start)) {
+                            NavRepository.clearAll(); askTarget = null
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { askTarget = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    // Auskunft zu einer angetippten Schleuse. Die Angaben stehen so da, wie OSM sie führt
+    // — die Öffnungszeiten zu übersetzen hieße, sie zu raten, und davor steht man dann am
+    // geschlossenen Tor.
+    obstacleInfo?.let { o ->
+        AlertDialog(
+            onDismissRequest = { obstacleInfo = null },
+            title = { Text(o.name ?: stringResource(R.string.nav_obstacles_lock_one)) },
+            text = {
+                Column {
+                    o.openingHours?.let {
+                        InfoZeile(stringResource(R.string.lock_hours), it)
+                    }
+                    o.phone?.let { InfoZeile(stringResource(R.string.lock_phone), it) }
+                    o.vhf?.let { InfoZeile(stringResource(R.string.lock_vhf), it) }
+                    val masse = listOfNotNull(o.maxLengthM, o.maxWidthM)
+                    if (masse.size == 2) {
+                        InfoZeile(stringResource(R.string.lock_size), "${masse[0]} × ${masse[1]} m")
+                    }
+                    o.cemt?.let { InfoZeile(stringResource(R.string.lock_cemt), it) }
+                }
+            },
+            confirmButton = {
+                // Anrufen ist bei einer Schleuse der übliche Weg — sie meldet sich auf
+                // Zuruf, nicht nach Fahrplan.
+                o.phone?.let { nummer ->
+                    TextButton(onClick = {
+                        obstacleInfo = null
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_DIAL,
+                                    android.net.Uri.parse("tel:" + nummer.filter { it.isDigit() || it == '+' }),
+                                ),
+                            )
+                        }
+                    }) { Text(stringResource(R.string.lock_call)) }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { obstacleInfo = null }) { Text(stringResource(R.string.close)) }
+            },
+        )
+    }
+
+    // Gescheitert am Fahrzeug: Grund nennen und den Ausweg gleich anbieten.
+    craftHint?.let { hint ->
+        val km = pathLengthM(hint.route.path) / 1000.0
+        val gesperrt = hint.route.restrictedM / 1000.0
+        AlertDialog(
+            onDismissRequest = { craftHint = null },
+            title = {
+                Text(
+                    stringResource(
+                        if (hint.craft == Craft.CANOE) R.string.nav_blocked_motorboat
+                        else R.string.nav_blocked_canoe,
+                    ),
+                )
+            },
+            text = {
+                Text(
+                    stringResource(
+                        if (hint.craft == Craft.CANOE) R.string.nav_blocked_try_canoe
+                        else R.string.nav_blocked_try_motorboat,
+                        km.roundToInt(),
+                    ) + if (gesperrt >= 0.5) {
+                        " " + stringResource(R.string.nav_blocked_of_which, gesperrt.roundToInt())
+                    } else {
+                        ""
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    // Auch die Einstellung wechselt mit. Eine Kanu-Route zu zeigen, während
+                    // im Menü Motorboot steht, wäre genau die Unklarheit, die hier behoben
+                    // werden soll.
+                    onCraft(hint.craft)
+                    uebernehmen(hint.from, hint.at, hint.route)
+                    craftHint = null
+                }) {
+                    Text(
+                        stringResource(
+                            if (hint.craft == Craft.CANOE) R.string.nav_as_canoe
+                            else R.string.nav_as_motorboat,
+                        ),
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { craftHint = null }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    // Routen kann aus mehreren Gründen scheitern – jeder bekommt seinen eigenen Satz,
+    // damit man weiß, ob es am Empfang, an der Entfernung oder an den Daten lag.
+    routeError?.let { err ->
+        AlertDialog(
+            onDismissRequest = { routeError = null },
+            title = { Text(stringResource(R.string.nav_route)) },
+            text = {
+                Text(
+                    stringResource(
+                        when (err) {
+                            RouteError.TOO_FAR -> R.string.nav_err_far
+                            RouteError.NO_NETWORK -> R.string.nav_err_offline
+                            RouteError.SERVICE_BUSY -> R.string.nav_err_busy
+                            RouteError.NO_WATERWAYS -> R.string.nav_err_nodata
+                            RouteError.NOT_ON_WATER -> R.string.nav_err_notwater
+                            RouteError.NO_CONNECTION -> R.string.nav_err_unconnected
+                        },
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val at = navTargetFallback
+                    routeError = null
+                    if (at != null) setTarget(NavMode.LINE, at)
+                }) { Text(stringResource(R.string.nav_line)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { routeError = null }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+}
+
+/** Eine Zeile in der Schleusenauskunft: Bezeichnung und Wert. */
+@Composable
+private fun InfoZeile(label: String, wert: String) {
+    Row(modifier = Modifier.padding(vertical = 2.dp)) {
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(88.dp))
+        Text(wert, fontSize = 13.sp)
+    }
+}
+
+/** Eine Zeile im Hinderniskasten: Symbol plus Anzahl. */
+@Composable
+private fun ObstacleLine(iconRes: Int, text: String, color: androidx.compose.ui.graphics.Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 1.dp)) {
+        Icon(
+            painterResource(iconRes),
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.size(6.dp))
+        Text(text, fontSize = 13.sp, color = color)
+    }
+}
+
+/** Darunter stehen zu viele Zeichen zu dicht, um eines gezielt zu treffen. */
+private const val SEAMARK_MIN_ZOOM = 13.0
+
+/**
+ * Nur ein Schutz gegen Tausende Marker auf einmal, keine inhaltliche Auswahl. Vorher
+ * standen hier 400, und in dichtem Revier fielen damit stillschweigend welche weg — ab
+ * Zoomstufe 13 liegen sie ohnehin weit genug auseinander, um jedes einzeln zu treffen.
+ */
+private const val MAX_SEAMARKS = 1500
+
+/**
+ * So viele Felder werden für die Seezeichen höchstens nachgeholt. Mehr hieße, dass man
+ * zu weit herausgezoomt ist, um ein einzelnes Zeichen zu treffen — dann lohnt der
+ * Download nicht.
+ */
+private const val SEAMARK_MAX_FETCH = 2
+
+/** Eine Zeile im Auswahldialog — über die ganze Breite antippbar, nicht nur der Text. */
+@Composable
+private fun NavChoice(text: String, onClick: () -> Unit) {
+    Text(
+        text,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.primary,
+    )
 }

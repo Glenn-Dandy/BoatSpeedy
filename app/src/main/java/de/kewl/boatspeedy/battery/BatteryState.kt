@@ -19,6 +19,8 @@ data class BatteryData(
     val cycles: Int? = null,
     /** Insgesamt entnommene Amperestunden; nur Redodo/LiTime liefert das. */
     val dischargedAhTotal: Float? = null,
+    /** Aufsummierte Energie in kWh; liefert nur das Shunt-Messgerät. */
+    val energyKWh: Float? = null,
 ) {
     /** Entladestrom in A (Betrag), 0 wenn geladen wird / kein Verbrauch. */
     val dischargeA: Float get() = if (currentA < 0) -currentA else 0f

@@ -7,7 +7,8 @@ enum class BmsType(val display: String, val tested: Boolean) {
     JBD("JBD / Jiabaida", true),
     DALY("Daly", false),
     JK("JK (Jikong)", false),
-    REDODO("Redodo / LiTime", true),
+    REDODO("Redodo / LiTime / Power Queen", true),
+    METER("Coulometer (Hall-Sensor)", true),
 }
 
 /**
@@ -40,6 +41,7 @@ abstract class BmsProtocol {
             BmsType.DALY -> DalyProtocol()
             BmsType.JK -> JkProtocol()
             BmsType.REDODO -> RedodoProtocol()
+            BmsType.METER -> MeterProtocol()
         }
 
         /**

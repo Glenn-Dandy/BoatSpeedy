@@ -1,0 +1,916 @@
+package de.kewl.boatspeedy.nav
+
+import de.kewl.boatspeedy.data.Craft
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.util.PriorityQueue
+
+/** Ein Punkt auf der Karte – bewusst ohne osmdroid-Typen, damit das hier testbar bleibt. */
+data class LatLon(val lat: Double, val lon: Double)
+
+/** Was auf dem Weg liegen kann. Ein Wehr heißt in aller Regel: hier ist Schluss. */
+enum class ObstacleKind { LOCK, WEIR, SLUICE, DAM }
+
+/**
+ * Eine Schleuse, ein Wehr oder Ähnliches auf der Route.
+ *
+ * Die Angaben stammen aus OpenStreetMap und werden **unverändert** weitergereicht — die
+ * Öffnungszeiten stehen dort in einer festen Schreibweise, und sie zu übersetzen hieße,
+ * sie zu raten. Wer vor einer Schleuse steht, will lesen, was dort gilt, nicht eine
+ * Auslegung davon.
+ */
+data class Obstacle(
+    val lat: Double,
+    val lon: Double,
+    val kind: ObstacleKind,
+    val name: String?,
+    val openingHours: String? = null,
+    val phone: String? = null,
+    /** Funkkanal, auf dem die Schleuse gerufen wird. */
+    val vhf: String? = null,
+    val maxLengthM: String? = null,
+    val maxWidthM: String? = null,
+    /** Wasserstraßenklasse nach CEMT. */
+    val cemt: String? = null,
+) {
+    /** Ob es überhaupt etwas zu lesen gibt — sonst lohnt kein Antippen. */
+    val hasInfo: Boolean
+        get() = !name.isNullOrBlank() || !openingHours.isNullOrBlank() ||
+            !phone.isNullOrBlank() || !vhf.isNullOrBlank() ||
+            !maxLengthM.isNullOrBlank() || !cemt.isNullOrBlank()
+}
+
+/** Wie zum Ziel gerechnet wird. */
+enum class NavMode { LINE, ROUTE }
+
+/**
+ * Ein gesetztes Ziel samt Weg dorthin.
+ * [path] enthält bei [NavMode.LINE] nur Start und Ziel, bei [NavMode.ROUTE] den
+ * Verlauf entlang des Fahrwassers.
+ */
+data class NavTarget(
+    val target: LatLon,
+    val mode: NavMode,
+    val path: List<LatLon>,
+    val distanceM: Double,
+    /** Der Teil entlang des Fahrwassers; der Rest davor und danach ist Luftlinie. */
+    val water: List<LatLon> = emptyList(),
+    /** Schleusen und Wehre, die auf dem Weg liegen. */
+    val obstacles: List<Obstacle> = emptyList(),
+    /** Strecke über Abschnitte mit allgemeinem Bootsverbot, in Metern. */
+    val restrictedM: Double = 0.0,
+    /** Dieselben Abschnitte als Linienzüge, für die rote Linie auf der Karte. */
+    val restricted: List<List<LatLon>> = emptyList(),
+    /**
+     * Gesetzt, wenn die Strecke von einem **festgelegten Startpunkt** aus geplant wurde
+     * und nicht vom Boot. Eine geplante Strecke hängt nicht am eigenen Fahren: Sie wird
+     * nicht mitgeführt und nicht beim Ankommen abgeräumt, sondern bleibt liegen, bis man
+     * sie verwirft — man plant sie ja im Voraus.
+     */
+    val plannedFrom: LatLon? = null,
+)
+
+/**
+ * Entfernung in Metern (Haversine). Bewusst selbst gerechnet statt über
+ * `Location.distanceBetween`: das ist eine Android-Klasse und im Unit-Test nur eine
+ * Attrappe, die 0 zurückgibt. So bleibt die ganze Routenrechnung ohne Android prüfbar,
+ * und auf den Entfernungen, um die es hier geht, ist der Unterschied kleiner als ein Meter.
+ */
+fun distanceM(a: LatLon, b: LatLon): Double {
+    val r = 6_371_000.0
+    val p1 = Math.toRadians(a.lat)
+    val p2 = Math.toRadians(b.lat)
+    val dp = Math.toRadians(b.lat - a.lat)
+    val dl = Math.toRadians(b.lon - a.lon)
+    val h = kotlin.math.sin(dp / 2).let { it * it } +
+        kotlin.math.cos(p1) * kotlin.math.cos(p2) * kotlin.math.sin(dl / 2).let { it * it }
+    return 2 * r * kotlin.math.asin(kotlin.math.sqrt(h).coerceAtMost(1.0))
+}
+
+/**
+ * Rechtweisende Peilung von [a] nach [b] in Grad (0 = Nord, im Uhrzeigersinn).
+ */
+fun bearingDeg(a: LatLon, b: LatLon): Float {
+    val p1 = Math.toRadians(a.lat)
+    val p2 = Math.toRadians(b.lat)
+    val dl = Math.toRadians(b.lon - a.lon)
+    val y = kotlin.math.sin(dl) * kotlin.math.cos(p2)
+    val x = kotlin.math.cos(p1) * kotlin.math.sin(p2) -
+        kotlin.math.sin(p1) * kotlin.math.cos(p2) * kotlin.math.cos(dl)
+    val deg = Math.toDegrees(kotlin.math.atan2(y, x))
+    return (((deg % 360) + 360) % 360).toFloat()
+}
+
+/**
+ * Wie weit man drehen muss, um vom aktuellen Kurs auf die Peilung zum Ziel zu kommen:
+ * −180 … +180 Grad, negativ = nach backbord, positiv = nach steuerbord.
+ *
+ * Genau das zeigt der Pfeil an. Steht er senkrecht, stimmt der Kurs; zeigt er nach
+ * rechts, muss man nach rechts — man muss die Karte dafür nicht lesen.
+ */
+fun relativeBearing(courseDeg: Float, targetBearingDeg: Float): Float {
+    var d = (targetBearingDeg - courseDeg) % 360f
+    if (d > 180f) d -= 360f
+    if (d < -180f) d += 360f
+    return d
+}
+
+/**
+ * Reststrecke entlang eines Weges: von hier bis zum nächstgelegenen Punkt des Weges und
+ * von dort bis ans Ende.
+ *
+ * Der Weg selbst bleibt unangetastet. Ein früherer Versuch schnitt das Zurückgelegte
+ * tatsächlich ab — und kürzte dabei bei **jeder** Meldung um einen Punkt, auch im Stand.
+ * Nach ein paar Sekunden war die Route aufgefressen.
+ */
+fun remainingAlong(path: List<LatLon>, from: LatLon): Double {
+    if (path.isEmpty()) return 0.0
+    if (path.size == 1) return distanceM(from, path[0])
+    var best = 0
+    var bestD = Double.MAX_VALUE
+    path.forEachIndexed { i, p ->
+        val d = distanceM(p, from)
+        if (d < bestD) { bestD = d; best = i }
+    }
+    val rest = path.subList(best, path.size)
+    return bestD + pathLengthM(rest)
+}
+
+fun pathLengthM(path: List<LatLon>): Double =
+    path.zipWithNext().sumOf { (a, b) -> distanceM(a, b) }
+
+/** Was beim Routen schiefgehen kann – jeder Fall bekommt in der UI seinen eigenen Text. */
+enum class RouteError { TOO_FAR, NO_NETWORK, SERVICE_BUSY, NO_WATERWAYS, NOT_ON_WATER, NO_CONNECTION }
+
+/** Was bei der Overpass-Abfrage herauskam. */
+internal sealed interface OverpassResult {
+    data class Ok(val body: String) : OverpassResult
+    /** Server haben geantwortet, aber nichts Brauchbares geliefert. */
+    data object Busy : OverpassResult
+    /** Keiner hat überhaupt geantwortet. */
+    data object Unreachable : OverpassResult
+}
+
+sealed interface RouteResult {
+    data class Ok(
+        val path: List<LatLon>,
+        val water: List<LatLon>,
+        val obstacles: List<Obstacle>,
+        /**
+         * Länge der Abschnitte mit allgemeinem Bootsverbot (`boat=no`), die auf der
+         * Strecke liegen. Beim Kanu sperrt das nicht, aber es gehört gesagt.
+         */
+        val restrictedM: Double = 0.0,
+        /** Dieselben Abschnitte als Linienzüge — die Karte zeichnet sie rot. */
+        val restricted: List<List<LatLon>> = emptyList(),
+    ) : RouteResult
+    data class Failed(val reason: RouteError) : RouteResult
+}
+
+/**
+ * Routet entlang der Wasserwege aus OpenStreetMap.
+ *
+ * Es gibt keinen fertigen Routendienst fürs Wasser — die üblichen kennen Straßen. Also
+ * holen wir die Wasserwege des Gebiets von der Overpass-Schnittstelle (ODbL, dieselbe
+ * Datenquelle wie die Karte), bauen daraus ein Wegenetz und suchen den kürzesten Weg.
+ *
+ * Grenzen, die der Nutzer kennen muss und die die UI auch nennt: das braucht **Netz**,
+ * die Daten sind unterschiedlich vollständig, und sie enthalten weder Tiefen noch
+ * Durchfahrtshöhen. Die Route ist ein Vorschlag, kein Fahrwasser.
+ */
+object WaterRouter {
+
+    /**
+     * Wie weit ein Ziel entfernt sein darf — und das hängt davon ab, woher die Daten
+     * kommen.
+     *
+     * **Über Overpass** würde ein Ziel in 200 km Entfernung eine Abfrage über ein
+     * Rechteck von halb Deutschland auslösen; der Server lehnt das ab oder rechnet
+     * minutenlang. Dort bleibt es bei sechzig Kilometern.
+     *
+     * **Aus den Kacheln** entfällt der Grund vollständig: Die Daten liegen auf dem
+     * Gerät, Lesen kostet nichts, und die Wegsuche über ein paar hunderttausend Knoten
+     * ist eine Sache von Millisekunden. Die alte Grenze hätte dort nur noch grundlos
+     * gebremst.
+     */
+    private const val MAX_DISTANCE_ONLINE_M = 60_000.0
+    private const val MAX_DISTANCE_TILES_M = 600_000.0
+
+    /**
+     * Über so viele Kacheln geht keine Route mehr. Nicht die Rechenzeit ist die Grenze,
+     * sondern der Speicher: Bei tausend Kilometern sind es rund 160 Kacheln, und deren
+     * Wegenetz will als Objektbaum gehalten werden. Darüber hinaus wäre es geraten.
+     */
+    private const val MAX_TILES = 260
+
+    /** Rand um die Strecke, damit ein Bogen im Kanal nicht abgeschnitten wird. */
+    private const val BBOX_PADDING_DEG = 0.05
+
+    /** Für das Zusammenfügen der Wege: OSM teilt Knoten, die Koordinaten sind identisch. */
+    private const val SNAP = 1_000_000.0
+
+    /**
+     * Mehrere Overpass-Server, der Reihe nach. Ein einzelner fest verdrahteter reicht
+     * nicht: Am 2026-09-04 war `overpass-api.de` von hier aus **gar nicht** erreichbar —
+     * drei Versuche, keine Verbindung —, während ein Spiegel dieselbe Abfrage in zwei
+     * Sekunden beantwortete. Das Routing meldete daraufhin „keine Verbindung zu den
+     * Kartendaten", obwohl das Gerät online war und die Daten es hergaben.
+     *
+     * Es sind öffentliche, gespendete Server. Deshalb wird immer erst der nächste
+     * versucht, wenn der vorige nicht antwortet, und nie parallel angefragt.
+     *
+     * **Nur weltweite Instanzen.** `overpass.osm.ch` etwa antwortet in 0,17 s mit
+     * gültigem JSON und null Elementen, weil es nur die Schweiz enthält — die App würde
+     * daraufhin überzeugt „hier sind keine Wasserwege verzeichnet" melden. Ein regionaler
+     * Spiegel ist schlimmer als gar keiner.
+     */
+    private val OVERPASS_HOSTS = listOf(
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter",
+    )
+
+    /**
+     * Nur befahrbares Wasser. Gräben und Entwässerungen (`ditch`, `drain`, `stream`) sind
+     * in OSM zahlreich, hängen kaum zusammen und taugen für kein Boot — im Testgebiet
+     * blähten sie das Netz von 220 auf 2633 Wege auf, ohne eine einzige Fahrtstrecke
+     * hinzuzufügen.
+     */
+    private val WATERWAYS = "river|canal|fairway"
+
+    /**
+     * Bäche standen hier eine Zeit lang zusätzlich für das Kanu. Sie sind es nicht wert:
+     * kaum einer ist befahrbar, sie machten 87 % der Datenmenge aus, und sie vermischten
+     * zwei verschiedene Fragen. **Welche Gewässerart** ins Netz kommt, hängt nicht vom
+     * Fahrzeug ab — sondern nur, **was dort verboten ist**. Siehe [isForbidden].
+     */
+    private fun navigableFor(craft: Craft) = NAVIGABLE
+
+    /**
+     * Was den Weg versperren oder aufhalten kann. Schleusen kosten Zeit, ein Wehr ist in
+     * aller Regel das Ende der Fahrt — und die Route allein würde beides verschweigen.
+     */
+    private val OBSTACLES = "lock_gate|weir|dam|sluice_gate"
+
+    /** Bis zu dieser Entfernung vom Weg zählt ein Hindernis als „liegt darauf". */
+    private const val OBSTACLE_NEAR_M = 40.0
+
+    /** Wie ein Weg für das gewählte Fahrzeug einzustufen ist. */
+    internal enum class Zugang {
+        /** Befahrbar. */
+        FREI,
+
+        /** Nicht befahrbar — kommt gar nicht erst ins Netz. */
+        GESPERRT,
+
+        /**
+         * Befahrbar, aber mit einem allgemeinen Bootsverbot belegt. Die Strecke wird
+         * gerechnet und ihre Länge unten auf der Karte angezeigt; entscheiden muss es,
+         * wer im Boot sitzt.
+         */
+        EINGESCHRAENKT,
+    }
+
+    private val VERBOTEN = setOf("no", "private")
+    private val ERLAUBT = setOf("yes", "designated", "permissive", "destination")
+
+    /**
+     * Wege, die als Fluss oder Kanal getaggt sind, aber nicht befahren werden dürfen oder
+     * können. Ohne diese Prüfung schickt die Route durch **Rohrdurchlässe** und über
+     * gesperrte Abschnitte — im Testgebiet trugen von 307 befahrbar getaggten Wegen 65 ein
+     * `tunnel=culvert`, 43 ein `boat=no` und 29 ein `motorboat=no`. Genau so kommt eine
+     * Route zustande, die an der Schleuse vorbeiführt statt hindurch.
+     *
+     * Die Zugangsmerkmale sind in OpenStreetMap **gestuft**: `access` gilt für alles,
+     * `boat` für Boote, `motorboat`/`ship`/`canoe` für die einzelne Art. Das Genauere
+     * schlägt das Allgemeinere — `boat=no` + `canoe=yes` heißt „Boote nein, Kanu ja".
+     *
+     * Vorher wurde flach geprüft und `boat=no` sperrte unbedingt. Auf der oberen Saale, wo
+     * Motorboote verboten sind und Kanus fahren dürfen, riss das Netz damit genau an der
+     * Einsetzstelle Zeutsch: 44 km Saale allein in der Kachel `n50e011` tragen `boat=no`,
+     * nur ein Teil davon zusätzlich `canoe=yes`.
+     */
+    private fun zugang(tags: JSONObject?, craft: Craft): Zugang {
+        if (tags == null) return Zugang.FREI
+        // Ein Rohr unter einer Straße ist kein Fahrwasser — daran ändert kein Merkmal etwas.
+        if (tags.optString("tunnel") in setOf("culvert", "pipe", "building_passage")) {
+            return Zugang.GESPERRT
+        }
+        val kette = when (craft) {
+            Craft.MOTORBOAT -> listOf("access", "boat", "ship", "motorboat")
+            Craft.CANOE -> listOf("access", "boat", "canoe")
+        }
+        // Von allgemein nach genau; das zuletzt gefundene Verbot zählt, eine ausdrückliche
+        // Erlaubnis hebt es auf. Werte, die weder das eine noch das andere sind
+        // (`unknown`, `seasonal`), lassen den Stand, wie er ist.
+        var sperre: String? = null
+        for (k in kette) {
+            when (tags.optString(k)) {
+                in VERBOTEN -> sperre = k
+                in ERLAUBT -> sperre = null
+            }
+        }
+        return when {
+            sperre == null -> Zugang.FREI
+            // Beim Kanu ist ein allgemeines `boat=no` **kein** Ausschluss. Es ist fast immer
+            // gegen Motorboote gemeint; wo Paddeln wirklich untersagt ist, steht `canoe=no`
+            // oder `access=no`. Ein hartes Nein nähme dem Kanu die halben Oberläufe.
+            craft == Craft.CANOE && sperre == "boat" -> Zugang.EINGESCHRAENKT
+            else -> Zugang.GESPERRT
+        }
+    }
+
+    /**
+     * Wie weit Start und Ziel vom verzeichneten Wasserweg entfernt liegen dürfen. Diese
+     * Strecken werden als Luftlinie gefahren — vom Liegeplatz aufs Fahrwasser hinaus und
+     * am Ende wieder heran.
+     *
+     * Fest auf 300 m war zu streng: an einem See oder einer breiten Stelle ist gar keine
+     * Linie verzeichnet (Seen sind Flächen, keine Wasserwege), und die Route wurde
+     * abgelehnt, statt die Anfahrt einfach gerade zu nehmen. Der erlaubte Abstand wächst
+     * deshalb mit der Gesamtstrecke — bei einer langen Fahrt fällt ein Kilometer Anfahrt
+     * kaum ins Gewicht, bei einer kurzen schon.
+     */
+    private fun maxSnapM(directM: Double) = (directM * 0.35).coerceIn(800.0, 5_000.0)
+
+    /**
+     * @param tileDir Wo die heruntergeladenen Kacheln liegen. Ist der Ausschnitt davon
+     *   vollständig abgedeckt, wird **gar nicht** gefragt — kein Netz, keine Wartezeit,
+     *   keine überlasteten Server. Fehlt eine Kachel, geht es wie bisher über Overpass.
+     */
+    fun route(
+        from: LatLon,
+        to: LatLon,
+        craft: Craft = Craft.MOTORBOAT,
+        tileDir: java.io.File? = null,
+    ): RouteResult {
+        val direct = distanceM(from, to)
+        // Zuerst nachsehen, ob die Kacheln reichen — davon hängt ab, wie weit das Ziel
+        // liegen darf. Umgekehrt hätte eine Fahrt über hundert Kilometer abgelehnt, was
+        // vollständig auf dem Gerät liegt.
+        val offline = fromTiles(from, to, craft, tileDir)
+        val limit = if (offline != null) MAX_DISTANCE_TILES_M else MAX_DISTANCE_ONLINE_M
+        if (direct > limit) return RouteResult.Failed(RouteError.TOO_FAR)
+        val maxSnap = maxSnapM(direct)
+
+        val quelle = offline ?: when (val r = askOverpass(buildQuery(from, to))) {
+            is OverpassResult.Ok -> parseWays(r.body, craft).let { w ->
+                Quelle(w.ways, parseObstacles(r.body), barrierNodes(r.body), w.eingeschraenkt)
+            }
+            OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
+            OverpassResult.Unreachable -> return RouteResult.Failed(RouteError.NO_NETWORK)
+        }
+        val ways = quelle.ways
+        if (ways.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
+
+        val graph = buildGraph(ways, quelle.barriers, quelle.eingeschraenkt)
+        if (graph.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
+
+        // Nicht einfach den nächsten Knoten nehmen: der liegt schnell auf einem
+        // abgehängten Stichkanal, und dann gibt es nie eine Verbindung. Stattdessen das
+        // Teilnetz suchen, das *beide* Punkte bedient.
+        val ends = pickComponent(graph, from, to, maxSnap) ?: return if (
+            nearestNode(graph.keys, from)?.let { distanceM(it.toLatLon(), from) > maxSnap } != false ||
+            nearestNode(graph.keys, to)?.let { distanceM(it.toLatLon(), to) > maxSnap } != false
+        ) {
+            RouteResult.Failed(RouteError.NOT_ON_WATER)
+        } else {
+            RouteResult.Failed(RouteError.NO_CONNECTION)
+        }
+
+        val knoten = shortestPath(graph, ends.first, ends.second)
+            ?: return RouteResult.Failed(RouteError.NO_CONNECTION)
+        val water = knoten.map { it.toLatLon() }
+        // Anfahrt und Auslauf sind Luftlinie – sie werden getrennt zurückgegeben, damit die
+        // Karte sie anders zeichnen kann: dort fährt man auf eigene Rechnung.
+        val full = listOf(from) + water + listOf(to)
+        return RouteResult.Ok(
+            path = full,
+            water = water,
+            obstacles = onPath(quelle.obstacles, water),
+            restrictedM = eingeschraenkteLaenge(knoten, quelle.eingeschraenkt),
+            restricted = eingeschraenkteZuege(knoten, quelle.eingeschraenkt),
+        )
+    }
+
+    /**
+     * Wie viel der gefundenen Strecke über Abschnitte mit allgemeinem Bootsverbot läuft.
+     *
+     * Gezählt wird nur, wenn **beide** Enden eines Stücks auf einem solchen Abschnitt
+     * liegen. Ein Punkt allein sagt nichts: An der Naht zweier Wege gehört er beiden, und
+     * eine einzelne Kante würde sonst dem falschen zugeschlagen.
+     */
+    private fun eingeschraenkteLaenge(path: List<Node>, punkte: Set<Node>): Double {
+        if (punkte.isEmpty()) return 0.0
+        var m = 0.0
+        for ((a, b) in path.zipWithNext()) {
+            if (a in punkte && b in punkte) m += distanceM(a.toLatLon(), b.toLatLon())
+        }
+        return m
+    }
+
+    /**
+     * Dieselben Stücke als **zusammenhängende Züge**, damit die Karte sie zeichnen kann.
+     *
+     * Eine Kilometerzahl sagt, wie viel gesperrt ist, aber nicht wo. Als eigene Linie über
+     * der Route sieht man auf einen Blick, welcher Teil der Fahrt es betrifft — und ob er
+     * am Anfang liegt, in der Mitte oder kurz vor dem Ziel.
+     */
+    private fun eingeschraenkteZuege(path: List<Node>, punkte: Set<Node>): List<List<LatLon>> {
+        if (punkte.isEmpty()) return emptyList()
+        val zuege = ArrayList<List<LatLon>>()
+        var lauf: ArrayList<LatLon>? = null
+        for ((a, b) in path.zipWithNext()) {
+            if (a in punkte && b in punkte) {
+                val z = lauf ?: ArrayList<LatLon>().also { it.add(a.toLatLon()); lauf = it }
+                z.add(b.toLatLon())
+            } else {
+                lauf?.let { zuege.add(it) }
+                lauf = null
+            }
+        }
+        lauf?.let { zuege.add(it) }
+        return zuege
+    }
+
+    /* ------------------------------ Daten holen ------------------------------ */
+
+    /**
+     * Liest den benötigten Ausschnitt aus den Kacheln — oder `null`, wenn auch nur eine
+     * fehlt. Halb aus Kacheln und halb vom Server zusammenzusetzen wäre der schlechteste
+     * Fall: Die Naht läge irgendwo im Netz, und die Route bräche genau dort ab.
+     */
+    /** Was der Router zum Rechnen braucht — egal woher es kommt. */
+    private class Quelle(
+        val ways: List<List<Node>>,
+        val obstacles: List<Obstacle>,
+        val barriers: Set<Node>,
+        /** Punkte auf Abschnitten mit allgemeinem Bootsverbot — befahrbar, aber gemeldet. */
+        val eingeschraenkt: Set<Node> = emptySet(),
+    )
+
+    /**
+     * Liest den benötigten Ausschnitt aus den Kacheln — oder `null`, wenn auch nur eine
+     * fehlt. Halb aus Kacheln und halb vom Server zusammenzusetzen wäre der schlechteste
+     * Fall: Die Naht läge irgendwo im Netz, und die Route bräche genau dort ab.
+     *
+     * Ausgewertet wird **Kachel für Kachel**, nicht am Stück: Nur so bleibt der Speicher
+     * bei langen Strecken im Rahmen.
+     */
+    private fun fromTiles(
+        from: LatLon,
+        to: LatLon,
+        craft: Craft,
+        tileDir: java.io.File?,
+    ): Quelle? {
+        if (tileDir == null || !tileDir.isDirectory) return null
+        val ids = MapTiles.tilesForRoute(from, to)
+        if (ids.size > MAX_TILES) return null
+        if (MapTiles.missing(tileDir, ids).isNotEmpty()) return null
+
+        val ways = ArrayList<List<Node>>()
+        val obstacles = ArrayList<Obstacle>()
+        val barriers = HashSet<Node>()
+        val eingeschraenkt = HashSet<Node>()
+        val ok = MapTiles.forEach(tileDir, ids) { json ->
+            val w = parseWays(json, craft)
+            ways.addAll(w.ways)
+            eingeschraenkt.addAll(w.eingeschraenkt)
+            obstacles.addAll(parseObstacles(json))
+            barriers.addAll(barrierNodes(json))
+        }
+        return if (ok) Quelle(ways, obstacles, barriers, eingeschraenkt) else null
+    }
+
+    private fun buildQuery(from: LatLon, to: LatLon): String {
+        val south = minOf(from.lat, to.lat) - BBOX_PADDING_DEG
+        val north = maxOf(from.lat, to.lat) + BBOX_PADDING_DEG
+        val west = minOf(from.lon, to.lon) - BBOX_PADDING_DEG
+        val east = maxOf(from.lon, to.lon) + BBOX_PADDING_DEG
+        // Wasserwege und Hindernisse in **einer** Anfrage – eine zweite würde noch einmal
+        // zwei bis vier Sekunden kosten.
+        val query = """
+            [out:json][timeout:30];
+            (
+              way["waterway"~"^($WATERWAYS)${'$'}"]($south,$west,$north,$east);
+              node["waterway"~"^($OBSTACLES)${'$'}"]($south,$west,$north,$east);
+              way["waterway"~"^($OBSTACLES)${'$'}"]($south,$west,$north,$east);
+              node["seamark:notice:category"="no_entry"]($south,$west,$north,$east);
+              node["seamark:notice:function"="prohibition"]($south,$west,$north,$east);
+            );
+            out geom;
+        """.trimIndent()
+        return query
+    }
+
+    /**
+     * Schickt die Abfrage an den ersten Server, der antwortet.
+     *
+     * „Antwortet" heißt: HTTP 200 **und** JSON. Overpass liefert bei Überlast gern 504
+     * oder eine XML-Fehlerseite mit Status 200 — beides als Ergebnis durchzureichen
+     * hieße, dem Nutzer „hier sind keine Wasserwege verzeichnet" zu zeigen, wo in
+     * Wirklichkeit nur der Server müde war.
+     */
+    /**
+     * Wie oft die ganze Liste durchgegangen wird, und wie lange insgesamt höchstens.
+     *
+     * Ein Anlauf reicht nicht: gemessen am 2026-09-04 scheiterten bei beiden erreichbaren
+     * Spiegeln drei von fünf Anfragen mit einem 504. Bei etwa jeder zweiten Anfrage sinkt
+     * die Aussicht auf Misserfolg mit sechs Versuchen unter zwei Prozent. Die Frist
+     * verhindert, dass daraus anderthalb Minuten Warten werden.
+     */
+    private const val ROUNDS = 2
+    private const val DEADLINE_MS = 45_000L
+    private const val PAUSE_MS = 1_000L
+
+    /**
+     * Der zuletzt erfolgreiche Server wird zuerst gefragt. Sonst kostet ein toter erster
+     * Eintrag bei **jeder** Route erneut die volle Wartezeit.
+     */
+    @Volatile
+    private var lastGoodHost: String? = null
+
+    /**
+     * Für Beiwerk wie die Geschwindigkeitsschilder: **ein** Durchgang, keine Wiederholung.
+     * Fehlen die Schilder, ist nichts verloren — die Server aber sind knapp, und eine
+     * Route, die daneben ansteht, soll sie nicht mit Nebensachen belegt vorfinden.
+     */
+    internal fun postOverpass(query: String): String? =
+        (askOverpass(query, rounds = 1) as? OverpassResult.Ok)?.body
+
+    /**
+     * Fragt die Server der Reihe nach, in mehreren Anläufen und mit einer Gesamtfrist.
+     *
+     * Unterscheidet dabei, **warum** es nicht geklappt hat: Hat überhaupt kein Server
+     * geantwortet, ist es ein Verbindungsproblem. Kamen Antworten, waren aber unbrauchbar
+     * (504, XML-Fehlerseite), ist der Dienst überlastet — und dann ist „keine Verbindung
+     * zu den Kartendaten" schlicht die falsche Auskunft.
+     */
+    internal fun askOverpass(query: String, rounds: Int = ROUNDS): OverpassResult {
+        val order = (listOfNotNull(lastGoodHost) + OVERPASS_HOSTS).distinct()
+        val until = System.currentTimeMillis() + DEADLINE_MS
+        var answered = false
+        repeat(rounds) { round ->
+            for (host in order) {
+                if (System.currentTimeMillis() >= until) {
+                    return if (answered) OverpassResult.Busy else OverpassResult.Unreachable
+                }
+                val reply = post(host, query)
+                if (reply.reached) answered = true
+                if (looksLikeJson(reply.body)) {
+                    if (!isComplete(reply.body!!)) {
+                        // Teilantwort: der Server hat abgebrochen. Wie ein Fehlschlag
+                        // behandeln — der nächste Server hat vielleicht mehr Luft.
+                        answered = true
+                        continue
+                    }
+                    lastGoodHost = host
+                    return OverpassResult.Ok(reply.body)
+                }
+            }
+            if (round < rounds - 1) runCatching { Thread.sleep(PAUSE_MS) }
+        }
+        return if (answered) OverpassResult.Busy else OverpassResult.Unreachable
+    }
+
+    /** [reached] sagt, ob der Server überhaupt geantwortet hat – egal mit was. */
+    private class Reply(val body: String?, val reached: Boolean)
+
+    private fun post(host: String, query: String): Reply {
+        var reached = false
+        val body = runCatching {
+            val c = (URL(host).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = CONNECT_MS
+                // Kurz gehalten: erfolgreiche Antworten kamen in 2,5 bis 9 s, ein 504 erst
+                // nach 35 bis 40. Ohne diesen Schnitt wartet man auf jeden müden Server
+                // eine halbe Minute, bevor der nächste drankommt.
+                readTimeout = READ_MS
+                doOutput = true
+                setRequestProperty("User-Agent", "BoatSpeedy")
+                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            }
+            try {
+                c.outputStream.use { it.write(("data=" + URLEncoder.encode(query, "UTF-8")).toByteArray()) }
+                // Hier steht die Verbindung und die Abfrage ist draußen — der Server ist
+                // also erreichbar. Was danach passiert, ist seine Sache.
+                //
+                // Vorher stand diese Zeile hinter `responseCode`, und das war falsch: ein
+                // 504 kommt erst nach 35 bis 40 s, unsere Lesefrist liegt bei 15. Der
+                // Abbruch flog als Zeitüberschreitung heraus, `reached` blieb falsch, und
+                // die App meldete „keine Verbindung zu den Kartendaten" — obwohl alle drei
+                // Server erreichbar und bloß überlastet waren.
+                reached = true
+                val code = c.responseCode
+                if (code != 200) return@runCatching null
+                c.inputStream.bufferedReader().use { it.readText() }
+            } finally {
+                c.disconnect()
+            }
+        }.getOrNull()
+        return Reply(body, reached)
+    }
+
+    private const val CONNECT_MS = 8_000
+    private const val READ_MS = 15_000
+
+    /** Overpass antwortet im Fehlerfall mit XML, teils sogar unter Status 200. */
+    internal fun looksLikeJson(body: String?): Boolean =
+        body != null && body.trimStart().startsWith("{")
+
+    /**
+     * Ist die Antwort **vollständig**, oder nur so weit der Server kam?
+     *
+     * Overpass bricht eine zu große Abfrage nach seiner Zeitgrenze ab und liefert
+     * trotzdem Status 200 mit gültigem JSON — nur eben mit den Daten, die bis dahin
+     * zusammengekommen sind, und einem `remark` daneben. Gemessen: eine Abfrage über
+     * den Rhein von Basel bis Mainz kam mit *null* Elementen und
+     * „runtime error: Query timed out" zurück.
+     *
+     * Ungeprüft durchgereicht ergibt das ein Wegenetz mit Löchern, und die App meldet
+     * dann „kein durchgehender Wasserweg" — ehrlich, aber mit falscher Begründung: Der
+     * Weg ist da, nur die Antwort war es nicht. Eine unvollständige Auskunft ist
+     * schlimmer als gar keine, weil sie wie ein Ergebnis aussieht.
+     */
+    internal fun isComplete(body: String): Boolean {
+        // Bewusst über den Text und nicht über JSONObject: Die Antwort ist bei langen
+        // Strecken megabytegroß, und sie nur wegen einer Bemerkung vollständig zu
+        // zerlegen wäre Verschwendung. Nebenbei bleibt es damit im Unit-Test prüfbar —
+        // dort ist org.json nur eine Attrappe, die immer Leerwerte liefert.
+        return REMARK.findAll(body).none { m ->
+            val remark = m.groupValues[1]
+            remark.contains("runtime error", ignoreCase = true) ||
+                remark.contains("timed out", ignoreCase = true)
+        }
+    }
+
+    /**
+     * Ohne Zeilenanker, weil Overpass alles in eine Zeile schreibt. Gesucht wird nach
+     * **Overpass' eigenem Wortlaut**, nicht nach jeder Bemerkung: `remark` gibt es auch
+     * als OSM-Merkmal an Wegen, und das darf eine Route nicht scheitern lassen.
+     */
+    private val REMARK = Regex(""""remark"\s*:\s*"((?:[^"\\]|\\.)*)"""")
+
+    /**
+     * Die Wege eines Ausschnitts, dazu die Punkte auf eingeschränkten Abschnitten.
+     *
+     * Getrennt gehalten statt am Weg vermerkt: Das Netz wird auf gerundete Punkte gebaut,
+     * und danach ist der einzelne Weg nicht mehr zu erkennen. Über die Punktmenge lässt
+     * sich hinterher an der fertigen Strecke ablesen, wie viel davon eingeschränkt war —
+     * ohne den Graphen dafür umzubauen.
+     */
+    private class Wege(val ways: List<List<Node>>, val eingeschraenkt: Set<Node>)
+
+    private fun parseWays(json: String, craft: Craft): Wege = runCatching {
+        val elements = JSONObject(json).optJSONArray("elements")
+            ?: return@runCatching Wege(emptyList(), emptySet())
+        val ways = ArrayList<List<Node>>()
+        val eingeschraenkt = HashSet<Node>()
+        for (i in 0 until elements.length()) {
+            val el = elements.getJSONObject(i)
+            val tags = el.optJSONObject("tags")
+            if (tags?.optString("waterway") !in navigableFor(craft)) continue
+            val zugang = zugang(tags, craft)
+            if (zugang == Zugang.GESPERRT) continue
+            val geom = el.optJSONArray("geometry") ?: continue
+            val nodes = (0 until geom.length()).map { g ->
+                val p = geom.getJSONObject(g)
+                Node.of(p.getDouble("lat"), p.getDouble("lon"))
+            }
+            if (nodes.size < 2) continue
+            ways.add(nodes)
+            if (zugang == Zugang.EINGESCHRAENKT) eingeschraenkt.addAll(nodes)
+        }
+        Wege(ways, eingeschraenkt)
+    }.getOrDefault(Wege(emptyList(), emptySet()))
+
+    private val NAVIGABLE = setOf("river", "canal", "fairway")
+
+    /** Hindernisse aus derselben Antwort lesen; Wege werden auf ihren Mittelpunkt reduziert. */
+    private fun parseObstacles(json: String): List<Obstacle> = runCatching {
+        val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptyList()
+        (0 until elements.length()).mapNotNull { i ->
+            val el = elements.getJSONObject(i)
+            val tags = el.optJSONObject("tags") ?: return@mapNotNull null
+            // `lock=yes` gehört dazu, und zwar als Erstes: Die Schleusenkammer trägt in
+            // OSM `waterway=canal` und daneben `lock=yes` — an ihr hängen Name,
+            // Öffnungszeiten und Telefon. Wer nur auf `waterway` schaut, findet höchstens
+            // die Tore, und die wissen nichts.
+            val kind = when {
+                tags.optString("lock") == "yes" -> ObstacleKind.LOCK
+                else -> when (tags.optString("waterway")) {
+                    "lock_gate" -> ObstacleKind.LOCK
+                    "weir" -> ObstacleKind.WEIR
+                    "sluice_gate" -> ObstacleKind.SLUICE
+                    "dam" -> ObstacleKind.DAM
+                    else -> return@mapNotNull null
+                }
+            }
+            val lat: Double
+            val lon: Double
+            if (el.has("lat")) {
+                lat = el.getDouble("lat"); lon = el.getDouble("lon")
+            } else {
+                val geom = el.optJSONArray("geometry") ?: return@mapNotNull null
+                if (geom.length() == 0) return@mapNotNull null
+                val mid = geom.getJSONObject(geom.length() / 2)
+                lat = mid.getDouble("lat"); lon = mid.getDouble("lon")
+            }
+            fun tag(key: String) = tags.optString(key).takeIf { it.isNotBlank() }
+            Obstacle(
+                lat, lon, kind,
+                // `lock_name` ist der genauere: `name` trägt an einem Schleusenkanal
+                // gelegentlich den Namen des Kanals statt den der Schleuse.
+                name = tag("lock_name") ?: tag("name"),
+                openingHours = tag("opening_hours"),
+                phone = tag("phone"),
+                vhf = tag("vhf"),
+                maxLengthM = tag("maxlength"),
+                maxWidthM = tag("maxwidth"),
+                cemt = tag("CEMT"),
+            )
+        }
+    }.getOrDefault(emptyList())
+
+    /** Welche Hindernisse dicht genug am Weg liegen, um ihn zu betreffen. */
+    private fun onPath(all: List<Obstacle>, path: List<LatLon>): List<Obstacle> =
+        zusammenlegen(
+            all.filter { o ->
+                val p = LatLon(o.lat, o.lon)
+                path.any { distanceM(it, p) <= OBSTACLE_NEAR_M }
+            }.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) },
+        )
+
+    /** So nah beieinander gehört zu **einer** Schleuse. */
+    private const val LOCK_SAME_M = 200.0
+
+    /**
+     * Eine Schleuse besteht in OSM aus mehreren Stücken: die Kammer mit `lock=yes` und je
+     * ein Tor an beiden Enden. Ungefiltert stünden dreimal „Schleuse" auf derselben
+     * Stelle, und zwei davon wüssten nichts. Beisammenliegende werden deshalb zu einer
+     * zusammengelegt — es bleibt die mit der Auskunft.
+     */
+    private fun zusammenlegen(alle: List<Obstacle>): List<Obstacle> {
+        val raus = ArrayList<Obstacle>()
+        for (o in alle.sortedByDescending { it.hasInfo }) {
+            val doppelt = raus.any {
+                it.kind == o.kind && o.kind == ObstacleKind.LOCK &&
+                    distanceM(LatLon(it.lat, it.lon), LatLon(o.lat, o.lon)) <= LOCK_SAME_M
+            }
+            if (!doppelt) raus.add(o)
+        }
+        return raus
+    }
+
+    /* ------------------------------ Wegenetz ------------------------------ */
+
+    /** Ein Knoten des Netzes; auf ganze Mikrograd gerundet, damit geteilte Punkte zusammenfallen. */
+    private data class Node(val lat: Int, val lon: Int) {
+        fun toLatLon() = LatLon(lat / SNAP, lon / SNAP)
+        companion object {
+            fun of(lat: Double, lon: Double) =
+                Node(Math.round(lat * SNAP).toInt(), Math.round(lon * SNAP).toInt())
+        }
+    }
+
+    /**
+     * Punkte, an denen das Netz aufgetrennt wird: Wehre und Dämme sind nicht passierbar,
+     * ebenso ein Einfahrtsverbot. Schleusentore gehören **nicht** dazu — durch eine
+     * Schleuse kommt man, sie kostet nur Zeit.
+     */
+    private fun barrierNodes(json: String): Set<Node> = runCatching {
+        val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptySet()
+        (0 until elements.length()).mapNotNull { i ->
+            val el = elements.getJSONObject(i)
+            val tags = el.optJSONObject("tags") ?: return@mapNotNull null
+            val blocking = tags.optString("waterway") in setOf("weir", "dam") ||
+                tags.optString("seamark:notice:category") == "no_entry" ||
+                tags.optString("seamark:notice:function") == "prohibition"
+            if (!blocking) return@mapNotNull null
+            when {
+                el.has("lat") -> Node.of(el.getDouble("lat"), el.getDouble("lon"))
+                else -> el.optJSONArray("geometry")?.takeIf { it.length() > 0 }?.let { geom ->
+                    val p = geom.getJSONObject(geom.length() / 2)
+                    Node.of(p.getDouble("lat"), p.getDouble("lon"))
+                }
+            }
+        }.toSet()
+    }.getOrDefault(emptySet())
+
+    /**
+     * Aufschlag auf Abschnitte mit allgemeinem Bootsverbot — **nur beim Vergleichen**.
+     *
+     * Ein solcher Abschnitt ist fürs Kanu befahrbar, aber er soll nicht gewählt werden,
+     * wenn es eine freie Möglichkeit gibt. Der Wegsuche sind Meter sonst gleich viel wert:
+     * Bei Wettin an der Saale nahm sie den Kraftwerksgraben (`boat=no`, 1598 m) statt des
+     * Schleusenarms, weil der 27 m länger war. Zählt der Graben dreifach, gewinnt der
+     * Schleusenarm — und die Fahrt ist tatsächlich nur 30 m länger.
+     *
+     * Der Faktor beantwortet die Frage „wie weit darf der Umweg sein, damit er sich
+     * lohnt": bis zum Dreifachen. Genug Luft für eine Schleuse, die einen Bogen macht,
+     * ohne dass jemand zehn Kilometer paddelt, um 500 m Verbot auszuweichen.
+     *
+     * **Er verbietet nichts.** Gibt es nur den gesperrten Weg — bei Zeutsch sind es 44 km
+     * am Stück —, wird er genommen. Und er verfälscht keine Anzeige: Länge, Verbrauch und
+     * die roten Abschnitte werden hinterher aus den echten Koordinaten gerechnet.
+     */
+    private const val RESTRICTED_COST = 3.0
+
+    private fun buildGraph(
+        ways: List<List<Node>>,
+        barriers: Set<Node>,
+        eingeschraenkt: Set<Node> = emptySet(),
+    ): Map<Node, List<Pair<Node, Double>>> {
+        val g = HashMap<Node, MutableList<Pair<Node, Double>>>()
+        for (way in ways) {
+            for ((a, b) in way.zipWithNext()) {
+                if (a == b) continue
+                // Kein Weg durch ein Wehr oder an einem Einfahrtsverbot vorbei.
+                if (a in barriers || b in barriers) continue
+                var d = distanceM(a.toLatLon(), b.toLatLon())
+                if (a in eingeschraenkt && b in eingeschraenkt) d *= RESTRICTED_COST
+                g.getOrPut(a) { mutableListOf() }.add(b to d)
+                g.getOrPut(b) { mutableListOf() }.add(a to d)
+            }
+        }
+        return g
+    }
+
+    private fun nearestNode(nodes: Collection<Node>, to: LatLon): Node? =
+        nodes.minByOrNull { distanceM(it.toLatLon(), to) }
+
+    /** Zerlegt das Netz in zusammenhängende Teile. */
+    private fun components(graph: Map<Node, List<Pair<Node, Double>>>): List<List<Node>> {
+        val seen = HashSet<Node>()
+        val out = ArrayList<List<Node>>()
+        for (s in graph.keys) {
+            if (!seen.add(s)) continue
+            val comp = ArrayList<Node>()
+            val stack = ArrayDeque<Node>().apply { add(s) }
+            while (stack.isNotEmpty()) {
+                val n = stack.removeLast()
+                comp.add(n)
+                for ((m, _) in graph[n].orEmpty()) if (seen.add(m)) stack.add(m)
+            }
+            out.add(comp)
+        }
+        return out
+    }
+
+    /**
+     * Sucht das Teilnetz, das Start und Ziel gemeinsam am besten bedient, und liefert die
+     * beiden Einstiegspunkte. null, wenn keines beide innerhalb [maxSnap] erreicht.
+     */
+    private fun pickComponent(
+        graph: Map<Node, List<Pair<Node, Double>>>,
+        from: LatLon,
+        to: LatLon,
+        maxSnap: Double,
+    ): Pair<Node, Node>? {
+        var best: Triple<Double, Node, Node>? = null
+        for (comp in components(graph)) {
+            val s = comp.minByOrNull { distanceM(it.toLatLon(), from) } ?: continue
+            val z = comp.minByOrNull { distanceM(it.toLatLon(), to) } ?: continue
+            val ds = distanceM(s.toLatLon(), from)
+            val dz = distanceM(z.toLatLon(), to)
+            if (ds > maxSnap || dz > maxSnap) continue
+            if (best == null || ds + dz < best!!.first) best = Triple(ds + dz, s, z)
+        }
+        return best?.let { it.second to it.third }
+    }
+
+    private fun shortestPath(
+        graph: Map<Node, List<Pair<Node, Double>>>,
+        start: Node,
+        goal: Node,
+    ): List<Node>? {
+        if (start == goal) return listOf(start)
+        val dist = HashMap<Node, Double>().apply { put(start, 0.0) }
+        val prev = HashMap<Node, Node>()
+        val seen = HashSet<Node>()
+        val queue = PriorityQueue<Pair<Node, Double>>(compareBy { it.second })
+        queue.add(start to 0.0)
+
+        while (queue.isNotEmpty()) {
+            val (node, d) = queue.poll()!!
+            if (!seen.add(node)) continue
+            if (node == goal) break
+            for ((next, w) in graph[node].orEmpty()) {
+                if (next in seen) continue
+                val nd = d + w
+                if (nd < (dist[next] ?: Double.MAX_VALUE)) {
+                    dist[next] = nd
+                    prev[next] = node
+                    queue.add(next to nd)
+                }
+            }
+        }
+        if (goal !in dist) return null
+        val out = ArrayList<Node>()
+        var cur: Node? = goal
+        while (cur != null) { out.add(cur); cur = prev[cur] }
+        return out.reversed()
+    }
+}
