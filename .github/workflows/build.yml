@@ -70,10 +70,18 @@ jobs:
         if: ${{ env.IS_TAG == 'true' }}
         run: cp app/build/outputs/apk/release/app-release.apk "BoatSpeedy-${{ github.ref_name }}-release.apk"
 
+      # Der Tag heisst v1.4.0, das Release soll "BoatSpeedy 1.4.0" heissen wie alle davor.
+      # Der Dateiname der APK behaelt das v: darauf zeigt der Binaries-Eintrag bei F-Droid.
+      - name: Versionsnummer ohne v
+        if: ${{ env.IS_TAG == 'true' }}
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
       - name: Attach release APK to GitHub Release
         if: ${{ env.IS_TAG == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
+          # Ohne name: nimmt die Aktion den Tag, und das Release hiess "v1.4.0".
+          name: BoatSpeedy ${{ env.VERSION }}
           files: BoatSpeedy-*-release.apk
 
       # --- Rolling DEV-Build: bei Push auf den dev-Branch ---

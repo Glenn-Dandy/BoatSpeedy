@@ -80,16 +80,35 @@ object UpdateChecker {
         return null
     }
 
-    /** Vergleicht "1.2.3"-Versionen numerisch. >0 wenn a neuer als b. */
+    /**
+     * Vergleicht "1.2.3"-Versionen numerisch. >0 wenn a neuer als b.
+     *
+     * **Ein Zusatz wie `-dev267` macht die Fassung älter, nicht gleich alt.** Vorher wurde
+     * die ganze Zeichenkette an den Punkten zerlegt, und aus `1.4.0-dev267` wurde
+     * `[1, 4, 0-dev267]`; das letzte Stück ließ sich nicht als Zahl lesen und zählte als
+     * 0. Damit galt ein Entwicklungsbau als genauso neu wie das fertige 1.4.0, und wer
+     * mitgetestet hatte, bekam die Veröffentlichung nie angeboten.
+     */
     fun compareVersions(a: String, b: String): Int {
-        val pa = a.split(".").map { it.toIntOrNull() ?: 0 }
-        val pb = b.split(".").map { it.toIntOrNull() ?: 0 }
+        val pa = zahlen(a)
+        val pb = zahlen(b)
         val n = maxOf(pa.size, pb.size)
         for (i in 0 until n) {
             val x = pa.getOrElse(i) { 0 }
             val y = pb.getOrElse(i) { 0 }
             if (x != y) return x - y
         }
-        return 0
+        // Gleiche Zahlen: Wer keinen Zusatz trägt, ist die fertige Fassung und gewinnt.
+        val za = a.substringAfter('-', "")
+        val zb = b.substringAfter('-', "")
+        return when {
+            za == zb -> 0
+            za.isEmpty() -> 1
+            zb.isEmpty() -> -1
+            else -> za.compareTo(zb)
+        }
     }
+
+    private fun zahlen(v: String) =
+        v.substringBefore('-').split(".").map { it.toIntOrNull() ?: 0 }
 }
