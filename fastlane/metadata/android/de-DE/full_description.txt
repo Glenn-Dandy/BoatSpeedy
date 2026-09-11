@@ -1,26 +1,29 @@
-Ein GPS-Boots-Tacho für Elektro- / Trolling-Motoren mit einer Bluetooth-Batterie (BLE). Große, gut ablesbare Geschwindigkeitsanzeige für die Kontrolle im langsamen Bereich (~5–10 km/h), Live-Batteriedaten und eine Schätzung, wie weit und wie lange du noch fahren kannst — alles auf einem Bild.
+GPS-Bootstacho und Navigation für kleine Boote. Mit Motor, mit Paddel, mit Riemen. Wer einen Akku mit Bluetooth-BMS fährt, bekommt Live-Werte und Reichweite dazu.
 
-Tempo & Fahrt
-* Große Geschwindigkeitsanzeige; km/h oder Knoten, Nachkommastellen einstellbar
-* Fahrt Start/Stopp über Vordergrunddienst — misst auch bei ausgeschaltetem Display weiter
-* Trip-Distanz und Statistik (Max, Ø, Zeit, Verbrauch, Energie, Wh/km)
-* Satelliten-/GPS-Status mit Glättung des rohen Werts (wichtig bei langsamer Fahrt)
+Navigation
+* Ziel auf der Karte setzen: Luftlinie oder Route entlang der Wasserwege, mit Entfernung und geschätztem Verbrauch
+* Kartendaten aufs Gerät laden, danach Routing ohne Netz bis 600 km
+* Fahrzeug Motorboot oder Kanu entscheidet, welche Verbote gelten
+* Schleusen und Wehre auf der Route, antippbar mit Zeiten, Telefon und Kammermaß
+* Seezeichen antippbar, Geschwindigkeitsschilder zeigen ihren Wert
+* Karte nach Norden oder in Fahrtrichtung, Marker und Karte gleiten
 
-Batterie-Auswertung (Bluetooth LE)
-* Mehrere Batterien, mehrere gleichzeitig verbunden, Verschaltung Einzeln / Parallel / Reihe
-* Live-Werte: Spannung, Strom, Ladezustand, Rest-Ah, Temperatur, Zellen
-* Reichweite & Restzeit bei aktueller Geschwindigkeit, zeitlich gemittelt (kein Zappeln)
-* BMS-Unterstützung: JBD / Jiabaida (getestet), Daly und JK / Jikong (experimentell)
+Tempo und Fahrt
+* Große Anzeige, km/h oder Knoten, Nachkommastellen einstellbar
+* Start und Stopp über Vordergrunddienst, misst bei dunklem Display weiter
+* Fahrtenhistorie mit Distanz, Zeiten, Ah, Wh und Wh/km, GPX-Export und -Import
+* Satelliten- und GPS-Status, Glättung des rohen Werts
 
-Fahrten, Karten & Wetter
-* Fahrten-Historie mit Track-Karte (Richtungspfeile, Start/Ziel, Antippen für Details)
-* GPX-Export und -Import
-* Live-Karte (OpenStreetMap) mit DWD-Regenradar-Overlay (RADOLAN-RV Nowcast) und Blitzen
-* DWD-Wetterwarnungen (Gewitter / Sturm) mit Benachrichtigung und Dashboard-Banner
-* Anker-Wache mit Abdrift-Alarm
+Batterie (Bluetooth LE)
+* Mehrere Akkus, Verschaltung Einzeln, Parallel oder Reihe
+* Spannung, Strom, Ladezustand, Rest-Ah, Temperatur, Zellen
+* Reichweite und Restzeit beim aktuellen Tempo, zeitlich gemittelt
+* JBD und Redodo/LiTime/Power Queen an Hardware geprüft, Daly und JK experimentell
+* Lademodus mit Restzeit und Meldung bei einstellbarem Ladestand
 
-Laden & Alarme
-* Lademodus: „Voll in", „Batterie voll" und Meldung bei einstellbarem Ladestand
-* Warnung bei niedrigem Ladestand, Auto-Pause, mitgelieferte Alarmtöne
+Wetter und Sicherheit
+* Regenradar des DWD, Messwerte der nächsten Station, Windrichtung
+* Wetterwarnungen bei Gewitter und Sturm
+* Ankerwache mit Abdrift-Alarm
 
-Vollständig frei / Open Source (ohne Google Play Services). Karten © OpenStreetMap-Mitwirkende; Wetterdaten vom Deutschen Wetterdienst (DWD), CC BY 4.0.
+Frei und quelloffen, ohne Google Play Services. Karten und Wasserwege © OpenStreetMap-Mitwirkende (ODbL), Seezeichen OpenSeaMap (CC BY-SA), Wetter vom Deutschen Wetterdienst (CC BY 4.0).

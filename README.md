@@ -1,9 +1,8 @@
 # BoatSpeedy
 
-**GPS-Bootstacho für Android** mit **Bluetooth-Batterieauswertung**, **Reichweite** und
-**Navigation auf dem Wasser**. Gebaut für Elektro- und Trollingmotoren an einem
-BLE-Akku. Großer Tempowert für den langsamen Bereich (5 bis 10 km/h), Live-Batteriedaten,
-und Routen entlang der Wasserwege, die auch ohne Netz gerechnet werden.
+**GPS-Bootstacho und Navigation für kleine Boote.** Mit Motor, mit Paddel, mit Riemen.
+Routen entlang der Wasserwege, gerechnet auch ohne Netz. Wer einen Akku mit Bluetooth-BMS
+fährt, bekommt Live-Werte und Reichweite dazu.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
 ![Version](https://img.shields.io/badge/version-1.4.0-blue)
@@ -22,9 +21,9 @@ und Routen entlang der Wasserwege, die auch ohne Netz gerechnet werden.
 
 ## Wofür
 
-E-Boote und Kajaks mit Trollingmotor laufen meist auf einem LiFePO4-Akku, dessen BMS per
-Bluetooth funkt. BoatSpeedy verbindet einen genauen GPS-Tacho mit diesem Akku: Tempo,
-Stromverbrauch und Restreichweite auf einem Bild, dazu die Frage, wie man zum Ziel kommt.
+Ohne Akku fehlt nur die Batteriekachel, alles andere braucht nur das Handy. Das Fahrzeug
+steht auf Motorboot oder Kanu, danach richten sich die Verbote: `boat=no` sperrt das
+Motorboot, fürs Kanu ist es ein Hinweis. Auf der oberen Saale sind das 44 km am Stück.
 
 ## Navigation
 
@@ -186,17 +185,15 @@ MIT, siehe [LICENSE](LICENSE).
 
 🇬🇧 **English** · [🇩🇪 Deutsch](#boatspeedy)
 
-**GPS boat speedometer for Android** with **Bluetooth battery analytics**, **range
-estimation** and **navigation on the water**. Built for electric and trolling motors on a
-BLE battery. A large speed readout for the slow range (5 to 10 km/h), live battery data,
-and routes along the waterways that work without a connection.
+**GPS boat speedometer and navigation for small boats.** Under motor, paddle or oars.
+Routes along the waterways, computed without a connection. With a Bluetooth BMS battery
+you also get live values and range.
 
 ### What it is for
 
-Electric boats and kayaks with a trolling motor usually run on a LiFePO4 pack whose BMS
-talks Bluetooth. BoatSpeedy pairs a precise GPS speedometer with that battery: speed,
-draw and remaining range on one screen, plus the question of how to get where you are
-going.
+Without a battery you only lose the battery tile, the rest needs nothing but the phone.
+The craft is motorboat or canoe, and the bans follow from it: `boat=no` stops a
+motorboat, for a canoe it is a hint. On the upper Saale that is 44 km in one stretch.
 
 ### Navigation
 
