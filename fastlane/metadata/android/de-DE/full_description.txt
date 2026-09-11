@@ -1,4 +1,4 @@
-GPS-Bootstacho und Navigation für kleine Boote. Mit Motor, mit Paddel, mit Riemen. Wer einen Akku mit Bluetooth-BMS fährt, bekommt Live-Werte und Reichweite dazu.
+GPS-Bootstacho und Navigation für kleine Boote. Mit Motor, mit Paddel, mit Riemen. Mit Bluetooth-BMS oder Coulometer am Akku kommen Live-Werte und Reichweite dazu.
 
 Navigation
 * Ziel auf der Karte setzen: Luftlinie oder Route entlang der Wasserwege, mit Entfernung und geschätztem Verbrauch
@@ -19,6 +19,7 @@ Batterie (Bluetooth LE)
 * Spannung, Strom, Ladezustand, Rest-Ah, Temperatur, Zellen
 * Reichweite und Restzeit beim aktuellen Tempo, zeitlich gemittelt
 * JBD und Redodo/LiTime/Power Queen an Hardware geprüft, Daly und JK experimentell
+* Coulometer mit Hall-Sensor für Akkus ohne eigenes Bluetooth, ebenfalls geprüft
 * Lademodus mit Restzeit und Meldung bei einstellbarem Ladestand
 
 Wetter und Sicherheit
