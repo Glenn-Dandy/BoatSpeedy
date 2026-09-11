@@ -2,6 +2,36 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.4.0] – 2026-09-11
+
+### Neu
+- **Navigation.** Ziel auf der Karte setzen: Luftlinie oder Route entlang der
+  Wasserwege, mit Entfernung und geschätztem Verbrauch. Ein Kurspfeil zeigt, wie weit zu
+  drehen ist.
+- **Kartendaten auf dem Gerät.** Wasserwege als Kacheln aus OpenStreetMap, erzeugt über
+  Geofabrik und ausgeliefert vom eigenen Server. Einmal geladen rechnet das Handy allein,
+  bis 600 km Zielentfernung; ohne Kacheln über Overpass bis 60 km. Fehlende und veraltete
+  Kacheln werden vor einer Route angeboten.
+- **Fahrzeug Motorboot oder Kanu** entscheidet, welche Verbote gelten. Die
+  Zugangsmerkmale werden gestuft gelesen: `boat=no` plus `canoe=yes` heißt „Boote nein,
+  Kanu ja". Gesperrte Abschnitte kosten bei der Wegsuche das Dreifache und werden rot
+  gezeichnet.
+- **Schleusen und Wehre** auf der Route, antippbar mit Öffnungszeiten, Telefon,
+  Funkkanal und Kammermaß.
+- **Seezeichen antippbar**, Geschwindigkeitsschilder zeigen ihren Wert.
+- **Kartenausrichtung** Norden oben oder Fahrtrichtung oben; Marker und Karte gleiten
+  per Koppelnavigation statt von Messung zu Messung zu springen.
+- **Wetteransicht** mit Regenradar, Messwerten der nächsten DWD-Station und Windrichtung.
+- **Coulometer mit Hall-Sensor** für Akkus ohne eigenes Bluetooth.
+
+### Behoben
+- Routing riss an Kachelgrenzen ab, wenn ein Fluss aus dem Rechteck zwischen Start und
+  Ziel auswich. Der Rand ist jetzt mindestens eine Kachelbreite.
+- `boat=no` sperrte auch das Kanu, obwohl es gegen Motoren gemeint ist.
+- Die Karte drehte ruckelnd, und der Pfeil zeigte dabei in die falsche Richtung.
+- Veraltete Kacheln wurden nie zum Auffrischen angeboten.
+- Die Absage „kein durchgehender Wasserweg" nannte den Grund nicht.
+
 ## [1.3.4] – 2026-08-29
 
 ### Neu
