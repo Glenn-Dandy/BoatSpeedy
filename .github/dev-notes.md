@@ -1,21 +1,19 @@
-## Since 1.3.4
+## Seit 1.4.0
 
-**Navigation**
-- Long-press the map to set a destination: straight line or a route along the waterways, with distance and estimated amp hours. Survives screen changes, clears at ten metres.
-- A course arrow shows how far to turn to head at the destination. Greyed out while stopped.
-- Routes avoid what the map forbids and cannot pass a weir. Locks and weirs near the route are listed bottom left.
-- Settings → Navigation: **craft** (motorboat or canoe) decides which bans apply; **seamarks** from OpenSeaMap, on by default.
-- **Speed limit signs show their value** — OpenSeaMap draws the sign but leaves it empty. Tap one for the original text.
+**Behoben**
+- Update-Prüfung meldete „aktuell", wenn ein DEV-Bau installiert war. `1.4.0-dev267`
+  zählte als 1.4.0, die Veröffentlichung wurde nie angeboten.
+- Release hieß nach dem Tag „v1.4.0" statt „BoatSpeedy 1.4.0".
 
-- **The position marker glides**, the way a navigation device does: instead of interpolating towards the last fix — a place you have already passed — it computes from speed and heading where the boat is now, and eases that estimate towards each new measurement. Display only; the recorded track, distance and consumption still use the raw fixes. It freezes after three seconds without a fix, and jumps rather than sliding when a fix lands far away. Both maps do this.
-- Turning off satellite details now hides the whole status line, dot and "Fix" included.
+**Sonst**
+- Beschreibungen nennen Boote ohne Motor und das Coulometer mit Hall-Sensor.
 
-**Weather**
-- A Weather entry in the menu: rain radar, plus what the nearest DWD station measures now — in its own strip under the title bar, large enough to read, with a button to get back to your position after panning around.
-- The radar no longer reloads when you zoom, and no longer draws the raw grid as squares.
+## Since 1.4.0
 
-**Battery**
-- Coulometers supported (the Hall-sensor kind reporting as `WBMS`).
-- The scan no longer hides devices that advertise no service.
+**Fixed**
+- The update check said "up to date" on a dev build. `1.4.0-dev267` counted as 1.4.0, so
+  the release was never offered.
+- The release was named after the tag, "v1.4.0" instead of "BoatSpeedy 1.4.0".
 
-A route is a suggestion, not a fairway, and OpenSeaMap is no substitute for official charts.
+**Otherwise**
+- Descriptions now mention boats without a motor and the coulometer with a Hall sensor.

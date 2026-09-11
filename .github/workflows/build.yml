@@ -119,6 +119,10 @@ jobs:
         # Die inhaltlichen Punkte stehen gepflegt in .github/dev-notes.md – automatisch
         # aus den Commits erzeugt waere es unbrauchbar, weil dort auch Aenderungen
         # auftauchen, die waehrend der Dev-Phase wieder zurueckgenommen wurden.
+        #
+        # Die Datei zaehlt auf, was **seit der letzten Veroeffentlichung** dazugekommen
+        # ist, kurz und in beiden Sprachen. Beim Release wandert der Inhalt in die
+        # Release-Notizen und die Datei faengt wieder von vorn an.
         run: |
           {
             cat <<'HEAD'
