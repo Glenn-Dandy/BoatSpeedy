@@ -1,0 +1,9 @@
+1.4.0
+* Set a destination on the map: straight line or a route along the waterways,
+  with distance and estimated amp hours
+* Download map data for the trip — routing then works offline
+* Craft type, motorboat or canoe, decides which bans apply
+* Locks and weirs on the route; tap a lock for its hours and phone
+* Tap seamarks to read them; speed signs show their number
+* The map turns with your course, marker and map glide
+* Weather screen with radar, measurements and wind direction

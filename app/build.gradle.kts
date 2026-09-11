@@ -44,7 +44,7 @@ android {
         applicationId = "de.kewl.boatspeedy"
         minSdk = 33
         targetSdk = 35
-        versionCode = 40                       // manuell, altes kleines Schema (steigt je Release)
+        versionCode = 41                       // manuell, altes kleines Schema (steigt je Release)
         versionName = "1.4.0"                   // manuell (F-Droid-lesbar + reproduzierbar)
         resValue("string", "app_name", "BoatSpeedy")
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
