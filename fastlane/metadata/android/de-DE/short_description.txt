@@ -1,1 +1,1 @@
-GPS-Boots-Tacho mit Batterie-Auswertung, Reichweite, Fahrten und Wetterradar
+GPS-Tacho und Wasserweg-Navigation für Boote, mit Batterie-Auswertung

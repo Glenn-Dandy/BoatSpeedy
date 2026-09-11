@@ -1,26 +1,29 @@
-A GPS boat speedometer for electric / trolling motors running on a Bluetooth (BLE) battery. A large, easy-to-read speed readout for low-speed control (~5–10 km/h), live battery data, and an estimate of how far and how long you can still go — all on one screen.
+GPS boat speedometer and navigation for small boats. Under motor, paddle or oars. With a Bluetooth BMS battery you also get live values and range.
 
-Speed & trip
-* Large speed readout; km/h or knots, configurable decimals
-* Start/Stop trip via a foreground service — keeps measuring with the screen off
-* Trip distance and stats (max, average, time, consumption, energy, Wh/km)
-* Satellite & GPS status with smoothing of the raw value (important at slow speeds)
+Navigation
+* Set a destination on the map: straight line or a route along the waterways, with distance and estimated draw
+* Load map data onto the device, then route offline up to 600 km
+* Craft type, motorboat or canoe, decides which bans apply
+* Locks and weirs on the route, tap one for hours, phone and chamber size
+* Seamarks are tappable, speed signs show their number
+* Map north up or course up, marker and map glide
 
-Battery analytics (Bluetooth LE)
-* Multiple batteries, several connected at once, single / parallel / series wiring
-* Live values: voltage, current, state of charge, remaining Ah, temperature, cells
-* Range & remaining time at the current speed, time-averaged so it doesn't jitter
-* BMS support: JBD / Jiabaida (tested), Daly and JK / Jikong (experimental)
+Speed and trip
+* Large readout, km/h or knots, decimals configurable
+* Start and stop through a foreground service, keeps measuring with the screen off
+* Trip history with distance, times, Ah, Wh and Wh/km, GPX export and import
+* Satellite and GPS status, smoothing of the raw value
 
-Trips, maps & weather
-* Trip history with a track map (direction arrows, start/finish, tap for details)
-* GPX export and import
-* Live map (OpenStreetMap) with a DWD rain radar overlay (RADOLAN-RV nowcast) and lightning
-* DWD weather warnings (thunderstorm / storm) with notification and dashboard banner
-* Anchor watch with drift alarm
+Battery (Bluetooth LE)
+* Several packs, wiring single, parallel or series
+* Voltage, current, state of charge, remaining Ah, temperature, cells
+* Range and remaining time at the current speed, time-averaged
+* JBD and Redodo/LiTime/Power Queen verified on hardware, Daly and JK experimental
+* Charging mode with time to full and an alert at a chosen level
 
-Charging & alarms
-* Charging mode: time-to-full, battery-full and configurable charge-level alerts
-* Low-charge warning, auto-pause, bundled alarm tones
+Weather and safety
+* DWD rain radar, readings from the nearest station, wind direction
+* Weather warnings for thunderstorm and storm
+* Anchor watch with a drag alarm
 
-Fully free / open source (no Google Play Services). Maps © OpenStreetMap contributors; weather data by the Deutscher Wetterdienst (DWD), CC BY 4.0.
+Free and open source, without Google Play Services. Maps and waterways © OpenStreetMap contributors (ODbL), seamarks OpenSeaMap (CC BY-SA), weather from the Deutscher Wetterdienst (CC BY 4.0).
