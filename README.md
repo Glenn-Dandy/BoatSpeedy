@@ -1,290 +1,317 @@
 # BoatSpeedy
 
-A **GPS boat speedometer for Android** with **Bluetooth battery analytics and range
-estimation** — made for **electric / trolling motors** running on a **Bluetooth (BLE)
-battery**. Large, easy-to-read speed readout for low-speed control (~5–10 km/h), live
-battery data, and an estimate of how far and how long you can still go.
+**GPS-Bootstacho für Android** mit **Bluetooth-Batterieauswertung**, **Reichweite** und
+**Navigation auf dem Wasser**. Gebaut für Elektro- und Trollingmotoren an einem
+BLE-Akku. Großer Tempowert für den langsamen Bereich (5 bis 10 km/h), Live-Batteriedaten,
+und Routen entlang der Wasserwege, die auch ohne Netz gerechnet werden.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
 ![targetSdk](https://img.shields.io/badge/targetSdk-35-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-🇬🇧 **English** · [🇩🇪 Deutsch](#-deutsch)
+🇬🇧 [English](#english) · 🇩🇪 **Deutsch**
+
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="23%" alt="Dashboard"/>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" width="23%" alt="Track-Karte"/>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.png" width="23%" alt="Batteriedetails"/>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.png" width="23%" alt="Einstellungen"/>
+</p>
+
+## Wofür
+
+E-Boote und Kajaks mit Trollingmotor laufen meist auf einem LiFePO4-Akku, dessen BMS per
+Bluetooth funkt. BoatSpeedy verbindet einen genauen GPS-Tacho mit diesem Akku: Tempo,
+Stromverbrauch und Restreichweite auf einem Bild, dazu die Frage, wie man zum Ziel kommt.
+
+## Navigation
+
+Langer Druck auf die Karte setzt ein Ziel. Zur Wahl stehen Luftlinie oder **Route entlang
+der Wasserwege**, jeweils mit Entfernung und geschätztem Verbrauch in Amperestunden. Ein
+Kurspfeil zeigt, wie weit zu drehen ist.
+
+**Ohne Netz.** Die Wasserwege liegen als Kacheln auf dem Gerät, ein Grad breit und hoch.
+Ganz Europa sind 1373 Kacheln und 170 MB; ein Umkreis von 150 km rund 20 Kacheln und
+3,4 MB. Einmal geladen rechnet das Handy allein, bis 600 km Zielentfernung. Ohne Kacheln
+geht es über die Overpass-Schnittstelle, dann mit Netz und bis 60 km. Fehlende und
+veraltete Kacheln bietet die App vor einer Route an.
+
+Erzeugt werden die Kacheln aus OpenStreetMap über Geofabrik, siehe
+[boatspeedy-mapdata](https://github.com/Glenn-Dandy/boatspeedy-mapdata).
+
+**Fahrzeug.** Motorboot oder Kanu entscheidet, welche Verbote gelten. Die Zugangsmerkmale
+werden gestuft gelesen, wie OSM sie meint: `access` gilt für alles, `boat` für Boote,
+`motorboat` und `canoe` für die einzelne Art, und das Genauere schlägt das Allgemeinere.
+`boat=no` plus `canoe=yes` heißt also "Boote nein, Kanu ja".
+
+Fürs Kanu ist ein nacktes `boat=no` kein Ausschluss, sondern ein Hinweis: Auf der oberen
+Saale tragen 44 km am Stück dieses Merkmal, gemeint gegen Motoren. Solche Abschnitte
+kosten bei der Wegsuche das Dreifache, damit der freie Weg gewinnt, wo es einen gibt, und
+werden rot gezeichnet, wo es keinen gibt.
+
+**Auf dem Weg.** Schleusen und Wehre stehen mit Anzahl unten links und als Symbol auf der
+Karte. Eine Schleuse antippen zeigt Öffnungszeiten, Telefon, Funkkanal und Kammermaß, so
+wie OpenStreetMap sie führt. Seezeichen sind ebenfalls antippbar, Geschwindigkeitsschilder
+zeigen ihren Wert.
+
+**Karte.** Norden oben oder Fahrtrichtung oben, umschaltbar in der Titelzeile. Marker und
+Karte gleiten wie bei einem Navigationsgerät: Aus Fahrt und Kurs wird fortlaufend
+gerechnet, wo das Boot jetzt ist, statt von Messung zu Messung zu springen. Nur für die
+Anzeige, die aufgezeichnete Fahrt bleibt bei den rohen Messwerten.
+
+## Tempo und Fahrt
+
+- Dashboard mit großer Geschwindigkeit als Hauptkachel
+- Einheit km/h oder Knoten, Nachkommastellen `xx`, `xx.x`, `xx.xx`
+- Start und Stopp über einen Vordergrunddienst, misst bei ausgeschaltetem Display weiter
+- Trip-Distanz und Statistik (Max, Mittel, Zeit), bleiben nach dem Stopp stehen
+- Satelliten- und GPS-Status, Glättung des rohen Werts (wichtig bei langsamer Fahrt)
+- Auto-Pause: pausiert nur bei wenig Strom **und** Stillstand, Treiben wird weiter erfasst
+
+## Batterie (Bluetooth LE)
+
+- Mehrere Akkus gleichzeitig verbunden, per Häkchen aktiv geschaltet
+- Verschaltung Einzeln, Parallel oder Reihe bestimmt die Zusammenrechnung
+- Live: Spannung, Strom, Ladezustand, Rest-Ah, Temperatur
+- Reichweite und Restzeit beim aktuellen Tempo, zeitlich gemittelt (aus, 15, 30, 60 s)
+- Verschleiß: Ladezyklen und insgesamt entnommene Amperestunden, wo das BMS sie liefert
+- Lademodus: erkennt Laden, schaltet GPS ab, zeigt "Voll in" und meldet bei frei
+  wählbarem Ladestand
+- BMS: JBD/Jiabaida und Redodo/LiTime/Power Queen an Hardware geprüft, Daly und JK/Jikong
+  experimentell. Der Typ hängt an der einzelnen Batterie, gemischte Bänke sind möglich
+
+## Fahrten und Wetter
+
+- Fahrtenhistorie mit Distanz, Fahr-, Gesamt- und Pausenzeit, Ah, Wh und Wh/km
+- Track-Karte mit Richtungspfeilen; Track antippen zeigt Tempo, Verbrauch und SoC
+- GPX exportieren und importieren
+- Wetteransicht: DWD-Regenradar (RADOLAN-RV, animiert bis +100 min), Messwerte der
+  nächsten Station und die Windrichtung als Pfeil
+- DWD-Wetterwarnungen bei Gewitter und Sturm, mit Benachrichtigung und Banner
+- Ankerwache mit Alarm bei Abdrift
+
+## Stand
+
+Entwickelt und geprüft an einer EcoWorthy LiFePO4 100 Ah mit JBD-BMS.
+
+| Bereich | Stand |
+|---|---|
+| GPS-Tempo, Fahrt, Statistik | ✅ läuft |
+| JBD, Redodo/LiTime/Power Queen | ✅ an Hardware geprüft |
+| Routing, Kacheln, Schleusen | ✅ im Feld geprüft (Saale, Rhein, Main) |
+| Daly-BMS | ⚠️ experimentell, UUIDs aus Doku, ungetestet |
+| JK/Jikong-BMS | ⚠️ experimentell, v. a. JK02-Offsets, ungetestet |
+| Reihe und Parallel mehrerer Akkus | ⚠️ ungetestet an echtem Aufbau |
+
+Die Routenqualität hängt an OpenStreetMap. Tiefen und Durchfahrtshöhen stehen dort nicht;
+die Route ist ein Vorschlag, kein Fahrwasser.
+
+## Offen
+
+- [ ] Reihe und Parallel an echtem Mehr-Akku-Aufbau prüfen
+- [ ] Daly und JK an Hardware kalibrieren, die eingebaute BLE-Diagnose liefert den Bericht
+- [ ] F-Droid: Aufnahme läuft ([MR 44527](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44527))
+- [ ] Schleusen auch ohne gesetzte Route auf der Karte zeigen
+
+Vollständig in [`TODO.md`](TODO.md), Änderungen in [`CHANGELOG.md`](CHANGELOG.md).
+
+## Installieren
+
+Die App ist nicht im Play Store, die signierte APK wird direkt installiert.
+
+1. [Neuestes Release](https://github.com/Glenn-Dandy/BoatSpeedy/releases/latest) öffnen,
+   `BoatSpeedy-…-release.apk` unter **Assets** laden.
+2. Datei öffnen und die Installation aus dieser Quelle erlauben.
+3. Meldet Play Protect "Unsichere App blockiert", auf **Weitere Details** und
+   **Trotzdem installieren** tippen. Das ist außerhalb des Play Stores normal.
+4. Standort erlauben (GPS-Tempo), beim ersten Batteriescan Bluetooth, für Meldungen
+   Benachrichtigungen.
+
+Aktualisieren: neuere APK über die alte installieren. Gleiche Signatur, Einstellungen
+bleiben.
+
+## Bauen
+
+Braucht JDK 17 und das Android SDK.
+
+```bash
+./gradlew assembleDebug      # Debug-APK
+./gradlew assembleRelease    # signierte Release-APK, braucht keystore.properties
+./gradlew test               # 122 Unit-Tests
+```
+
+Ergebnis in `app/build/outputs/apk/`. Die Bauten sind reproduzierbar: kein `vcsInfo`,
+keine `dependenciesInfo`.
+
+## Technik
+
+| | |
+|---|---|
+| Sprache | Kotlin |
+| Oberfläche | Jetpack Compose, Material 3 |
+| minSdk / targetSdk | 33 (Android 13) / 35 (Android 15) |
+| Tempo und Satelliten | AOSP `LocationManager`, `GnssStatus.Callback`, keine Google Play Services |
+| Karte | osmdroid, OpenStreetMap |
+| Routing | Dijkstra über eigene Kacheln, Overpass als Rückfallebene |
+| Batterie | Bluetooth LE (`BluetoothGatt`), Verbindung je Gerät |
+| Fahrt im Hintergrund | Vordergrunddienst (`foregroundServiceType=location`) |
+| Einstellungen | Jetpack DataStore |
+| Aufbau | MVVM mit ViewModel und StateFlow |
+
+## Berechtigungen
+
+| | |
+|---|---|
+| `ACCESS_FINE_LOCATION` | GPS für Tempo und Satelliten |
+| `FOREGROUND_SERVICE`, `…_LOCATION` | Messen während der Fahrt |
+| `POST_NOTIFICATIONS` | Fahrt, Anker, Wetter, Laden (ab Android 13) |
+| `INTERNET`, `ACCESS_NETWORK_STATE` | Kartenkacheln, Wetter, Kartendaten, Update-Prüfung |
+| `BLUETOOTH_SCAN` (neverForLocation), `BLUETOOTH_CONNECT` | Batterie |
+
+Kein `ACCESS_BACKGROUND_LOCATION`, der Dienst startet aus dem Vordergrund.
+
+Datenquellen: Karten und Wasserwege © OpenStreetMap-Mitwirkende (ODbL), Seezeichen
+OpenSeaMap (CC BY-SA), Regenradar, Blitze und Warnungen vom Deutschen Wetterdienst
+(CC BY 4.0, Warnungen über Bright Sky).
+
+## Lizenz
+
+MIT, siehe [LICENSE](LICENSE).
 
 ---
 
-## Screenshots
+## English
 
-<p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="23%" alt="Dashboard: speed, range, battery, live map, trip stats"/>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" width="23%" alt="Track map with direction arrows and details bubble"/>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.png" width="23%" alt="Battery details with cell voltages"/>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.png" width="23%" alt="Settings"/>
-</p>
+🇬🇧 **English** · [🇩🇪 Deutsch](#boatspeedy)
 
-## What it's for
+**GPS boat speedometer for Android** with **Bluetooth battery analytics**, **range
+estimation** and **navigation on the water**. Built for electric and trolling motors on a
+BLE battery. A large speed readout for the slow range (5 to 10 km/h), live battery data,
+and routes along the waterways that work without a connection.
 
-Electric boats and kayaks with a trolling motor usually run on a LiFePO4 pack whose
-BMS talks Bluetooth. BoatSpeedy pairs a **precise GPS speedometer** with that battery
-so you can, on the water, see **how fast you're going, how much power you're drawing,
-and how far you can still get** — all on one screen.
+### What it is for
 
-## Features
+Electric boats and kayaks with a trolling motor usually run on a LiFePO4 pack whose BMS
+talks Bluetooth. BoatSpeedy pairs a precise GPS speedometer with that battery: speed,
+draw and remaining range on one screen, plus the question of how to get where you are
+going.
 
-### Speed & trip
-- **Dashboard** with a large speed readout as the main tile
-- **Switchable unit**: km/h ↔ knots, configurable decimals (`xx` / `xx.x` / `xx.xx`)
-- **Start/Stop trip** via a foreground service — keeps measuring with the screen off
-  or the app in the background (persistent notification)
-- **Trip distance** and **session stats** (max, average, elapsed); values stay after stop
-- **Satellite & GPS status** (satellites used/visible, accuracy, fix), **smoothing** of
-  the raw GPS value (important at slow speeds)
+### Navigation
 
-### Battery analytics (Bluetooth LE)
-- **Multiple batteries**: add packs, keep several **connected at the same time**, mark
-  which ones are **active**
-- **Wiring mode** — **Single / Parallel / Series** — decides how active packs are
-  combined: parallel/single sum up capacity & current, series sums up voltage
-- **Live values**: voltage, current, state of charge, remaining Ah, temperature
-- **Range & remaining time** at the current speed, **time-averaged** (Off / 15 s /
-  30 s / 60 s) so it doesn't jitter with the motor load
-- **Dashboard tiles** for battery and range (always visible, or hidden in Settings),
-  plus a subtle **A · B · Σ** selector to view a single pack or the combined bank
-- **BMS support**: **JBD / Jiabaida** and **Redodo / LiTime / Power Queen** (both verified
-  on hardware), **Daly** and **JK / Jikong** (experimental). The BMS type is stored per
-  battery, so different packs can be mixed in one bank
-- **Wear**: charge cycles, and total discharged Ah where the BMS reports it
+A long press on the map sets a destination, as a straight line or a **route along the
+waterways**, each with distance and estimated amp hours. A course arrow shows how far to
+turn.
 
-### Trips, maps & weather
-- **Trip history**: saved trips with distance, moving/total/pause time, consumption (Ah),
-  energy (Wh) and Wh/km; a **track map** with direction arrows and start/finish markers —
-  tap the track for a speed / consumption / SoC bubble
-- **GPX**: export trips and **import** GPX (import button, or “Open with” from other apps)
-- **Live map** (OpenStreetMap) that follows your position, with a **DWD rain radar** overlay
-  (RADOLAN-RV nowcast, animated now → +100 min, with a slider) and optional **lightning**
-- **DWD weather warnings** (thunderstorm / storm) checked on GPS fix and during a trip —
-  notification, optional alarm sound and a dashboard banner
-- **Anchor watch**: drop an anchor at your position, get alerted if the boat drags
+**Without a connection.** The waterways sit on the device as tiles, one degree wide and
+tall. All of Europe is 1373 tiles and 170 MB; a 150 km radius about 20 tiles and 3.4 MB.
+Once loaded the phone computes on its own, up to 600 km. Without tiles it uses the
+Overpass API, which needs a connection and stops at 60 km. Missing and outdated tiles are
+offered before a route is computed.
 
-### Charging & alarms
-- **Charging mode**: detects charging (positive current) → GPS off, the range tile becomes
-  a **charge tile** (time-to-full / done-at), an ongoing charge notification with SoC, a
-  **battery-full** alert and a configurable **charge-level** alert
-- **Low-charge warning** (red + optional sound) and **auto-pause** below a current threshold
-- Bundled **alarm tones** (beep / bell / siren), selectable per alarm (anchor / SoC / weather)
+The tiles are built from OpenStreetMap via Geofabrik, see
+[boatspeedy-mapdata](https://github.com/Glenn-Dandy/boatspeedy-mapdata).
 
-### App
-- **Light / dark theme** (Light / Dark / System), optional **keep screen on**
-- **Bilingual**: English (default) and German, switchable in Settings
-- **About screen** with in-app update check and a **Data & maps** section crediting
-  OpenStreetMap and the Deutscher Wetterdienst (DWD, CC BY 4.0)
+**Craft.** Motorboat or canoe decides which bans apply. Access tags are read as the
+graded set they are: `access` covers everything, `boat` covers boats, `motorboat` and
+`canoe` the single kind, and the more specific one wins. So `boat=no` plus `canoe=yes`
+means "no boats, canoes yes".
 
-## Status & untested features
+For a canoe a bare `boat=no` is a hint rather than a stop: on the upper Saale 44 km carry
+it in one stretch, aimed at engines. Such sections cost triple when routes are compared,
+so a free way wins where one exists, and they are drawn in red where none does.
 
-BoatSpeedy is developed and hardware-verified against an **EcoWorthy LiFePO4 100 Ah**
-(JBD BMS). Some paths are implemented but **not yet verified on real hardware** — use
-with a critical eye and please report back:
+**Along the way.** Locks and weirs are counted at the bottom left and marked on the map.
+Tapping a lock shows opening hours, phone number, VHF channel and chamber size as
+OpenStreetMap records them. Seamarks are tappable too, and speed signs show their number.
+
+**Map.** North up or course up, switched from the title bar. Marker and map glide the way
+a navigation device does: speed and heading are used to compute where the boat is now
+instead of jumping from fix to fix. Display only, the recorded track keeps the raw
+measurements.
+
+### Speed and trip
+
+- Dashboard with a large speed readout as the main tile
+- km/h or knots, decimals `xx`, `xx.x`, `xx.xx`
+- Start and stop through a foreground service, keeps measuring with the screen off
+- Trip distance and stats (max, average, elapsed), kept after stopping
+- Satellite and GPS status, smoothing of the raw value (it matters at low speed)
+- Auto-pause only when the current is low **and** the boat is still, drifting still records
+
+### Battery (Bluetooth LE)
+
+- Several packs connected at once, ticked active
+- Wiring single, parallel or series decides how they combine
+- Live voltage, current, state of charge, remaining Ah, temperature
+- Range and remaining time at the current speed, time-averaged (off, 15, 30, 60 s)
+- Wear: charge cycles and total discharge where the BMS reports it
+- Charging mode: detects charging, turns GPS off, shows time-to-full, alerts at a chosen level
+- BMS: JBD/Jiabaida and Redodo/LiTime/Power Queen verified on hardware, Daly and JK/Jikong
+  experimental. The type belongs to the single battery, so mixed banks work
+
+### Trips and weather
+
+- Trip history with distance, moving, total and pause time, Ah, Wh and Wh/km
+- Track map with direction arrows; tap the track for speed, draw and SoC
+- GPX export and import
+- Weather screen: DWD rain radar (RADOLAN-RV, animated to +100 min), readings from the
+  nearest station and wind direction as an arrow
+- DWD warnings for thunderstorm and storm, with notification and banner
+- Anchor watch with a drag alarm
+
+### Status
+
+Developed and verified against an EcoWorthy LiFePO4 100 Ah with a JBD BMS.
 
 | Area | Status |
 |---|---|
 | GPS speed, trip, stats | ✅ working |
-| JBD battery link, live values | ✅ verified on hardware |
-| JBD current sign & range/time math | ✅ field-tested (negative = discharge) |
-| **Redodo / LiTime / Power Queen** | ✅ verified on hardware, current sign included |
-| **Daly BMS** | ⚠️ experimental — UUIDs/offsets from public docs, **untested** |
-| **JK / Jikong BMS** | ⚠️ experimental — esp. JK02 offsets/SOC, **untested** |
-| **Series / parallel combination** of multiple packs | ⚠️ **untested** on a real multi-pack setup |
+| JBD, Redodo/LiTime/Power Queen | ✅ verified on hardware |
+| Routing, tiles, locks | ✅ field-tested (Saale, Rhine, Main) |
+| Daly BMS | ⚠️ experimental, UUIDs from docs, untested |
+| JK/Jikong BMS | ⚠️ experimental, JK02 offsets above all, untested |
+| Series and parallel packs | ⚠️ untested on a real setup |
 
-## Roadmap / TODO
+Route quality depends on OpenStreetMap. Depths and clearances are not in it; a route is a
+suggestion, not a fairway.
 
-- [ ] Verify **series / parallel** combination on a real multi-battery setup
-- [ ] Calibrate **Daly** and **JK** against real hardware (UUIDs/offsets) — the built-in
-      **BLE diagnostic** produces the report needed for this
-- [ ] **F-Droid**: drop Google Play Services (use `LocationManager`) to become fully FOSS
-- [ ] **Play Store**: App Bundle (`.aab`), privacy policy, data-safety declaration
+### Open
 
-See [`TODO.md`](TODO.md) for the full list, and [`CHANGELOG.md`](CHANGELOG.md) for changes.
+- [ ] Verify series and parallel on a real multi-pack setup
+- [ ] Calibrate Daly and JK against hardware, the built-in BLE diagnostic produces the report
+- [ ] F-Droid: submission in progress ([MR 44527](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44527))
+- [ ] Show locks on the map without a route set
 
-## Install
+Full list in [`TODO.md`](TODO.md), changes in [`CHANGELOG.md`](CHANGELOG.md).
 
-The app isn't on the Play Store, so you install the signed APK directly (sideload).
-Anyone can do it — just follow these steps on an Android 13+ phone:
+### Install
+
+The app is not on the Play Store, so the signed APK is installed directly.
 
 1. Open the [latest release](https://github.com/Glenn-Dandy/BoatSpeedy/releases/latest)
-   and download **`BoatSpeedy-…-release.apk`** (under **Assets**).
-2. Open the downloaded file. If Android asks, **allow installing from this source /
-   unknown apps** for your browser or file manager.
-3. **Play Protect** may then say *“Unsafe app blocked”* / *“App blocked to protect your
-   device”*. This is normal for apps outside the Play Store — tap **More details**, then
-   **Install anyway**.
-4. Open the app and grant the **Location** permission (for GPS speed). Allow **Bluetooth**
-   the first time you scan for a battery, and **Notifications** for trip / anchor alerts.
+   and download `BoatSpeedy-…-release.apk` under **Assets**.
+2. Open the file and allow installing from this source.
+3. If Play Protect says "Unsafe app blocked", tap **More details**, then **Install
+   anyway**. That is normal outside the Play Store.
+4. Grant Location (GPS speed), Bluetooth on the first battery scan, Notifications for alerts.
 
-To update later, just install a newer release APK over the old one — same signing key,
-your settings are kept.
+To update, install a newer APK over the old one. Same signing key, settings are kept.
 
-## Build
+### Build
 
-Requires a recent Android Studio or JDK 17+ and the Android SDK.
+Needs JDK 17 and the Android SDK.
 
 ```bash
 ./gradlew assembleDebug      # debug APK
-./gradlew assembleRelease    # signed release APK (needs keystore.properties)
+./gradlew assembleRelease    # signed release APK, needs keystore.properties
+./gradlew test               # 122 unit tests
 ```
 
-The APK is written to `app/build/outputs/apk/`.
+Output in `app/build/outputs/apk/`. Builds are reproducible: no `vcsInfo`, no
+`dependenciesInfo`.
 
-## Tech
+### License
 
-| | |
-|---|---|
-| Language | Kotlin |
-| UI | Jetpack Compose (Material 3) |
-| minSdk / targetSdk | 33 (Android 13) / 35 (Android 15) |
-| Speed / satellites | AOSP `LocationManager` (GPS) / `GnssStatus.Callback` — **no Google Play Services** |
-| Battery | Bluetooth LE (`BluetoothGatt`), per-device connections |
-| Background trip | Foreground service (`foregroundServiceType=location`) |
-| Settings | Jetpack DataStore |
-| Architecture | MVVM (ViewModel + StateFlow) |
-
-## Permissions
-
-- `ACCESS_FINE_LOCATION` – precise GPS for speed & satellites
-- `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION` – keep measuring during a trip
-- `POST_NOTIFICATIONS` – trip / anchor / weather / charging notifications (Android 13+)
-- `INTERNET`, `ACCESS_NETWORK_STATE` – map tiles, DWD weather warnings & rain radar, update check
-- `BLUETOOTH_SCAN` (neverForLocation), `BLUETOOTH_CONNECT` – battery link (BLE)
-
-No `ACCESS_BACKGROUND_LOCATION` (the service starts from the foreground).
-
-Data sources: maps © OpenStreetMap contributors; weather warnings, rain radar and lightning
-by the Deutscher Wetterdienst (DWD), licensed CC BY 4.0 (warnings via Bright Sky).
-
-## License
-
-MIT – see [LICENSE](LICENSE).
-
----
-
-## 🇩🇪 Deutsch
-
-[🇬🇧 English](#boatspeedy) · **Deutsch**
-
-Ein **GPS-Boots-Tacho für Android** mit **Bluetooth-Batterie-Auswertung und
-Reichweiten­berechnung** — gemacht für **Elektro- / Trolling-Motoren** mit einer
-**Bluetooth-Batterie (BLE)**. Große, gut ablesbare Geschwindigkeitsanzeige für die
-Kontrolle im langsamen Bereich (~5–10 km/h), Live-Batteriedaten und eine Schätzung,
-**wie weit und wie lange** du noch fahren kannst.
-
-### Wofür
-
-E-Boote und Kajaks mit Trolling-Motor laufen meist auf einem LiFePO4-Akku, dessen BMS
-per Bluetooth funkt. BoatSpeedy verbindet einen **präzisen GPS-Tacho** mit diesem Akku,
-sodass du auf dem Wasser **Tempo, Stromverbrauch und Restreichweite** auf einem Bild
-siehst.
-
-### Funktionen
-
-**Tempo & Fahrt**
-- **Dashboard** mit großer Geschwindigkeit als Haupt-Kachel
-- **Einheit umschaltbar** km/h ↔ Knoten, Nachkommastellen `xx` / `xx.x` / `xx.xx`
-- **Fahrt Start/Stopp** über Vordergrunddienst — misst auch bei ausgeschaltetem Display
-  oder im Hintergrund weiter (dauerhafte Benachrichtigung)
-- **Trip-Distanz** und **Session-Statistik** (Max, Ø, Zeit); bleiben nach dem Stopp stehen
-- **Satelliten-/GPS-Status** und **Glättung** des rohen GPS-Werts (wichtig bei langsamer Fahrt)
-
-**Batterie-Auswertung (Bluetooth LE)**
-- **Mehrere Batterien**: Akkus hinzufügen, mehrere **gleichzeitig verbunden**, per
-  Häkchen **aktiv** schalten
-- **Verschaltung** — **Einzeln / Parallel / Reihe** — bestimmt die Zusammenrechnung:
-  parallel/einzeln addieren Kapazität & Strom, Reihe addiert die Spannung
-- **Live-Werte**: Spannung, Strom, Ladezustand, Rest-Ah, Temperatur
-- **Reichweite & Restzeit** bei aktueller Geschwindigkeit, **zeitlich gemittelt**
-  (Aus / 15 s / 30 s / 60 s), damit nichts mit der Motorlast zappelt
-- **Dashboard-Kacheln** für Batterie und Reichweite (immer sichtbar oder ausblendbar),
-  dazu ein dezenter **A · B · Σ**-Umschalter (einzeln oder kombiniert)
-- **BMS-Unterstützung**: **JBD / Jiabaida** und **Redodo / LiTime / Power Queen** (beide
-  an Hardware verifiziert), **Daly** und **JK / Jikong** (experimentell). Der BMS-Typ hängt
-  an der einzelnen Batterie, gemischte Bänke sind also möglich
-- **Verschleiß**: Ladezyklen und, wo das BMS es liefert, insgesamt entnommene Amperestunden
-
-**Fahrten, Karten & Wetter**
-- **Fahrten-Historie**: gespeicherte Fahrten mit Distanz, Fahr-/Gesamt-/Pausenzeit,
-  Verbrauch (Ah), Energie (Wh) und Wh/km; **Track-Karte** mit Richtungspfeilen und
-  Start-/Ziel-Marker — Track antippen zeigt Tempo / Verbrauch / SoC an der Stelle
-- **GPX**: Fahrten exportieren und **importieren** (Import-Knopf oder „Öffnen mit")
-- **Live-Karte** (OpenStreetMap), folgt der Position, mit **DWD-Regenradar**-Overlay
-  (RADOLAN-RV Nowcast, animiert jetzt → +100 Min, mit Schieberegler) und optional **Blitzen**
-- **DWD-Wetterwarnungen** (Gewitter / Sturm) — Prüfung bei GPS-Fix und während der Fahrt,
-  Benachrichtigung, optionaler Alarmton und Dashboard-Banner
-- **Anker-Wache**: Anker an der Position setzen, Alarm bei Abdrift
-
-**Laden & Alarme**
-- **Lademodus**: erkennt Laden (positiver Strom) → GPS aus, die Reichweiten-Kachel wird zur
-  **Lade-Kachel** („Voll in" / „Fertig um"), laufende Lade-Meldung mit SoC, **„Batterie
-  voll"** sowie individuelle Meldung bei einstellbarem **Ladestand**
-- **Warnung bei niedrigem Ladestand** (rot + optional Ton), **Auto-Pause** unter einem Strom-Schwellwert
-- Mitgelieferte **Alarmtöne** (Piep / Glocke / Sirene), je Alarm wählbar (Anker / SoC / Wetter)
-
-**App**
-- **Hell / Dunkel** (Hell / Dunkel / System), optional **Display anlassen**
-- **Zweisprachig**: Englisch (Standard) und Deutsch, umschaltbar in den Einstellungen
-- **„Über"-Screen** mit In-App-Update-Prüfung und Abschnitt **„Daten & Karten"**
-  (OpenStreetMap, Deutscher Wetterdienst — DWD, CC BY 4.0)
-
-### Status & ungetestete Funktionen
-
-Entwickelt und an einer **EcoWorthy LiFePO4 100 Ah** (JBD-BMS) verifiziert. Manches ist
-umgesetzt, aber **noch nicht an echter Hardware geprüft** — bitte mit Vorsicht nutzen
-und Rückmeldung geben:
-
-| Bereich | Status |
-|---|---|
-| GPS-Tempo, Fahrt, Statistik | ✅ funktioniert |
-| JBD-Anbindung, Live-Werte | ✅ an Hardware verifiziert |
-| JBD Strom-Vorzeichen & Reichweiten-/Zeitrechnung | ✅ im Feldtest bestätigt (negativ = Entladen) |
-| **Redodo / LiTime / Power Queen** | ✅ an Hardware verifiziert, samt Strom-Vorzeichen |
-| **Daly-BMS** | ⚠️ experimentell — UUIDs/Offsets aus Doku, **ungetestet** |
-| **JK / Jikong-BMS** | ⚠️ experimentell — v. a. JK02-Offsets/SOC, **ungetestet** |
-| **Reihen-/Parallel-Kombination** mehrerer Akkus | ⚠️ **ungetestet** an echtem Mehr-Akku-Aufbau |
-
-### Roadmap / TODO
-
-- [ ] **Reihen-/Parallel**-Kombination an echtem Mehr-Akku-Aufbau prüfen
-- [ ] **Daly** und **JK** an echter Hardware kalibrieren (UUIDs/Offsets) — die eingebaute
-      **BLE-Diagnose** liefert den dafür nötigen Bericht
-- [ ] **F-Droid**: Google Play Services entfernen (`LocationManager`) → vollständig FOSS
-- [ ] **Play Store**: App-Bundle (`.aab`), Datenschutzerklärung, Data-Safety-Angaben
-
-Vollständige Liste in [`TODO.md`](TODO.md), Änderungen in [`CHANGELOG.md`](CHANGELOG.md).
-
-### Installieren
-
-Die App ist nicht im Play Store — du installierst die signierte APK direkt (Sideload).
-Das kann jeder, so geht's auf einem Android-13+-Handy:
-
-1. Das [neueste Release](https://github.com/Glenn-Dandy/BoatSpeedy/releases/latest) öffnen
-   und **`BoatSpeedy-…-release.apk`** herunterladen (unter **Assets**).
-2. Die geladene Datei öffnen. Fragt Android nach, die **Installation aus dieser Quelle /
-   unbekannte Apps** für den Browser bzw. Dateimanager erlauben.
-3. **Play Protect** meldet danach evtl. *„Unsichere App blockiert"* / *„App zum Schutz
-   deines Geräts blockiert"*. Das ist bei Apps außerhalb des Play Stores normal — auf
-   **Weitere Details** und dann **Trotzdem installieren** tippen.
-4. App öffnen und die **Standort**-Berechtigung erteilen (für GPS-Tempo). Beim ersten
-   Batterie-Scan **Bluetooth** erlauben, für Fahrt-/Anker-Meldungen **Benachrichtigungen**.
-
-Zum Aktualisieren einfach eine neuere Release-APK über die alte installieren — gleiche
-Signatur, deine Einstellungen bleiben erhalten.
-
-### Bauen
-
-```bash
-./gradlew assembleDebug      # Debug-APK
-./gradlew assembleRelease    # signierte Release-APK (braucht keystore.properties)
-```
-
-### Lizenz
-
-MIT – siehe [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
