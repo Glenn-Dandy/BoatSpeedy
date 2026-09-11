@@ -1,8 +1,8 @@
 # BoatSpeedy
 
 **GPS-Bootstacho und Navigation für kleine Boote.** Mit Motor, mit Paddel, mit Riemen.
-Routen entlang der Wasserwege, gerechnet auch ohne Netz. Wer einen Akku mit Bluetooth-BMS
-fährt, bekommt Live-Werte und Reichweite dazu.
+Routen entlang der Wasserwege, gerechnet auch ohne Netz. Mit Bluetooth-BMS oder
+Coulometer am Akku kommen Live-Werte und Reichweite dazu.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
 ![Version](https://img.shields.io/badge/version-1.4.0-blue)
@@ -80,6 +80,8 @@ Anzeige, die aufgezeichnete Fahrt bleibt bei den rohen Messwerten.
   wählbarem Ladestand
 - BMS: JBD/Jiabaida und Redodo/LiTime/Power Queen an Hardware geprüft, Daly und JK/Jikong
   experimentell. Der Typ hängt an der einzelnen Batterie, gemischte Bänke sind möglich
+- **Coulometer mit Hall-Sensor** für Akkus ohne eigenes Bluetooth: Spannung, Strom,
+  Ladestand, Rest-Ah und gezählte Energie. Strom nullen, auf voll setzen, Zähler löschen
 
 ## Fahrten und Wetter
 
@@ -99,6 +101,7 @@ Entwickelt und geprüft an einer EcoWorthy LiFePO4 100 Ah mit JBD-BMS.
 |---|---|
 | GPS-Tempo, Fahrt, Statistik | ✅ läuft |
 | JBD, Redodo/LiTime/Power Queen | ✅ an Hardware geprüft |
+| Coulometer mit Hall-Sensor | ✅ an Hardware geprüft |
 | Routing, Kacheln, Schleusen | ✅ im Feld geprüft (Saale, Rhein, Main) |
 | Daly-BMS | ⚠️ experimentell, UUIDs aus Doku, ungetestet |
 | JK/Jikong-BMS | ⚠️ experimentell, v. a. JK02-Offsets, ungetestet |
@@ -186,8 +189,8 @@ MIT, siehe [LICENSE](LICENSE).
 🇬🇧 **English** · [🇩🇪 Deutsch](#boatspeedy)
 
 **GPS boat speedometer and navigation for small boats.** Under motor, paddle or oars.
-Routes along the waterways, computed without a connection. With a Bluetooth BMS battery
-you also get live values and range.
+Routes along the waterways, computed without a connection. A Bluetooth BMS or a
+coulometer on the pack adds live values and range.
 
 ### What it is for
 
@@ -247,6 +250,8 @@ measurements.
 - Charging mode: detects charging, turns GPS off, shows time-to-full, alerts at a chosen level
 - BMS: JBD/Jiabaida and Redodo/LiTime/Power Queen verified on hardware, Daly and JK/Jikong
   experimental. The type belongs to the single battery, so mixed banks work
+- **Coulometer with a Hall sensor** for packs without Bluetooth of their own: voltage,
+  current, state of charge, remaining Ah, counted energy. Zero, set full, clear counter
 
 ### Trips and weather
 
@@ -266,6 +271,7 @@ Developed and verified against an EcoWorthy LiFePO4 100 Ah with a JBD BMS.
 |---|---|
 | GPS speed, trip, stats | ✅ working |
 | JBD, Redodo/LiTime/Power Queen | ✅ verified on hardware |
+| Coulometer with Hall sensor | ✅ verified on hardware |
 | Routing, tiles, locks | ✅ field-tested (Saale, Rhine, Main) |
 | Daly BMS | ⚠️ experimental, UUIDs from docs, untested |
 | JK/Jikong BMS | ⚠️ experimental, JK02 offsets above all, untested |

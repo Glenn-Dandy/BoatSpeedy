@@ -1,4 +1,4 @@
-GPS boat speedometer and navigation for small boats. Under motor, paddle or oars. With a Bluetooth BMS battery you also get live values and range.
+GPS boat speedometer and navigation for small boats. Under motor, paddle or oars. A Bluetooth BMS or a coulometer on the pack adds live values and range.
 
 Navigation
 * Set a destination on the map: straight line or a route along the waterways, with distance and estimated draw
@@ -19,6 +19,7 @@ Battery (Bluetooth LE)
 * Voltage, current, state of charge, remaining Ah, temperature, cells
 * Range and remaining time at the current speed, time-averaged
 * JBD and Redodo/LiTime/Power Queen verified on hardware, Daly and JK experimental
+* Coulometer with a Hall sensor for packs without Bluetooth, verified too
 * Charging mode with time to full and an alert at a chosen level
 
 Weather and safety
