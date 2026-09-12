@@ -125,11 +125,7 @@ jobs:
         # Release-Notizen und die Datei faengt wieder von vorn an.
         run: |
           {
-            cat <<'HEAD'
-          Development build — a release build with a dev version name. Installs over BoatSpeedy.
-          HEAD
-            echo
-            echo "Build ${{ github.run_number }} · \`${{ github.ref_name }}\` · ${{ github.sha }}"
+            echo "Build ${{ github.run_number }} · \`${{ github.sha }}\` · installiert sich über BoatSpeedy"
             echo
             cat .github/dev-notes.md
           } > dev-release-notes.md
