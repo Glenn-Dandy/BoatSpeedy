@@ -124,6 +124,24 @@ class RestrictedCostTest {
     }
 
     /**
+     * Manche Schleusen führen ihre Zeiten unter `service_times` statt `opening_hours` —
+     * die Oeblitzschleuse an der Saale zum Beispiel. Wer nur nach einem sucht, liefert
+     * die Hälfte ohne Zeiten aus.
+     */
+    @Test
+    fun `service_times gilt wie opening_hours`() {
+        val schleuse =
+            """{"type":"way","tags":{"waterway":"canal","lock":"yes",""" +
+                """"lock_name":"Oeblitzschleuse","service_times":"Th-Mo 09:00-12:00,13:00-18:00",""" +
+                """"phone":"+49 3443 200228"},""" +
+                """"geometry":[{"lat":50.5,"lon":11.05},{"lat":50.5,"lon":11.051}]}"""
+        val r = fahre(kanal, schleuse) as RouteResult.Ok
+        val o = r.obstacles.single { it.kind == ObstacleKind.LOCK }
+        assertEquals("Oeblitzschleuse", o.name)
+        assertEquals("Th-Mo 09:00-12:00,13:00-18:00", o.openingHours)
+    }
+
+    /**
      * Kammer und beide Tore stünden sonst dreimal übereinander, und zwei davon wüssten
      * nichts. Übrig bleibt die mit der Auskunft.
      */

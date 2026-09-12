@@ -12,6 +12,26 @@ import org.junit.Test
  */
 class SeamarkInfoTest {
 
+    /**
+     * An der Oeblitzschleuse tragen die beiden Tore `seamark:type=gate` und sonst nichts.
+     * Sie liegen 24 m neben der Kammer, die Name, Zeiten und Telefon kennt. Antippbar
+     * öffneten sie ein Fenster mit dem Wort „gate" und nahmen der Schleuse den Tipp weg.
+     */
+    @Test
+    fun `ein Schleusentor bekommt keine eigene Auskunft`() {
+        assertNull(
+            SeamarkSource.describe(
+                mapOf("seamark:type" to "gate", "waterway" to "lock_gate"),
+            ),
+        )
+    }
+
+    /** Ein Sperrwerk oder Sturmflutwehr ist etwas anderes und bleibt antippbar. */
+    @Test
+    fun `ein Tor ohne Schleuse bleibt`() {
+        assertTrue(SeamarkSource.describe(mapOf("seamark:type" to "gate")) != null)
+    }
+
     @Test
     fun `Tonne mit Feuer wird lesbar`() {
         val info = SeamarkSource.describe(mapOf(

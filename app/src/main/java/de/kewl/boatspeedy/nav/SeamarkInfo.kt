@@ -150,6 +150,11 @@ object SeamarkSource {
     internal fun describe(tags: Map<String, String>): SeamarkInfo? {
         val type = tags["seamark:type"] ?: return null
         if (type == "sounding" || type.isBlank()) return null
+        // **Schleusentore sind keine eigene Auskunft.** An der Oeblitzschleuse tragen die
+        // beiden Tore `seamark:type=gate` und sonst nichts; sie liegen 24 m neben der
+        // Kammer, und wer die Schleuse antippen wollte, bekam ein Fenster mit dem Wort
+        // „gate". Die Schleuse daneben weiß Name, Zeiten und Telefon — sie ist gemeint.
+        if (type == "gate" && tags["waterway"] == "lock_gate") return null
 
         val name = tags["seamark:name"] ?: tags["name"]
         val title = buildString {

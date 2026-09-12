@@ -724,7 +724,10 @@ object WaterRouter {
                 // `lock_name` ist der genauere: `name` trägt an einem Schleusenkanal
                 // gelegentlich den Namen des Kanals statt den der Schleuse.
                 name = tag("lock_name") ?: tag("name"),
-                openingHours = tag("opening_hours"),
+                // `service_times` ist bei Schleusen genauso verbreitet wie
+                // `opening_hours` — die Oeblitzschleuse führt das eine, die Schleuse
+                // Wettin das andere. Wer nur nach einem sucht, findet die Hälfte nicht.
+                openingHours = tag("opening_hours") ?: tag("service_times"),
                 phone = tag("phone"),
                 vhf = tag("vhf"),
                 maxLengthM = tag("maxlength"),
