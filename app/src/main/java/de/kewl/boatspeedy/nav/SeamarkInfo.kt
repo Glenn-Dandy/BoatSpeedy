@@ -2,6 +2,19 @@ package de.kewl.boatspeedy.nav
 
 import org.json.JSONObject
 
+/**
+ * Öffnungszeiten so umbrechen, wie sie gemeint sind.
+ *
+ * In OpenStreetMap trennt das Semikolon die Regeln einer Zeitangabe, und bei Schleusen
+ * sind das meist drei: die Sperrzeit im Winter, die Saison, die Sperrzeit danach. In einer
+ * Zeile hintereinandergeschrieben liest sie niemand, gerade nicht vom Boot aus.
+ *
+ * Getrennt wird **nur** am Semikolon. Das Komma trennt innerhalb einer Regel die Tage
+ * ("Mo-Th 07:00-19:00, Fr-Su 07:00-21:00") und gehört zusammen.
+ */
+fun openingHoursLines(raw: String): String =
+    raw.split(";").map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+
 /** Ein Seezeichen an der angetippten Stelle, in lesbarer Form. */
 data class SeamarkInfo(
     val title: String,

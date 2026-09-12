@@ -15,8 +15,14 @@ object Repo {
     const val ISSUES_NEW_URL = "$URL/issues/new"
     const val SUPPORT_URL = "https://paypal.me/GlennDandy"
     private const val API_LATEST = "https://api.github.com/repos/$OWNER/$NAME/releases/latest"
+    /**
+     * Das eine rollende Vorab-Release. `releases/latest` überspringt Vorabversionen, es
+     * muss also eigens gefragt werden.
+     */
+    private const val API_DEV = "https://api.github.com/repos/$OWNER/$NAME/releases/tags/dev-build"
 
     val apiLatest: String get() = API_LATEST
+    val apiDev: String get() = API_DEV
 }
 
 /** Ergebnis der Update-Prüfung. */
@@ -32,24 +38,67 @@ sealed interface UpdateResult {
 
 object UpdateChecker {
 
-    /** Fragt das neueste Release ab und vergleicht mit [currentVersion] (z. B. "1.0.1"). */
-    suspend fun check(currentVersion: String): UpdateResult = withContext(Dispatchers.IO) {
+    /**
+     * Fragt das neueste Release ab und vergleicht mit [currentVersion] (z. B. "1.0.1").
+     *
+     * @param includeDev auch den rollenden Entwicklungsbau berücksichtigen. Standardmäßig
+     *   aus: Eine Vollversion soll auf Vollversionen zeigen und niemanden ungefragt auf
+     *   einen Zwischenstand schicken. Wer mittestet, schaltet es in den
+     *   Entwicklereinstellungen ein.
+     */
+    suspend fun check(
+        currentVersion: String,
+        includeDev: Boolean = false,
+    ): UpdateResult = withContext(Dispatchers.IO) {
         try {
-            val json = fetch(Repo.apiLatest) ?: return@withContext UpdateResult.Failed
-            val obj = JSONObject(json)
-            val tag = obj.optString("tag_name").ifEmpty { return@withContext UpdateResult.Failed }
-            val latest = tag.removePrefix("v")
-            val releaseUrl = obj.optString("html_url", Repo.LATEST_RELEASE_URL)
+            val stabil = release(Repo.apiLatest) ?: return@withContext UpdateResult.Failed
+            // Der Entwicklungsbau darf fehlen, ohne die Prüfung zu versenken: Er wird
+            // gelöscht und neu angelegt, und genau in diesem Augenblick gibt es ihn nicht.
+            val dev = if (includeDev) release(Repo.apiDev) else null
+            val beste = listOfNotNull(stabil, dev).maxWithOrNull { a, b ->
+                compareVersions(a.version, b.version)
+            } ?: return@withContext UpdateResult.Failed
 
-            if (compareVersions(latest, currentVersion) <= 0) {
+            if (compareVersions(beste.version, currentVersion) <= 0) {
                 UpdateResult.UpToDate
             } else {
-                val apk = firstApkUrl(obj)
-                UpdateResult.Available(version = tag, downloadUrl = apk, releaseUrl = releaseUrl)
+                UpdateResult.Available(beste.version, beste.apk, beste.url)
             }
         } catch (_: Exception) {
             UpdateResult.Failed
         }
+    }
+
+    /** Ein Release, auf das Nötige eingedampft. */
+    private class Fassung(val version: String, val apk: String?, val url: String)
+
+    private fun release(api: String): Fassung? {
+        val obj = JSONObject(fetch(api) ?: return null)
+        val apk = firstApkUrl(obj)
+        // **Die Version des Entwicklungsbaus steht im Dateinamen**, nicht im Tag: Der
+        // heißt immer `dev-build`, weil es dasselbe Release bleibt. Der Anhang heißt
+        // `BoatSpeedy-1.4.1-dev279.apk`, und daraus lässt sich vergleichen.
+        val ausTag = obj.optString("tag_name").removePrefix("v").takeIf { it.isNotBlank() }
+        val version = if (ausTag == null || ausTag == "dev-build") {
+            apkVersion(obj) ?: return null
+        } else {
+            ausTag
+        }
+        return Fassung(version, apk, obj.optString("html_url", Repo.LATEST_RELEASE_URL))
+    }
+
+    // `BoatSpeedy-v1.4.0-release.apk` ergibt 1.4.0, `BoatSpeedy-1.4.1-dev279.apk` ergibt
+    // 1.4.1-dev279. Der Zusatz gehört zur Version, sonst wären zwei Entwicklungsbauten
+    // nicht auseinanderzuhalten.
+    private val APK_VERSION = Regex("""BoatSpeedy-v?(.+?)(?:-release)?\.apk""")
+
+    private fun apkVersion(release: JSONObject): String? {
+        val assets = release.optJSONArray("assets") ?: return null
+        for (i in 0 until assets.length()) {
+            val name = assets.optJSONObject(i)?.optString("name") ?: continue
+            APK_VERSION.find(name)?.let { return it.groupValues[1] }
+        }
+        return null
     }
 
     private fun fetch(url: String): String? {
@@ -105,8 +154,25 @@ object UpdateChecker {
             za == zb -> 0
             za.isEmpty() -> 1
             zb.isEmpty() -> -1
-            else -> za.compareTo(zb)
+            else -> zusatzVergleich(za, zb)
         }
+    }
+
+    private val ZUSATZ = Regex("""^([^0-9]*)(\d+)$""")
+
+    /**
+     * Zwei Zusätze vergleichen. `dev279` gegen `dev1000` als Zeichenketten verglichen
+     * ergäbe, dass `dev999` neuer ist als `dev1000` — die Laufnummer wird vierstellig, und
+     * ab da bekäme niemand mehr einen Entwicklungsbau angeboten. Bei gleichem Wortteil
+     * zählt deshalb die Zahl.
+     */
+    private fun zusatzVergleich(a: String, b: String): Int {
+        val ma = ZUSATZ.find(a)
+        val mb = ZUSATZ.find(b)
+        if (ma != null && mb != null && ma.groupValues[1] == mb.groupValues[1]) {
+            return ma.groupValues[2].toLong().compareTo(mb.groupValues[2].toLong())
+        }
+        return a.compareTo(b)
     }
 
     private fun zahlen(v: String) =

@@ -874,7 +874,10 @@ fun LiveMapScreen(
             text = {
                 Column {
                     o.openingHours?.let {
-                        InfoZeile(stringResource(R.string.lock_hours), it)
+                        InfoZeile(
+                            stringResource(R.string.lock_hours),
+                            de.kewl.boatspeedy.nav.openingHoursLines(it),
+                        )
                     }
                     o.phone?.let { InfoZeile(stringResource(R.string.lock_phone), it) }
                     o.vhf?.let { InfoZeile(stringResource(R.string.lock_vhf), it) }

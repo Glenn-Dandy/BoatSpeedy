@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +65,8 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiagnosticScreen(
+    devUpdates: Boolean = false,
+    onDevUpdates: (Boolean) -> Unit = {},
     onScanPermission: (() -> Unit) -> Unit,
     onHide: () -> Unit,
     onBack: () -> Unit,
@@ -155,10 +158,28 @@ fun DiagnosticScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
+            // Der Schalter steht vor der Diagnose, weil er den ganzen Bereich betrifft
+            // und nicht nur das Batteriewerkzeug darunter.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.dev_updates))
+                    Text(
+                        stringResource(R.string.dev_updates_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                }
+                Switch(checked = devUpdates, onCheckedChange = onDevUpdates)
+            }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
             Text(
                 stringResource(R.string.diag_intro),
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(vertical = 12.dp),
+                modifier = Modifier.padding(bottom = 12.dp),
             )
 
             Row(verticalAlignment = Alignment.CenterVertically) {

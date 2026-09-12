@@ -78,6 +78,8 @@ fun AboutScreen(
     onLanguage: (AppLanguage) -> Unit,
     onOpenMenu: () -> Unit,
     devMode: Boolean = false,
+    /** Auch Entwicklungsbauten als Update anbieten. */
+    devUpdates: Boolean = false,
     onDevMode: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -233,7 +235,11 @@ fun AboutScreen(
                     state = state,
                     onCheck = {
                         state = UpdateUi.Checking
-                        scope.launch { state = UpdateUi.Result(UpdateChecker.check(BuildConfig.VERSION_NAME)) }
+                        scope.launch {
+                            state = UpdateUi.Result(
+                                UpdateChecker.check(BuildConfig.VERSION_NAME, devUpdates),
+                            )
+                        }
                     },
                     onOpen = ::openUrl,
                 )

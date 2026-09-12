@@ -329,6 +329,8 @@ private fun BoatSpeedyApp(
                     )
 
                     Screen.SETTINGS_DEV -> DiagnosticScreen(
+                        devUpdates = settings.devUpdates,
+                        onDevUpdates = vm::setDevUpdates,
                         onScanPermission = withBt,
                         onHide = { vm.setDevMode(false); screen = Screen.SETTINGS },
                         onBack = { screen = Screen.SETTINGS },
@@ -465,6 +467,7 @@ private fun BoatSpeedyApp(
                         onLanguage = { LanguageHelper.set(context, it) },
                         onOpenMenu = { openDrawer() },
                         devMode = settings.devMode,
+                        devUpdates = settings.devUpdates,
                         onDevMode = vm::setDevMode,
                     )
 

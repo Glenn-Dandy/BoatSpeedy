@@ -37,4 +37,14 @@ class UpdateCompareTest {
     fun `zwei Entwicklungsbauten lassen sich ordnen`() {
         assertTrue(compareVersions("1.4.0-dev268", "1.4.0-dev267") > 0)
     }
+
+    /**
+     * Die Laufnummer wird irgendwann vierstellig. Als Zeichenkette verglichen stünde
+     * `dev999` über `dev1000`, und der Entwicklungsbau würde ab da nie wieder angeboten.
+     */
+    @Test
+    fun `die Laufnummer wird als Zahl verglichen`() {
+        assertTrue("dev1000 muss neuer sein als dev999", compareVersions("1.4.1-dev1000", "1.4.1-dev999") > 0)
+        assertTrue(compareVersions("1.4.1-dev280", "1.4.1-dev99") > 0)
+    }
 }

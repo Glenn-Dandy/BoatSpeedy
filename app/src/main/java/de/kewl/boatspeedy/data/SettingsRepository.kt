@@ -55,6 +55,7 @@ class SettingsRepository(private val context: Context) {
         val WEATHER_ALARM_ON = booleanPreferencesKey("weather_alarm_on")
         val WEATHER_SOUND = stringPreferencesKey("weather_sound")
         val DEV_MODE = booleanPreferencesKey("dev_mode")
+        val DEV_UPDATES = booleanPreferencesKey("dev_updates")
         val CRAFT = stringPreferencesKey("craft")
         val SEAMARKS = booleanPreferencesKey("seamarks")
         val MAP_ORIENTATION = stringPreferencesKey("map_orientation")
@@ -97,6 +98,7 @@ class SettingsRepository(private val context: Context) {
             weatherAlarmOn = p[Keys.WEATHER_ALARM_ON] ?: true,
             weatherSound = p[Keys.WEATHER_SOUND]?.let { enumOrNull<AlarmSound>(it) } ?: AlarmSound.SIRENE,
             devMode = p[Keys.DEV_MODE] ?: false,
+            devUpdates = p[Keys.DEV_UPDATES] ?: false,
             craft = p[Keys.CRAFT]?.let { enumOrNull<Craft>(it) } ?: Craft.MOTORBOAT,
             seamarks = p[Keys.SEAMARKS] ?: true,
             mapOrientation = p[Keys.MAP_ORIENTATION]?.let { enumOrNull<MapOrientation>(it) }
@@ -139,6 +141,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setWeatherEnabled(value: Boolean) = edit { it[Keys.WEATHER_ENABLED] = value }
     suspend fun setWeatherAlarmOn(value: Boolean) = edit { it[Keys.WEATHER_ALARM_ON] = value }
     suspend fun setDevMode(value: Boolean) = edit { it[Keys.DEV_MODE] = value }
+    suspend fun setDevUpdates(value: Boolean) = edit { it[Keys.DEV_UPDATES] = value }
     suspend fun setCraft(value: Craft) = edit { it[Keys.CRAFT] = value.name }
     suspend fun setSeamarks(value: Boolean) = edit { it[Keys.SEAMARKS] = value }
     suspend fun setMapOrientation(value: MapOrientation) =
