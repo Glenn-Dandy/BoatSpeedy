@@ -32,6 +32,14 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Ohne diese Angabe installiert die Aktion voreingestellt `tools` — ein Paket,
+          # das Google aus dem Verzeichnis genommen hat. Seit die Laeufer die
+          # cmdline-tools 16 mitbringen, scheitert sie daran mit "Failed to find package
+          # 'tools'", noch bevor irgendetwas gebaut wird. Wir brauchen es nicht; was
+          # gebraucht wird, steht im naechsten Schritt und ist dort auf feste Fassungen
+          # festgelegt.
+          packages: platform-tools
 
       - name: Install SDK packages
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
