@@ -35,6 +35,8 @@
     <string name="permission_needed">BoatSpeedy braucht die Standortberechtigung, um die
         Geschwindigkeit per GPS zu messen.</string>
     <string name="grant_permission">Berechtigung erteilen</string>
+    <string name="permission_needs_precise">Für die Geschwindigkeit braucht die App den <b>genauen</b> Standort. „Ungefähr“ reicht dafür nicht.</string>
+    <string name="permission_rest_works">Fahrten, GPX und Batterie funktionieren auch ohne. Das Menü oben links führt dorthin.</string>
 
     <!-- Fahrt / Tracking -->
     <string name="trip_start">Fahrt starten</string>
@@ -283,6 +285,8 @@
     <string name="diag_share">Protokoll teilen</string>
     <string name="dev_hide">Entwicklerwerkzeuge ausblenden</string>
     <string name="dev_hidden">Entwicklerwerkzeuge ausgeblendet — siebenmal auf die Versionsnummer in „Über" tippen, um sie zurückzuholen</string>
+    <string name="dev_updates">Entwicklerversionen anbieten</string>
+    <string name="dev_updates_hint">Die Update-Prüfung berücksichtigt dann auch den rollenden Entwicklungsbau, nicht nur Vollversionen.</string>
     <string name="bat_history">Verlauf</string>
     <string name="bat_cycles">Ladezyklen</string>
     <string name="bat_discharged_total">Entnommen gesamt</string>
@@ -333,6 +337,18 @@
     <string name="nav_obstacles_weir_one">1 Wehr in der Nähe</string>
     <string name="nav_restricted">%s km gesperrt</string>
     <string name="lock_hours">Zeiten</string>
+    <string name="wind_from">Wind aus %1$s</string>
+    <!-- Himmelsrichtungen, im Uhrzeigersinn ab Nord. Sprachabhängig: NO/O gegen NE/E. -->
+    <string-array name="wind_dirs">
+        <item>N</item>
+        <item>NO</item>
+        <item>O</item>
+        <item>SO</item>
+        <item>S</item>
+        <item>SW</item>
+        <item>W</item>
+        <item>NW</item>
+    </string-array>
     <string name="lock_phone">Telefon</string>
     <string name="lock_vhf">UKW-Kanal</string>
     <string name="lock_size">Kammer</string>

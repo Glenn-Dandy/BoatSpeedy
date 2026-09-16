@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
@@ -30,6 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -38,6 +40,7 @@ import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -158,19 +161,24 @@ private fun BoatSpeedyApp(
                 ActivityResultContracts.RequestPermission(),
             ) { granted -> hasPermission = granted }
 
-            if (!hasPermission) {
-                PermissionGate(onRequest = {
-                    permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                })
-                return@Surface
-            }
+            // **Die Sperre steht vor dem Tacho, nicht vor der App.**
+            //
+            // Vorher brach der Aufbau hier ab, und ohne Standortfreigabe war nichts
+            // erreichbar: auch nicht die aufgezeichneten Fahrten, der GPX-Import oder die
+            // Batterie, die alle kein GPS brauchen. Auf dem Bildschirm stand ein einziger
+            // Knopf. Jetzt läuft das Menü, und nur der Tacho selbst bleibt gesperrt.
+            val grobErlaubt = ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
 
             // GPS nur im Vordergrund messen – an den Lifecycle koppeln.
             val lifecycleOwner = LocalLifecycleOwner.current
-            DisposableEffect(lifecycleOwner) {
+            DisposableEffect(lifecycleOwner, hasPermission) {
                 val observer = LifecycleEventObserver { _, event ->
                     when (event) {
-                        Lifecycle.Event.ON_RESUME -> vm.startUpdates()
+                        // Ohne Freigabe gibt es nichts zu messen; der Aufruf würde nur
+                        // eine Ausnahme fangen.
+                        Lifecycle.Event.ON_RESUME -> if (hasPermission) vm.startUpdates()
                         Lifecycle.Event.ON_PAUSE -> vm.stopUpdates()
                         else -> Unit
                     }
@@ -185,7 +193,12 @@ private fun BoatSpeedyApp(
             val notifLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission(),
             ) { /* Ergebnis ist unkritisch – der Dienst läuft auch ohne sichtbare Notification. */ }
-            LaunchedEffect(Unit) {
+            // **Erst beim Start einer Fahrt fragen, nicht beim Start der App.**
+            //
+            // Die Meldung gehört zur laufenden Fahrt; wer nur den Tacho ansieht, braucht
+            // sie nicht. Der Vordergrunddienst läuft auch ohne sie, die Aufzeichnung ist
+            // also nicht in Gefahr — es fehlt dann nur die Anzeige im Schirmrand.
+            fun fragNachMeldungen() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                     ContextCompat.checkSelfPermission(
                         context, Manifest.permission.POST_NOTIFICATIONS,
@@ -329,6 +342,8 @@ private fun BoatSpeedyApp(
                     )
 
                     Screen.SETTINGS_DEV -> DiagnosticScreen(
+                        devUpdates = settings.devUpdates,
+                        onDevUpdates = vm::setDevUpdates,
                         onScanPermission = withBt,
                         onHide = { vm.setDevMode(false); screen = Screen.SETTINGS },
                         onBack = { screen = Screen.SETTINGS },
@@ -465,6 +480,7 @@ private fun BoatSpeedyApp(
                         onLanguage = { LanguageHelper.set(context, it) },
                         onOpenMenu = { openDrawer() },
                         devMode = settings.devMode,
+                        devUpdates = settings.devUpdates,
                         onDevMode = vm::setDevMode,
                     )
 
@@ -521,7 +537,15 @@ private fun BoatSpeedyApp(
                         onOpenMenu = { openDrawer() },
                     )
 
-                    Screen.SPEED -> {
+                    Screen.SPEED -> if (!hasPermission) {
+                        PermissionGate(
+                            nurGrob = grobErlaubt,
+                            onOpenMenu = { openDrawer() },
+                            onRequest = {
+                                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                            },
+                        )
+                    } else {
                         val activeBatteries = settings.batteries.filter { it.active }
                         val batteryOptions = if (activeBatteries.size >= 2) {
                             activeBatteries.map { BatteryOption(it.address, it.name) } +
@@ -546,7 +570,7 @@ private fun BoatSpeedyApp(
                             livePoints = livePoints,
                             onSelectBattery = vm::setDashboardBattery,
                             onAutoPauseOverride = vm::setAutoPauseOverride,
-                            onStartTrip = vm::startTrip,
+                            onStartTrip = { fragNachMeldungen(); vm.startTrip() },
                             onStopTrip = vm::stopTrip,
                             onOpenMenu = { openDrawer() },
                             onOpenMap = { screen = Screen.LIVE_MAP },
@@ -624,20 +648,50 @@ private fun KeepScreenOn(enabled: Boolean) {
 }
 
 @Composable
-private fun PermissionGate(onRequest: () -> Unit) {
-    Scaffold { innerPadding ->
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+private fun PermissionGate(
+    /**
+     * Der grobe Standort ist erlaubt, der genaue nicht. Wer in Androids Dialog
+     * „Ungefähr" wählt, hat etwas erteilt und landete trotzdem wortlos wieder hier.
+     * Ein Tacho braucht den genauen Standort, und das gehört dann auch dagestanden.
+     */
+    nurGrob: Boolean = false,
+    onOpenMenu: () -> Unit = {},
+    onRequest: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.nav_speed)) },
+                navigationIcon = {
+                    IconButton(onClick = onOpenMenu) {
+                        Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.menu))
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(innerPadding).padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
-                text = stringResource(R.string.permission_needed),
+                text = stringResource(
+                    if (nurGrob) R.string.permission_needs_precise else R.string.permission_needed,
+                ),
                 style = MaterialTheme.typography.bodyLarge,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
             Button(onClick = onRequest, modifier = Modifier.padding(top = 16.dp)) {
                 Text(stringResource(R.string.grant_permission))
             }
+            Text(
+                text = stringResource(R.string.permission_rest_works),
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(top = 24.dp),
+            )
         }
     }
 }

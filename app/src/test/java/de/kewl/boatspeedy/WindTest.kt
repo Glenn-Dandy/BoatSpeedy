@@ -1,6 +1,6 @@
 package de.kewl.boatspeedy
 
-import de.kewl.boatspeedy.ui.windArrow
+import de.kewl.boatspeedy.ui.windSector
 import de.kewl.boatspeedy.ui.windToDeg
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -30,22 +30,27 @@ class WindTest {
         assertEquals(windToDeg(10), windToDeg(370))
     }
 
+    /**
+     * Geprüft wird der Sektor, nicht der Buchstabe: Die Abkürzungen stehen in einer
+     * Zeichenkettentabelle, weil sie sprachabhängig sind (NO gegen NE, O gegen E).
+     */
     @Test
     fun `die Himmelsrichtung trifft die Sektorgrenzen`() {
-        assertEquals("N", windArrow(0))
-        assertEquals("N", windArrow(22))
-        assertEquals("NO", windArrow(23))
-        assertEquals("NO", windArrow(45))
-        assertEquals("O", windArrow(90))
-        assertEquals("S", windArrow(180))
-        assertEquals("W", windArrow(270))
-        assertEquals("NW", windArrow(315))
-        assertEquals("N", windArrow(350))
+        assertEquals(0, windSector(0))      // N
+        assertEquals(0, windSector(22))
+        assertEquals(1, windSector(23))     // NO
+        assertEquals(1, windSector(45))
+        assertEquals(2, windSector(90))     // O
+        assertEquals(4, windSector(180))    // S
+        assertEquals(6, windSector(270))    // W
+        assertEquals(7, windSector(315))    // NW
+        assertEquals(0, windSector(350))
     }
 
     @Test
     fun `negative und ueberdrehte Werte kippen nicht um`() {
-        assertEquals(windArrow(10), windArrow(370))
-        assertEquals(windArrow(350), windArrow(-10))
+        assertEquals(windSector(10), windSector(370))
+        assertEquals(windSector(350), windSector(-10))
+        for (d in -720..720) assert(windSector(d) in 0..7) { "$d ergab ${windSector(d)}" }
     }
 }

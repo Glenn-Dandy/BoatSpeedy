@@ -377,7 +377,12 @@ fun LiveMapScreen(
         val north = box.latNorth + padLat
         val west = box.lonWest - padLon
         val east = box.lonEast + padLon
-        val found = withContext(Dispatchers.IO) { SpeedSignSource.fetch(south, west, north, east) }
+        // Erst die Kacheln: Die Werte liegen dort, und dann bleibt die Karte ohne Netz.
+        // Fehlt eine Kachel, geht es wie bisher über Overpass.
+        val found = withContext(Dispatchers.IO) {
+            SpeedSignSource.fromTiles(MapTiles.dir(context.filesDir), south, west, north, east)
+                ?: SpeedSignSource.fetch(south, west, north, east)
+        }
         if (found != null) {
             speedSigns = found
             signArea = org.osmdroid.util.BoundingBox(north, east, south, west)
@@ -874,7 +879,10 @@ fun LiveMapScreen(
             text = {
                 Column {
                     o.openingHours?.let {
-                        InfoZeile(stringResource(R.string.lock_hours), it)
+                        InfoZeile(
+                            stringResource(R.string.lock_hours),
+                            de.kewl.boatspeedy.nav.openingHoursLines(it),
+                        )
                     }
                     o.phone?.let { InfoZeile(stringResource(R.string.lock_phone), it) }
                     o.vhf?.let { InfoZeile(stringResource(R.string.lock_vhf), it) }

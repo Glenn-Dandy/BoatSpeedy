@@ -27,4 +27,11 @@ Weather and safety
 * Weather warnings for thunderstorm and storm
 * Anchor watch with a drag alarm
 
+What the app talks to
+* Base map from OpenStreetMap, seamark overlay from tiles.openseamap.org
+* Waterway tiles for routing from boatspeedy.wozise.de, a server run by the author. The data comes from OpenStreetMap, the generator is open source (Glenn-Dandy/boatspeedy-mapdata)
+* Without matching tiles, routing asks the public Overpass servers
+* Weather and warnings from the Deutscher Wetterdienst, via maps.dwd.de and api.brightsky.dev
+* Update check at api.github.com, only when you tap it
+
 Free and open source, without Google Play Services. Maps and waterways © OpenStreetMap contributors (ODbL), seamarks OpenSeaMap (CC BY-SA), weather from the Deutscher Wetterdienst (CC BY 4.0).

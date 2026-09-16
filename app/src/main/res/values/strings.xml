@@ -38,6 +38,8 @@
     <string name="permission_needed">BoatSpeedy needs the location permission to measure
         speed via GPS.</string>
     <string name="grant_permission">Grant permission</string>
+    <string name="permission_needs_precise">For speed the app needs your <b>precise</b> location. "Approximate" is not enough.</string>
+    <string name="permission_rest_works">Trips, GPX and the battery work without it. The menu at the top left takes you there.</string>
 
     <!-- Trip / tracking -->
     <string name="trip_start">Start trip</string>
@@ -286,6 +288,8 @@
     <string name="diag_share">Share report</string>
     <string name="dev_hide">Hide developer tools</string>
     <string name="dev_hidden">Developer tools hidden — tap the version number in About seven times to bring them back</string>
+    <string name="dev_updates">Offer development builds</string>
+    <string name="dev_updates_hint">The update check then also considers the rolling development build, not just full releases.</string>
     <string name="bat_history">History</string>
     <string name="bat_cycles">Charge cycles</string>
     <string name="bat_discharged_total">Discharged in total</string>
@@ -336,6 +340,18 @@
     <string name="nav_obstacles_weir_one">1 weir nearby</string>
     <string name="nav_restricted">%s km restricted</string>
     <string name="lock_hours">Hours</string>
+    <string name="wind_from">Wind from %1$s</string>
+    <!-- Himmelsrichtungen, im Uhrzeigersinn ab Nord. Sprachabhängig: NO/O gegen NE/E. -->
+    <string-array name="wind_dirs">
+        <item>N</item>
+        <item>NE</item>
+        <item>E</item>
+        <item>SE</item>
+        <item>S</item>
+        <item>SW</item>
+        <item>W</item>
+        <item>NW</item>
+    </string-array>
     <string name="lock_phone">Phone</string>
     <string name="lock_vhf">VHF channel</string>
     <string name="lock_size">Chamber</string>

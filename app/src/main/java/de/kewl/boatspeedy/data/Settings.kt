@@ -158,6 +158,12 @@ data class Settings(
     val weatherSound: AlarmSound = AlarmSound.SIRENE,
     /** Versteckte Entwicklerwerkzeuge (BLE-Diagnose); über 7 Tipper in „Über" freigeschaltet. */
     val devMode: Boolean = false,
+    /**
+     * Auch Entwicklungsbauten als Update anbieten. Aus, solange nichts anderes gesagt
+     * wird: Eine Vollversion soll auf Vollversionen zeigen und niemanden versehentlich
+     * auf einen Zwischenstand schicken.
+     */
+    val devUpdates: Boolean = false,
     // Navigation
     /** Fahrzeugart für die Routenberechnung. */
     val craft: Craft = Craft.MOTORBOAT,

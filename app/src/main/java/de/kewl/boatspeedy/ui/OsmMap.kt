@@ -35,6 +35,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import de.kewl.boatspeedy.R
@@ -980,7 +981,9 @@ fun NorthArrow(
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 Icons.Filled.Navigation,
-                contentDescription = if (courseUp) "Fahrtrichtung oben" else "Norden oben",
+                contentDescription = stringResource(
+                    if (courseUp) R.string.map_course_up else R.string.map_north_up,
+                ),
                 tint = if (courseUp) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.error,
                 modifier = Modifier
                     .size(20.dp)
@@ -1021,7 +1024,9 @@ fun CraftButton(
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 if (kanu) Icons.Filled.Kayaking else Icons.Filled.DirectionsBoat,
-                contentDescription = if (kanu) "Kanu" else "Motorboot",
+                contentDescription = stringResource(
+                    if (kanu) R.string.craft_canoe else R.string.craft_motorboat,
+                ),
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(22.dp),
             )

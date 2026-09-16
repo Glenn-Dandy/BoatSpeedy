@@ -22,11 +22,19 @@ import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.weather.CurrentWeather
 import java.util.Locale
 
-/** Himmelsrichtung, aus der der Wind kommt – acht Sektoren reichen fürs Ablesen. */
-fun windArrow(deg: Int): String {
-    val dirs = listOf("N", "NO", "O", "SO", "S", "SW", "W", "NW")
-    return dirs[(((deg % 360) + 360) % 360 + 22) / 45 % 8]
-}
+/**
+ * In welchen der acht Sektoren eine Richtung fällt, 0 = Nord und weiter im Uhrzeigersinn.
+ *
+ * Nur die Zahl, nicht der Buchstabe: Die Abkürzungen sind sprachabhängig. Auf Deutsch
+ * heißt es NO und O, auf Englisch NE und E. Fest eingebaut sagte ein Bildschirmleser auf
+ * einem englischen Gerät „Wind aus NO".
+ */
+fun windSector(deg: Int): Int = ((((deg % 360) + 360) % 360) + 22) / 45 % 8
+
+/** Himmelsrichtung, aus der der Wind kommt, in der Sprache des Geräts. */
+@Composable
+fun windArrow(deg: Int): String =
+    androidx.compose.ui.res.stringArrayResource(R.array.wind_dirs)[windSector(deg)]
 
 /**
  * Wohin die Luft zieht, aus der Richtung, **aus** der sie kommt.
@@ -109,7 +117,7 @@ fun WindBadge(deg: Int, modifier: Modifier = Modifier) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 Icons.Filled.Navigation,
-                contentDescription = "Wind aus ${windArrow(deg)}",
+                contentDescription = stringResource(R.string.wind_from, windArrow(deg)),
                 tint = MaterialTheme.colorScheme.primary,
                 // +180°, weil der Pfeil mit dem Wind zeigt: Kommt er aus Norden, zieht die
                 // Luft nach Süden.

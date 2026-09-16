@@ -1,0 +1,9 @@
+1.4.1
+* Lock hours are listed one rule per line
+* Locks recording hours under service_times are read
+* Lock gates no longer catch the tap
+* Speed signs come from the downloaded tiles, no connection needed
+* Trips, GPX and the battery no longer need the location permission
+* Notifications are asked for when a trip starts
+* The update check knows development builds; a developer switch for it
+* Compass directions in the language of the device

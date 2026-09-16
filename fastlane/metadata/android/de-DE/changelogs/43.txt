@@ -1,0 +1,9 @@
+1.4.1
+* Schleusenzeiten stehen untereinander statt in einer Zeile
+* Schleusen mit Zeiten unter service_times werden gelesen
+* Schleusentore fangen den Tipp nicht mehr ab
+* Geschwindigkeitsschilder kommen aus den geladenen Kacheln, ohne Netz
+* Fahrten, GPX und Batterie brauchen keine Standortfreigabe mehr
+* Benachrichtigungen erst beim Start einer Fahrt
+* Update-Prüfung erkennt Entwicklungsbauten; Entwicklerschalter dafür
+* Himmelsrichtungen in der Sprache des Geräts
