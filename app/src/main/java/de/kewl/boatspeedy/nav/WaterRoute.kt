@@ -11,7 +11,7 @@ import java.util.PriorityQueue
 data class LatLon(val lat: Double, val lon: Double)
 
 /** Was auf dem Weg liegen kann. Ein Wehr heißt in aller Regel: hier ist Schluss. */
-enum class ObstacleKind { LOCK, WEIR, SLUICE, DAM }
+enum class ObstacleKind { LOCK, WEIR, SLUICE, DAM, BRIDGE }
 
 /**
  * Eine Schleuse, ein Wehr oder Ähnliches auf der Route.
@@ -32,6 +32,10 @@ data class Obstacle(
     val vhf: String? = null,
     val maxLengthM: String? = null,
     val maxWidthM: String? = null,
+    /** Durchfahrtshöhe einer Brücke in Metern, so wie OSM sie führt. */
+    val clearanceHeightM: String? = null,
+    /** Durchfahrtsbreite in Metern. */
+    val clearanceWidthM: String? = null,
     /** Wasserstraßenklasse nach CEMT. */
     val cemt: String? = null,
 ) {
@@ -39,7 +43,8 @@ data class Obstacle(
     val hasInfo: Boolean
         get() = !name.isNullOrBlank() || !openingHours.isNullOrBlank() ||
             !phone.isNullOrBlank() || !vhf.isNullOrBlank() ||
-            !maxLengthM.isNullOrBlank() || !cemt.isNullOrBlank()
+            !maxLengthM.isNullOrBlank() || !cemt.isNullOrBlank() ||
+            !clearanceHeightM.isNullOrBlank() || !clearanceWidthM.isNullOrBlank()
 }
 
 /** Wie zum Ziel gerechnet wird. */
@@ -435,6 +440,34 @@ object WaterRouter {
         return zuege
     }
 
+    /**
+     * Schleusen und Wehre eines Ausschnitts aus den Kacheln — ohne gesetzte Route.
+     *
+     * Bisher gab es sie nur entlang einer gerechneten Strecke. Wer wissen wollte, wann
+     * eine Schleuse öffnet, musste erst ein Ziel setzen; dabei liegen alle Schleusen des
+     * Gebiets längst auf dem Gerät. Fehlt eine Kachel, kommt eben nichts — geholt wird
+     * dafür nichts, das entscheidet der Aufrufer.
+     */
+    fun obstaclesIn(
+        dir: java.io.File?,
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+    ): List<Obstacle> {
+        if (dir == null || !dir.isDirectory) return emptyList()
+        val ids = MapTiles.tilesFor(south, west, north, east)
+        if (ids.isEmpty() || MapTiles.missing(dir, ids).isNotEmpty()) return emptyList()
+        val alle = ArrayList<Obstacle>()
+        val ok = MapTiles.forEach(dir, ids) { json ->
+            parseObstacles(json).filterTo(alle) {
+                it.lat in south..north && it.lon in west..east
+            }
+        }
+        if (!ok) return emptyList()
+        return zusammenlegen(alle.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) })
+    }
+
     /* ------------------------------ Daten holen ------------------------------ */
 
     /**
@@ -698,7 +731,22 @@ object WaterRouter {
             // OSM `waterway=canal` und daneben `lock=yes` — an ihr hängen Name,
             // Öffnungszeiten und Telefon. Wer nur auf `waterway` schaut, findet höchstens
             // die Tore, und die wissen nichts.
+            // **Brücken mit Durchfahrtshöhe.** Am Elbe-Lübeck-Kanal hängt an fast jeder
+            // eine Tafel mit der Höhe; in OSM steht sie als `seamark:type=bridge` mit
+            // `clearance_height`. Bisher war das nur ein Seezeichen unter vielen, mit
+            // durchsichtiger Trefferfläche und ohne eigenes Symbol — und bei gesetzter
+            // Route lag die Linie darüber. Wer wissen muss, ob er druntergeht, soll es
+            // sehen, ohne zu suchen.
+            val brueckenhoehe = tags.optString("seamark:bridge:clearance_height")
+                .takeIf { it.isNotBlank() }
+            val brueckenbreite = tags.optString("seamark:bridge:clearance_width")
+                .takeIf { it.isNotBlank() }
             val kind = when {
+                tags.optString("seamark:type") == "bridge" -> {
+                    // Ohne Maß ist eine Brücke keine Auskunft, nur ein Punkt mehr.
+                    if (brueckenhoehe == null && brueckenbreite == null) return@mapNotNull null
+                    ObstacleKind.BRIDGE
+                }
                 tags.optString("lock") == "yes" -> ObstacleKind.LOCK
                 else -> when (tags.optString("waterway")) {
                     "lock_gate" -> ObstacleKind.LOCK
@@ -723,7 +771,7 @@ object WaterRouter {
                 lat, lon, kind,
                 // `lock_name` ist der genauere: `name` trägt an einem Schleusenkanal
                 // gelegentlich den Namen des Kanals statt den der Schleuse.
-                name = tag("lock_name") ?: tag("name"),
+                name = tag("lock_name") ?: tag("name") ?: tag("seamark:name"),
                 // `service_times` ist bei Schleusen genauso verbreitet wie
                 // `opening_hours` — die Oeblitzschleuse führt das eine, die Schleuse
                 // Wettin das andere. Wer nur nach einem sucht, findet die Hälfte nicht.
@@ -733,6 +781,8 @@ object WaterRouter {
                 maxLengthM = tag("maxlength"),
                 maxWidthM = tag("maxwidth"),
                 cemt = tag("CEMT"),
+                clearanceHeightM = brueckenhoehe,
+                clearanceWidthM = brueckenbreite,
             )
         }
     }.getOrDefault(emptyList())

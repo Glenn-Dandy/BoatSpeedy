@@ -325,6 +325,10 @@ fun LiveMapScreen(
     var mapBox by remember { mutableStateOf<org.osmdroid.util.BoundingBox?>(null) }
     // Seezeichen aus den Kacheln – antippbar, ohne dafür ins Netz zu gehen.
     var seamarks by remember { mutableStateOf<List<SeamarkPoi>>(emptyList()) }
+    // Schleusen und Wehre im Blickfeld, unabhängig von einer Route.
+    var areaObstacles by remember {
+        mutableStateOf<List<de.kewl.boatspeedy.nav.Obstacle>>(emptyList())
+    }
     var zoomLevel by remember { mutableStateOf(0.0) }
 
     // Seezeichen für den sichtbaren Ausschnitt, gelesen aus den Kacheln auf dem Gerät.
@@ -352,6 +356,25 @@ fun LiveMapScreen(
             }
             MapTiles.readSeamarks(dir, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
                 .take(MAX_SEAMARKS)
+        }
+    }
+
+    // **Schleusen auch ohne gesetzte Route.** Sie liegen ohnehin in den Kacheln; wer
+    // wissen will, wann eine öffnet, sollte dafür kein Ziel setzen müssen. Geholt wird
+    // dafür nichts — anders als bei den Seezeichen. Wer Kacheln hat, sieht sie, wer keine
+    // hat, bekommt sie beim nächsten Routing angeboten.
+    LaunchedEffect(weatherMode, mapBox, zoomLevel) {
+        val box = mapBox
+        if (weatherMode || box == null || zoomLevel < OBSTACLE_MIN_ZOOM) {
+            areaObstacles = emptyList()
+            return@LaunchedEffect
+        }
+        val dir = MapTiles.dir(context.filesDir)
+        areaObstacles = withContext(Dispatchers.IO) {
+            // Gedeckelt: Am Elbe-Lübeck-Kanal stehen allein in einer Kachel 146 Brücken
+            // mit Höhenangabe. Auf Zoomstufe 11 wäre der halbe Bildschirm voller Symbole.
+            WaterRouter.obstaclesIn(dir, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
+                .take(MAX_OBSTACLES)
         }
     }
 
@@ -484,7 +507,14 @@ fun LiveMapScreen(
                 onLongPress = if (weatherMode) null else { lat, lon -> askTarget = LatLon(lat, lon) },
                 navPath = if (weatherMode) emptyList() else navTarget?.path.orEmpty(),
                 navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
-                obstacles = if (weatherMode) emptyList() else navTarget?.obstacles.orEmpty(),
+                // Die Hindernisse der Route stehen vorn: Bei gleicher Stelle gewinnt der
+                // Eintrag, der zur Fahrt gehört.
+                obstacles = if (weatherMode) {
+                    emptyList()
+                } else {
+                    (navTarget?.obstacles.orEmpty() + areaObstacles)
+                        .distinctBy { "%.4f,%.4f".format(it.lat, it.lon) }
+                },
                 onObstacle = { obstacleInfo = it },
                 navBlockedPaths = if (weatherMode) emptyList() else navTarget?.restricted.orEmpty(),
                 courseDeg = course?.deg,
@@ -875,9 +905,27 @@ fun LiveMapScreen(
     obstacleInfo?.let { o ->
         AlertDialog(
             onDismissRequest = { obstacleInfo = null },
-            title = { Text(o.name ?: stringResource(R.string.nav_obstacles_lock_one)) },
+            title = {
+                Text(
+                    o.name ?: stringResource(
+                        when (o.kind) {
+                            ObstacleKind.BRIDGE -> R.string.obstacle_bridge
+                            ObstacleKind.WEIR, ObstacleKind.DAM -> R.string.obstacle_weir
+                            else -> R.string.obstacle_lock
+                        },
+                    ),
+                )
+            },
             text = {
                 Column {
+                    // Die Höhe steht ganz oben: Bei einer Brücke ist sie die Frage,
+                    // wegen der man sie antippt.
+                    o.clearanceHeightM?.let {
+                        InfoZeile(stringResource(R.string.bridge_clearance), "$it m")
+                    }
+                    o.clearanceWidthM?.let {
+                        InfoZeile(stringResource(R.string.bridge_width), "$it m")
+                    }
                     o.openingHours?.let {
                         InfoZeile(
                             stringResource(R.string.lock_hours),
@@ -1026,6 +1074,15 @@ private fun ObstacleLine(iconRes: Int, text: String, color: androidx.compose.ui.
 
 /** Darunter stehen zu viele Zeichen zu dicht, um eines gezielt zu treffen. */
 private const val SEAMARK_MIN_ZOOM = 13.0
+
+/**
+ * Ab hier werden Schleusen und Wehre im Blickfeld gezeigt. Etwas früher als bei den
+ * Seezeichen: Es sind viel weniger, und wo eine Schleuse liegt, will man früher wissen.
+ */
+private const val OBSTACLE_MIN_ZOOM = 11.0
+
+/** Schutz gegen hunderte Symbole auf einmal, keine inhaltliche Auswahl. */
+private const val MAX_OBSTACLES = 250
 
 /**
  * Nur ein Schutz gegen Tausende Marker auf einmal, keine inhaltliche Auswahl. Vorher

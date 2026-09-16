@@ -459,9 +459,13 @@ fun OsmMap(
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 icon = ContextCompat.getDrawable(
                     context,
-                    if (o.kind == de.kewl.boatspeedy.nav.ObstacleKind.WEIR ||
-                        o.kind == de.kewl.boatspeedy.nav.ObstacleKind.DAM
-                    ) R.drawable.ic_marker_weir else R.drawable.ic_marker_lock,
+                    when (o.kind) {
+                        de.kewl.boatspeedy.nav.ObstacleKind.WEIR,
+                        de.kewl.boatspeedy.nav.ObstacleKind.DAM,
+                        -> R.drawable.ic_marker_weir
+                        de.kewl.boatspeedy.nav.ObstacleKind.BRIDGE -> R.drawable.ic_marker_bridge
+                        else -> R.drawable.ic_marker_lock
+                    },
                 )
                 title = o.name
                 // Nur was zu sagen hat, wird antippbar. Ein Tor ohne Merkmale würde nur
