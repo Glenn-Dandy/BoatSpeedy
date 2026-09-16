@@ -38,6 +38,8 @@
     <string name="permission_needed">BoatSpeedy needs the location permission to measure
         speed via GPS.</string>
     <string name="grant_permission">Grant permission</string>
+    <string name="permission_needs_precise">For speed the app needs your <b>precise</b> location. "Approximate" is not enough.</string>
+    <string name="permission_rest_works">Trips, GPX and the battery work without it. The menu at the top left takes you there.</string>
 
     <!-- Trip / tracking -->
     <string name="trip_start">Start trip</string>

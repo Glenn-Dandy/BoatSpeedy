@@ -35,6 +35,8 @@
     <string name="permission_needed">BoatSpeedy braucht die Standortberechtigung, um die
         Geschwindigkeit per GPS zu messen.</string>
     <string name="grant_permission">Berechtigung erteilen</string>
+    <string name="permission_needs_precise">Für die Geschwindigkeit braucht die App den <b>genauen</b> Standort. „Ungefähr“ reicht dafür nicht.</string>
+    <string name="permission_rest_works">Fahrten, GPX und Batterie funktionieren auch ohne. Das Menü oben links führt dorthin.</string>
 
     <!-- Fahrt / Tracking -->
     <string name="trip_start">Fahrt starten</string>

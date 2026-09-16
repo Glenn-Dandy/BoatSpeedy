@@ -27,4 +27,11 @@ Wetter und Sicherheit
 * Wetterwarnungen bei Gewitter und Sturm
 * Ankerwache mit Abdrift-Alarm
 
+Womit die App spricht
+* Kartenbild von OpenStreetMap, Seezeichenebene von tiles.openseamap.org
+* Wasserwegkacheln fürs Routing von boatspeedy.wozise.de, einem Server des Autors. Die Daten stammen aus OpenStreetMap, der Generator ist quelloffen (Glenn-Dandy/boatspeedy-mapdata)
+* Ohne passende Kacheln fragt das Routing bei den öffentlichen Overpass-Servern nach
+* Wetter und Warnungen vom Deutschen Wetterdienst, über maps.dwd.de und api.brightsky.dev
+* Update-Prüfung bei api.github.com, nur auf Knopfdruck
+
 Frei und quelloffen, ohne Google Play Services. Karten und Wasserwege © OpenStreetMap-Mitwirkende (ODbL), Seezeichen OpenSeaMap (CC BY-SA), Wetter vom Deutschen Wetterdienst (CC BY 4.0).

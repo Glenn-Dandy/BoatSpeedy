@@ -56,6 +56,34 @@ object SpeedSignSource {
         return null
     }
 
+    /**
+     * Schilder aus den Kacheln auf dem Gerät, oder `null`, wenn eine davon fehlt.
+     *
+     * Die Werte liegen längst dort: `tile.py` behält an den Knoten `maxspeed`,
+     * `waterway:maxspeed` und alles unter `seamark:`. Gefragt wurde trotzdem bei Overpass,
+     * bei jedem Öffnen der Karte — der einzige Grund, warum beim Kartenbild noch ein
+     * fremder Server auftauchte, obwohl die Route längst ohne auskam.
+     */
+    fun fromTiles(
+        dir: java.io.File?,
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+    ): List<SpeedSign>? {
+        if (dir == null || !dir.isDirectory) return null
+        val ids = MapTiles.tilesFor(south, west, north, east)
+        if (ids.isEmpty() || MapTiles.missing(dir, ids).isNotEmpty()) return null
+        val out = ArrayList<SpeedSign>()
+        val ok = MapTiles.forEach(dir, ids) { json ->
+            // Eine Kachel deckt ein ganzes Grad ab, der Ausschnitt ist kleiner.
+            parse(json).filterTo(out) {
+                it.lat in south..north && it.lon in west..east
+            }
+        }
+        return if (ok) out else null
+    }
+
     fun fetch(south: Double, west: Double, north: Double, east: Double): List<SpeedSign>? {
         val json = query(south, west, north, east) ?: return null
         return parse(json)
@@ -66,6 +94,12 @@ object SpeedSignSource {
         (0 until elements.length()).mapNotNull { i ->
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags") ?: return@mapNotNull null
+            // Bei Overpass filtert schon die Abfrage; aus einer Kachel kommt alles, was
+            // darin steht. Ohne diese Prüfung würde aus einem Hinweis „Einfahrt verboten
+            // ab 3 t" ein Tempolimit von drei.
+            val istSchild = tags.optString("seamark:notice:category") == "speed_limit" ||
+                tags.has("waterway:maxspeed") || tags.has("maxspeed")
+            if (!istSchild) return@mapNotNull null
             val (kmh, raw) = parseSpeed(
                 tags.optString("seamark:notice:information").takeIf { it.isNotEmpty() },
                 tags.optString("waterway:maxspeed").takeIf { it.isNotEmpty() },
