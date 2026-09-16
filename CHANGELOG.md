@@ -2,6 +2,33 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.4.1] – 2026-09-16
+
+### Neu
+- **Entwicklereinstellungen: „Entwicklerversionen anbieten".** Die Update-Prüfung
+  berücksichtigt dann auch den rollenden Entwicklungsbau. Aus bleibt es standardmäßig:
+  Eine Vollversion soll auf Vollversionen zeigen.
+
+### Geändert
+- **Öffnungszeiten einer Schleuse stehen untereinander.** Das Semikolon trennt in
+  OpenStreetMap die Regeln, das Komma die Tage innerhalb einer Regel.
+- **Geschwindigkeitsschilder kommen aus den geladenen Kacheln** statt von Overpass. Die
+  Werte lagen dort längst; damit braucht die Karte dafür kein Netz mehr.
+- **Die Standortsperre steht nur noch vor dem Tacho.** Fahrten, GPX-Import und Batterie
+  brauchen kein GPS und sind jetzt auch ohne Freigabe erreichbar.
+- **Benachrichtigungen werden beim Start einer Fahrt erfragt**, nicht beim Start der App.
+
+### Behoben
+- **Schleusentore fingen den Tipp ab** und zeigten „gate" statt der Schleusenauskunft.
+- **Zeiten unter `service_times` wurden nicht gelesen.** An der unteren Unstrut standen
+  drei von vier Schleusen dadurch ohne Zeiten da.
+- **Die Update-Prüfung meldete „aktuell"**, wenn ein Entwicklungsbau installiert war:
+  `1.4.0-dev267` zählte als 1.4.0.
+- **„Ungefähr" beim Standort** führte wortlos auf dieselbe Sperrseite zurück. Jetzt steht
+  dort, dass der Tacho den genauen Standort braucht.
+- **Himmelsrichtungen und zwei Beschriftungen für Bildschirmleser** standen fest auf
+  Deutsch; auf einem englischen Gerät hieß es „Wind aus NO" statt „Wind from NE".
+
 ## [1.4.0] – 2026-09-11
 
 ### Neu
