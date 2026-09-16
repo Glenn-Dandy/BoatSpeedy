@@ -338,6 +338,18 @@
     <string name="nav_obstacles_weir_one">1 weir nearby</string>
     <string name="nav_restricted">%s km restricted</string>
     <string name="lock_hours">Hours</string>
+    <string name="wind_from">Wind from %1$s</string>
+    <!-- Himmelsrichtungen, im Uhrzeigersinn ab Nord. Sprachabhängig: NO/O gegen NE/E. -->
+    <string-array name="wind_dirs">
+        <item>N</item>
+        <item>NE</item>
+        <item>E</item>
+        <item>SE</item>
+        <item>S</item>
+        <item>SW</item>
+        <item>W</item>
+        <item>NW</item>
+    </string-array>
     <string name="lock_phone">Phone</string>
     <string name="lock_vhf">VHF channel</string>
     <string name="lock_size">Chamber</string>

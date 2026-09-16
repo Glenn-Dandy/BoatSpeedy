@@ -335,6 +335,18 @@
     <string name="nav_obstacles_weir_one">1 Wehr in der Nähe</string>
     <string name="nav_restricted">%s km gesperrt</string>
     <string name="lock_hours">Zeiten</string>
+    <string name="wind_from">Wind aus %1$s</string>
+    <!-- Himmelsrichtungen, im Uhrzeigersinn ab Nord. Sprachabhängig: NO/O gegen NE/E. -->
+    <string-array name="wind_dirs">
+        <item>N</item>
+        <item>NO</item>
+        <item>O</item>
+        <item>SO</item>
+        <item>S</item>
+        <item>SW</item>
+        <item>W</item>
+        <item>NW</item>
+    </string-array>
     <string name="lock_phone">Telefon</string>
     <string name="lock_vhf">UKW-Kanal</string>
     <string name="lock_size">Kammer</string>

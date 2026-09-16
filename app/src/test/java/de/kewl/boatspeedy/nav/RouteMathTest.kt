@@ -125,17 +125,22 @@ class BearingTest {
     }
 }
 
-/** Windrichtung als Himmelsrichtung – acht Sektoren, jeder 45 Grad breit. */
+/**
+ * Windrichtung als Sektor – acht Stück, jeder 45 Grad breit.
+ *
+ * Geprüft wird die Zahl, nicht der Buchstabe: Die Abkürzungen liegen in einer
+ * Zeichenkettentabelle, weil sie sprachabhängig sind. Der Rest steht in `WindTest`.
+ */
 class WindDirectionTest {
     @org.junit.Test
-    fun `Grad werden zur richtigen Himmelsrichtung`() {
-        fun f(d: Int) = de.kewl.boatspeedy.ui.windArrow(d)
-        org.junit.Assert.assertEquals("N", f(0))
-        org.junit.Assert.assertEquals("N", f(350))    // über den Nullpunkt hinweg
-        org.junit.Assert.assertEquals("NO", f(45))
-        org.junit.Assert.assertEquals("O", f(90))
-        org.junit.Assert.assertEquals("S", f(180))
-        org.junit.Assert.assertEquals("W", f(270))    // der Wind aus der Messung oben
-        org.junit.Assert.assertEquals("NW", f(315))
+    fun `Grad werden zum richtigen Sektor`() {
+        fun f(d: Int) = de.kewl.boatspeedy.ui.windSector(d)
+        org.junit.Assert.assertEquals(0, f(0))        // N
+        org.junit.Assert.assertEquals(0, f(350))      // über den Nullpunkt hinweg
+        org.junit.Assert.assertEquals(1, f(45))       // NO
+        org.junit.Assert.assertEquals(2, f(90))       // O
+        org.junit.Assert.assertEquals(4, f(180))      // S
+        org.junit.Assert.assertEquals(6, f(270))      // W, der Wind aus der Messung oben
+        org.junit.Assert.assertEquals(7, f(315))      // NW
     }
 }
