@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Umtragen: das Boot wird über Land am Wehr vorbeigetragen. Grün, weil es ein Weg ist
+     und keine Warnung. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="26dp" android:height="26dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF" android:pathData="M12,1 A11,11 0 1,1 11.99,1 Z" />
+    <path android:fillColor="#2E7D32" android:pathData="M12,3 A9,9 0 1,1 11.99,3 Z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="1.8" android:fillColor="#00000000"
+        android:strokeLineCap="round" android:pathData="M6,17 L6,12 A6,6 0 0,1 18,12 L18,17" />
+    <path android:fillColor="#FFFFFF" android:pathData="M18,18.6 l-2,-3 h4 Z" />
+</vector>

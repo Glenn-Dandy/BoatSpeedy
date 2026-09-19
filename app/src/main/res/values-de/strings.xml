@@ -342,6 +342,13 @@
     <string name="obstacle_lock">Schleuse</string>
     <string name="obstacle_weir">Wehr</string>
     <string name="obstacle_bridge">Brücke</string>
+    <string name="obstacle_landing">Ein- und Ausstieg</string>
+    <string name="landing_slipway">Slipanlage</string>
+    <string name="landing_put_in">Einstieg</string>
+    <string name="landing_egress">Ausstieg</string>
+    <string name="landing_both">Ein- und Ausstieg</string>
+    <string name="landing_use">Art</string>
+    <string name="nav_portage">%s m umtragen</string>
     <string name="bridge_clearance">Durchfahrtshöhe</string>
     <string name="bridge_width">Durchfahrtsbreite</string>
     <string name="wind_from">Wind aus %1$s</string>

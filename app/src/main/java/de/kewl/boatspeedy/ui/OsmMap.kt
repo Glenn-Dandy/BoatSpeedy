@@ -91,6 +91,8 @@ fun OsmMap(
      * Eine Kilometerzahl sagt, **wie viel** gesperrt ist, aber nicht **wo**.
      */
     navBlockedPaths: List<List<LatLon>> = emptyList(),
+    /** Stücke der Route, die über Land getragen werden. */
+    navPortagePaths: List<List<LatLon>> = emptyList(),
     /** Kurs über Grund in Grad; dreht den Positionsmarker in Fahrtrichtung. */
     courseDeg: Float? = null,
     /** Fahrt über Grund in m/s – damit rechnet die Koppelnavigation zwischen den Fixes. */
@@ -227,6 +229,7 @@ fun OsmMap(
     // sollen auch dann zu sehen sein, wenn sie kurz sind. Mehrere, weil ein Bootsverbot
     // die Strecke an mehreren Stellen treffen kann.
     val navBlockedLines = remember(mapView) { mutableListOf<Polyline>() }
+    val navPortageLines = remember(mapView) { mutableListOf<Polyline>() }
     // Zielfahne; der Fuß der Stange sitzt auf dem Zielpunkt.
     val navMarker = remember(mapView) {
         Marker(mapView).apply {
@@ -478,6 +481,7 @@ fun OsmMap(
                         de.kewl.boatspeedy.nav.ObstacleKind.DAM,
                         -> R.drawable.ic_marker_weir
                         de.kewl.boatspeedy.nav.ObstacleKind.BRIDGE -> R.drawable.ic_marker_bridge
+                        de.kewl.boatspeedy.nav.ObstacleKind.LANDING -> R.drawable.ic_marker_landing
                         else -> R.drawable.ic_marker_lock
                     },
                 )
@@ -601,7 +605,7 @@ fun OsmMap(
     }
 
     // Weg zum Ziel zeichnen.
-    LaunchedEffect(navPath, navWaterPath, navBlockedPaths) {
+    LaunchedEffect(navPath, navWaterPath, navBlockedPaths, navPortagePaths) {
         if (navPath.size >= 2) {
             navLine.setPoints(navPath.map { GeoPoint(it.lat, it.lon) })
             if (!mapView.overlays.contains(navLine)) mapView.overlays.add(navLine)
@@ -632,6 +636,22 @@ fun OsmMap(
                 setPoints(zug.map { GeoPoint(it.lat, it.lon) })
             }
             navBlockedLines.add(linie)
+            mapView.overlays.add(linie)
+        }
+
+        // Umtragen wird gestrichelt gezeichnet: Dort fährt niemand, dort geht man.
+        navPortageLines.forEach { mapView.overlays.remove(it) }
+        navPortageLines.clear()
+        for (zug in navPortagePaths) {
+            if (zug.size < 2) continue
+            val linie = Polyline(mapView).apply {
+                outlinePaint.color = Color.parseColor("#2E7D32")
+                outlinePaint.strokeWidth = 9f
+                outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(14f, 10f), 0f)
+                setOnClickListener { _, _, _ -> false }
+                setPoints(zug.map { GeoPoint(it.lat, it.lon) })
+            }
+            navPortageLines.add(linie)
             mapView.overlays.add(linie)
         }
         mapView.invalidate()

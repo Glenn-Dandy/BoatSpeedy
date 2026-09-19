@@ -1,7 +1,23 @@
 ## Seit 1.4.2
 
-Noch nichts.
+**Neu**
+- Umtragen: Im Kanu führt die Route über die Umtragewege ums Wehr herum, grün gestrichelt,
+  mit Meterangabe im Kasten unten links.
+- Ein- und Ausstiege am Ufer (Slipanlagen, Kanu-Einstiege) ab Zoomstufe 13, antippbar.
+
+**Behoben**
+- Wehre, die in OSM als Weg quer über den Fluss stehen, fehlten ganz. In Deutschland ist
+  das fast jedes zweite. Kacheln auffrischen.
+- Hinweise gelten jetzt für die ganze Route, auch für den Luftlinienteil hinter einem Wehr.
 
 ## Since 1.4.2
 
-Nothing yet.
+**New**
+- Portage: in canoe mode the route takes the portage paths around a weir, drawn as a green
+  dashed line, with the distance in the box at the bottom left.
+- Put-ins, egress points and slipways on the bank from zoom 13, tappable.
+
+**Fixed**
+- Weirs mapped as a way across the river were missing entirely, which is nearly half of
+  them in Germany. Refresh the map tiles.
+- Warnings now cover the whole route, including the straight-line part beyond a weir.
