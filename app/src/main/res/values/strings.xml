@@ -339,6 +339,8 @@
     <string name="nav_obstacles_weirs">%d weirs nearby</string>
     <string name="nav_obstacles_weir_one">1 weir nearby</string>
     <string name="nav_restricted">%s km restricted</string>
+    <string name="flow_up">%1$s km upstream</string>
+    <string name="flow_down">%1$s km downstream</string>
     <string name="lock_hours">Hours</string>
     <string name="obstacle_lock">Lock</string>
     <string name="obstacle_weir">Weir</string>

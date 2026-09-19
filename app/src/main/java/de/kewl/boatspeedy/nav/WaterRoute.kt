@@ -68,6 +68,10 @@ data class NavTarget(
     val restrictedM: Double = 0.0,
     /** Dieselben Abschnitte als Linienzüge, für die rote Linie auf der Karte. */
     val restricted: List<List<LatLon>> = emptyList(),
+    /** Strecke gegen die Strömung, in Metern. */
+    val upstreamM: Double = 0.0,
+    /** Strecke mit der Strömung, in Metern. */
+    val downstreamM: Double = 0.0,
     /**
      * Gesetzt, wenn die Strecke von einem **festgelegten Startpunkt** aus geplant wurde
      * und nicht vom Boot. Eine geplante Strecke hängt nicht am eigenen Fahren: Sie wird
@@ -170,6 +174,10 @@ sealed interface RouteResult {
         val restrictedM: Double = 0.0,
         /** Dieselben Abschnitte als Linienzüge — die Karte zeichnet sie rot. */
         val restricted: List<List<LatLon>> = emptyList(),
+        /** Strecke gegen die Strömung eines Flusses, in Metern. */
+        val upstreamM: Double = 0.0,
+        /** Strecke mit der Strömung. Kanäle zählen zu keinem von beiden. */
+        val downstreamM: Double = 0.0,
     ) : RouteResult
     data class Failed(val reason: RouteError) : RouteResult
 }
@@ -362,7 +370,7 @@ object WaterRouter {
 
         val quelle = offline ?: when (val r = askOverpass(buildQuery(from, to))) {
             is OverpassResult.Ok -> parseWays(r.body, craft).let { w ->
-                Quelle(w.ways, parseObstacles(r.body), barrierNodes(r.body), w.eingeschraenkt)
+                Quelle(w.ways, parseObstacles(r.body), barrierNodes(r.body), w.eingeschraenkt, w.stromab)
             }
             OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
             OverpassResult.Unreachable -> return RouteResult.Failed(RouteError.NO_NETWORK)
@@ -391,12 +399,15 @@ object WaterRouter {
         // Anfahrt und Auslauf sind Luftlinie – sie werden getrennt zurückgegeben, damit die
         // Karte sie anders zeichnen kann: dort fährt man auf eigene Rechnung.
         val full = listOf(from) + water + listOf(to)
+        val (flussauf, flussab) = stroemung(knoten, quelle.stromab)
         return RouteResult.Ok(
             path = full,
             water = water,
             obstacles = onPath(quelle.obstacles, water),
             restrictedM = eingeschraenkteLaenge(knoten, quelle.eingeschraenkt),
             restricted = eingeschraenkteZuege(knoten, quelle.eingeschraenkt),
+            upstreamM = flussauf,
+            downstreamM = flussab,
         )
     }
 
@@ -414,6 +425,27 @@ object WaterRouter {
             if (a in punkte && b in punkte) m += distanceM(a.toLatLon(), b.toLatLon())
         }
         return m
+    }
+
+    /**
+     * Wie viel der Strecke gegen und wie viel mit der Strömung läuft: (flussauf, flussab).
+     *
+     * Das Netz ist ungerichtet, die Route also eine Folge von Punkten ohne Richtung. Für
+     * jedes Stück wird nachgesehen, ob es in Zeichenrichtung eines Flusses liegt — dann
+     * flussab — oder umgekehrt. Liegt es auf keinem Fluss, zählt es nirgends mit: Ein
+     * Kanal steht still, und eine Zahl dafür wäre erfunden.
+     */
+    private fun stroemung(path: List<Node>, stromab: Set<Kante>): Pair<Double, Double> {
+        if (stromab.isEmpty()) return 0.0 to 0.0
+        var auf = 0.0
+        var ab = 0.0
+        for ((a, b) in path.zipWithNext()) {
+            when {
+                Kante(a, b) in stromab -> ab += distanceM(a.toLatLon(), b.toLatLon())
+                Kante(b, a) in stromab -> auf += distanceM(a.toLatLon(), b.toLatLon())
+            }
+        }
+        return auf to ab
     }
 
     /**
@@ -468,6 +500,48 @@ object WaterRouter {
         return zusammenlegen(alle.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) })
     }
 
+    /**
+     * Die Flüsse eines Ausschnitts, jeder **stromab** gezeichnet — für die Winkel, die
+     * auf der Karte die Fließrichtung zeigen.
+     *
+     * Nur `waterway=river`. Kanäle stehen still, und ihre Zeichenrichtung ist Zufall; ein
+     * Winkel darauf würde eine Strömung behaupten, die es nicht gibt.
+     */
+    fun riversIn(
+        dir: java.io.File?,
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+    ): List<List<LatLon>> {
+        if (dir == null || !dir.isDirectory) return emptyList()
+        val ids = MapTiles.tilesFor(south, west, north, east)
+        if (ids.isEmpty() || MapTiles.missing(dir, ids).isNotEmpty()) return emptyList()
+        val out = ArrayList<List<LatLon>>()
+        val gesehen = HashSet<String>()
+        MapTiles.forEach(dir, ids) { json ->
+            val elements = runCatching { JSONObject(json).optJSONArray("elements") }
+                .getOrNull() ?: return@forEach
+            for (i in 0 until elements.length()) {
+                val el = elements.getJSONObject(i)
+                if (el.optString("type") != "way") continue
+                if (el.optJSONObject("tags")?.optString("waterway") != "river") continue
+                val geom = el.optJSONArray("geometry") ?: continue
+                val punkte = (0 until geom.length()).map {
+                    val p = geom.getJSONObject(it)
+                    LatLon(p.getDouble("lat"), p.getDouble("lon"))
+                }
+                if (punkte.size < 2) continue
+                // Nur, was den Ausschnitt berührt. Ein Weg, der über eine Kachelkante
+                // läuft, steht in beiden — einmal reicht.
+                if (punkte.none { it.lat in south..north && it.lon in west..east }) continue
+                val schluessel = "${punkte.first()}|${punkte.last()}|${punkte.size}"
+                if (gesehen.add(schluessel)) out.add(punkte)
+            }
+        }
+        return out
+    }
+
     /* ------------------------------ Daten holen ------------------------------ */
 
     /**
@@ -482,6 +556,7 @@ object WaterRouter {
         val barriers: Set<Node>,
         /** Punkte auf Abschnitten mit allgemeinem Bootsverbot — befahrbar, aber gemeldet. */
         val eingeschraenkt: Set<Node> = emptySet(),
+        val stromab: Set<Kante> = emptySet(),
     )
 
     /**
@@ -507,14 +582,16 @@ object WaterRouter {
         val obstacles = ArrayList<Obstacle>()
         val barriers = HashSet<Node>()
         val eingeschraenkt = HashSet<Node>()
+        val stromab = HashSet<Kante>()
         val ok = MapTiles.forEach(tileDir, ids) { json ->
             val w = parseWays(json, craft)
             ways.addAll(w.ways)
             eingeschraenkt.addAll(w.eingeschraenkt)
+            stromab.addAll(w.stromab)
             obstacles.addAll(parseObstacles(json))
             barriers.addAll(barrierNodes(json))
         }
-        return if (ok) Quelle(ways, obstacles, barriers, eingeschraenkt) else null
+        return if (ok) Quelle(ways, obstacles, barriers, eingeschraenkt, stromab) else null
     }
 
     private fun buildQuery(from: LatLon, to: LatLon): String {
@@ -694,13 +771,26 @@ object WaterRouter {
      * sich hinterher an der fertigen Strecke ablesen, wie viel davon eingeschränkt war —
      * ohne den Graphen dafür umzubauen.
      */
-    private class Wege(val ways: List<List<Node>>, val eingeschraenkt: Set<Node>)
+    private class Wege(
+        val ways: List<List<Node>>,
+        val eingeschraenkt: Set<Node>,
+        /** Kanten von Flüssen, in Zeichenrichtung — also stromab. */
+        val stromab: Set<Kante> = emptySet(),
+    )
+
+    /**
+     * Ein Stück zwischen zwei Punkten, **mit Richtung**. Das Wegenetz selbst ist
+     * ungerichtet; für die Frage „flussauf oder flussab" zählt aber, in welcher Folge die
+     * Punkte in OSM stehen.
+     */
+    private data class Kante(val von: Node, val nach: Node)
 
     private fun parseWays(json: String, craft: Craft): Wege = runCatching {
         val elements = JSONObject(json).optJSONArray("elements")
-            ?: return@runCatching Wege(emptyList(), emptySet())
+            ?: return@runCatching Wege(emptyList(), emptySet(), emptySet())
         val ways = ArrayList<List<Node>>()
         val eingeschraenkt = HashSet<Node>()
+        val stromab = HashSet<Kante>()
         for (i in 0 until elements.length()) {
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags")
@@ -715,9 +805,16 @@ object WaterRouter {
             if (nodes.size < 2) continue
             ways.add(nodes)
             if (zugang == Zugang.EINGESCHRAENKT) eingeschraenkt.addAll(nodes)
+            // **Nur Flüsse haben eine Fließrichtung.** OSM zeichnet sie stromab; bei der
+            // Saale laufen 33 von 37 längeren Abschnitten nach Norden, die übrigen sind
+            // Mäander. Kanäle stehen still, und ihre Zeichenrichtung ist Zufall — sie
+            // zählen weder flussauf noch flussab.
+            if (tags?.optString("waterway") == "river") {
+                for ((a, b) in nodes.zipWithNext()) if (a != b) stromab.add(Kante(a, b))
+            }
         }
-        Wege(ways, eingeschraenkt)
-    }.getOrDefault(Wege(emptyList(), emptySet()))
+        Wege(ways, eingeschraenkt, stromab)
+    }.getOrDefault(Wege(emptyList(), emptySet(), emptySet()))
 
     private val NAVIGABLE = setOf("river", "canal", "fairway")
 

@@ -336,6 +336,8 @@
     <string name="nav_obstacles_weirs">%d Wehre in der Nähe</string>
     <string name="nav_obstacles_weir_one">1 Wehr in der Nähe</string>
     <string name="nav_restricted">%s km gesperrt</string>
+    <string name="flow_up">%1$s km flussauf</string>
+    <string name="flow_down">%1$s km flussab</string>
     <string name="lock_hours">Zeiten</string>
     <string name="obstacle_lock">Schleuse</string>
     <string name="obstacle_weir">Wehr</string>

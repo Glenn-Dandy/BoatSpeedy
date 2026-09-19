@@ -103,6 +103,8 @@ fun OsmMap(
     recenterKey: Int = 0,
     /** Schleusen und Wehre auf der Route. */
     obstacles: List<de.kewl.boatspeedy.nav.Obstacle> = emptyList(),
+    /** Flüsse im Blickfeld, stromab geordnet — für die Winkel der Fließrichtung. */
+    flowRivers: List<List<LatLon>> = emptyList(),
     /** Antippen eines Hindernisses — für die Auskunft zu einer Schleuse. */
     onObstacle: ((de.kewl.boatspeedy.nav.Obstacle) -> Unit)? = null,
     /** Tonnen, Baken und Hinweiszeichen von OpenSeaMap einblenden. */
@@ -209,6 +211,18 @@ fun OsmMap(
             setOnClickListener { _, _, _ -> false }
         }
     }
+    // Die Fließrichtung ganz unten, gleich über den Kartenkacheln: Sie ist Hintergrund.
+    // Route, Spur und Hindernisse werden danach eingehängt und liegen damit darüber.
+    val flowOverlay = remember(mapView) {
+        FlowOverlay(context.resources.displayMetrics.density).also {
+            mapView.overlays.add(0, it)
+        }
+    }
+    LaunchedEffect(flowRivers) {
+        flowOverlay.rivers = flowRivers
+        mapView.invalidate()
+    }
+
     // Gesperrte Abschnitte, rot und etwas dicker als die Route — sie liegen darüber und
     // sollen auch dann zu sehen sein, wenn sie kurz sind. Mehrere, weil ein Bootsverbot
     // die Strecke an mehreren Stellen treffen kann.
