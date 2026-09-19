@@ -108,6 +108,22 @@ class LockShapeTest {
     }
 
     /**
+     * Die Kaiserschleuse etwa ist nur als Fläche mit `seamark:type=lock_basin` erfasst,
+     * ohne `lock=yes`, der Name steht unter `seamark:name`.
+     */
+    @Test
+    fun `eine Kammer als Flaeche zaehlt und sitzt in ihrer Mitte`() {
+        val becken =
+            """{"type":"way","tags":{"seamark:type":"lock_basin","seamark:name":"Kaiserschleuse"},""" +
+                """"geometry":[{"lat":52.5,"lon":7.3},{"lat":52.5,"lon":7.302},""" +
+                """{"lat":52.5003,"lon":7.302},{"lat":52.5003,"lon":7.3},{"lat":52.5,"lon":7.3}]}"""
+        val tor = """{"type":"node","tags":{"waterway":"lock_gate"},"lat":52.50015,"lon":7.3}"""
+        val s = schleusen("$becken,$tor").single()
+        assertEquals("Kaiserschleuse", s.name)
+        assertTrue("${s.lat},${s.lon}", s.abstand(52.50015, 7.301) < 5)
+    }
+
+    /**
      * Die Route fährt nur durch **eine** Kammer. Trotzdem gehört die andere dazu, und das
      * Symbol der Route muss dort sitzen, wo die Karte es ohne Route zeigt.
      */

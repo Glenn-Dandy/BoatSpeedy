@@ -928,7 +928,14 @@ object WaterRouter {
             // **Die Mitte entlang der Linie, nicht der mittlere Punkt.** Eine Kammer ist in
             // OSM oft nur zwei Punkte lang; `geometry[2 / 2]` ist dann der zweite, also das
             // Ende — und genau dort sitzt ein Tor. Darum lagen die Symbole auf den Toren.
-            val mitte = mitteEntlang(linie)
+            // Eine Kammer als Fläche (`seamark:type=lock_basin`) ist ein geschlossener
+            // Ring. Halbe Länge läge da auf der Gegenseite des Umrisses, also Schwerpunkt.
+            val mitte = if (linie.size >= 4 && linie.first() == linie.last()) {
+                val ecken = linie.dropLast(1)
+                LatLon(ecken.map { it.lat }.average(), ecken.map { it.lon }.average())
+            } else {
+                mitteEntlang(linie)
+            }
             val lat = mitte.lat
             val lon = mitte.lon
             fun tag(key: String) = tags.optString(key).takeIf { it.isNotBlank() }
