@@ -1,0 +1,6 @@
+1.4.2
+* Schleusen, Wehre und Brückenhöhen auf der Karte, auch ohne Route
+* Brücken mit Durchfahrtshöhe mit eigenem Symbol, antippbar
+* Fließrichtung auf Flüssen, dazu flussauf und flussab der Route
+* Schleusensymbol in der Mitte der Kammer statt auf den Toren
+* Doppelschleusen: jede Kammer mit eigenem Symbol und Maßen

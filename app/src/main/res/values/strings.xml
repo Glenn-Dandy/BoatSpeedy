@@ -339,7 +339,14 @@
     <string name="nav_obstacles_weirs">%d weirs nearby</string>
     <string name="nav_obstacles_weir_one">1 weir nearby</string>
     <string name="nav_restricted">%s km restricted</string>
+    <string name="flow_up">%1$s km upstream</string>
+    <string name="flow_down">%1$s km downstream</string>
     <string name="lock_hours">Hours</string>
+    <string name="obstacle_lock">Lock</string>
+    <string name="obstacle_weir">Weir</string>
+    <string name="obstacle_bridge">Bridge</string>
+    <string name="bridge_clearance">Clearance</string>
+    <string name="bridge_width">Width</string>
     <string name="wind_from">Wind from %1$s</string>
     <!-- Himmelsrichtungen, im Uhrzeigersinn ab Nord. Sprachabhängig: NO/O gegen NE/E. -->
     <string-array name="wind_dirs">

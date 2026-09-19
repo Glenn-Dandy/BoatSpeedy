@@ -1,0 +1,6 @@
+1.4.2
+* Locks, weirs and bridge clearances on the map, even without a route
+* Bridges with a clearance height get their own tappable symbol
+* Flow direction on rivers, plus upstream and downstream of the route
+* Lock symbol in the middle of the chamber instead of on the gates
+* Double locks: each chamber with its own symbol and size

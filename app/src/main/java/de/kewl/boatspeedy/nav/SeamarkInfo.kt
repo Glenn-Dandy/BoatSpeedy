@@ -155,6 +155,14 @@ object SeamarkSource {
         // Kammer, und wer die Schleuse antippen wollte, bekam ein Fenster mit dem Wort
         // „gate". Die Schleuse daneben weiß Name, Zeiten und Telefon — sie ist gemeint.
         if (type == "gate" && tags["waterway"] == "lock_gate") return null
+        // Brücken mit Maß haben ein eigenes Symbol auf der Karte und eine eigene
+        // Auskunft. Zweimal am selben Punkt wäre einer davon nur im Weg.
+        if (type == "bridge" &&
+            (tags.containsKey("seamark:bridge:clearance_height") ||
+                tags.containsKey("seamark:bridge:clearance_width"))
+        ) {
+            return null
+        }
 
         val name = tags["seamark:name"] ?: tags["name"]
         val title = buildString {

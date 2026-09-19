@@ -11,7 +11,7 @@ import java.util.PriorityQueue
 data class LatLon(val lat: Double, val lon: Double)
 
 /** Was auf dem Weg liegen kann. Ein Wehr heißt in aller Regel: hier ist Schluss. */
-enum class ObstacleKind { LOCK, WEIR, SLUICE, DAM }
+enum class ObstacleKind { LOCK, WEIR, SLUICE, DAM, BRIDGE }
 
 /**
  * Eine Schleuse, ein Wehr oder Ähnliches auf der Route.
@@ -32,14 +32,27 @@ data class Obstacle(
     val vhf: String? = null,
     val maxLengthM: String? = null,
     val maxWidthM: String? = null,
+    /** Durchfahrtshöhe einer Brücke in Metern, so wie OSM sie führt. */
+    val clearanceHeightM: String? = null,
+    /** Durchfahrtsbreite in Metern. */
+    val clearanceWidthM: String? = null,
     /** Wasserstraßenklasse nach CEMT. */
     val cemt: String? = null,
+    /**
+     * Die Kammer als Linie, sofern es eine ist. Daran wird entschieden, welche Tore zu
+     * ihr gehören — ein fester Abstand vom Symbol reichte nicht, am Dortmund-Ems-Kanal
+     * sind die Kammern 165 bis 225 m lang.
+     */
+    val line: List<LatLon> = emptyList(),
+    /** Ein Schleusentor, keine Kammer. Tore sprechen nie für die Schleuse. */
+    val isGate: Boolean = false,
 ) {
     /** Ob es überhaupt etwas zu lesen gibt — sonst lohnt kein Antippen. */
     val hasInfo: Boolean
         get() = !name.isNullOrBlank() || !openingHours.isNullOrBlank() ||
             !phone.isNullOrBlank() || !vhf.isNullOrBlank() ||
-            !maxLengthM.isNullOrBlank() || !cemt.isNullOrBlank()
+            !maxLengthM.isNullOrBlank() || !cemt.isNullOrBlank() ||
+            !clearanceHeightM.isNullOrBlank() || !clearanceWidthM.isNullOrBlank()
 }
 
 /** Wie zum Ziel gerechnet wird. */
@@ -63,6 +76,10 @@ data class NavTarget(
     val restrictedM: Double = 0.0,
     /** Dieselben Abschnitte als Linienzüge, für die rote Linie auf der Karte. */
     val restricted: List<List<LatLon>> = emptyList(),
+    /** Strecke gegen die Strömung, in Metern. */
+    val upstreamM: Double = 0.0,
+    /** Strecke mit der Strömung, in Metern. */
+    val downstreamM: Double = 0.0,
     /**
      * Gesetzt, wenn die Strecke von einem **festgelegten Startpunkt** aus geplant wurde
      * und nicht vom Boot. Eine geplante Strecke hängt nicht am eigenen Fahren: Sie wird
@@ -87,6 +104,50 @@ fun distanceM(a: LatLon, b: LatLon): Double {
     val h = kotlin.math.sin(dp / 2).let { it * it } +
         kotlin.math.cos(p1) * kotlin.math.cos(p2) * kotlin.math.sin(dl / 2).let { it * it }
     return 2 * r * kotlin.math.asin(kotlin.math.sqrt(h).coerceAtMost(1.0))
+}
+
+/** Der Punkt auf halber Länge einer Linie. */
+fun mitteEntlang(linie: List<LatLon>): LatLon {
+    if (linie.size < 2) return linie.first()
+    val haelfte = pathLengthM(linie) / 2
+    var bisher = 0.0
+    for (i in 1 until linie.size) {
+        val a = linie[i - 1]
+        val b = linie[i]
+        val d = distanceM(a, b)
+        if (bisher + d >= haelfte && d > 0) {
+            val t = (haelfte - bisher) / d
+            return LatLon(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t)
+        }
+        bisher += d
+    }
+    return linie.last()
+}
+
+/**
+ * Kürzester Abstand von [p] zu einer Linie in Metern, auch zwischen ihren Punkten.
+ * Auf ein paar hundert Metern genügt die flache Näherung um [p].
+ */
+fun abstandZurLinie(p: LatLon, linie: List<LatLon>): Double {
+    if (linie.isEmpty()) return Double.MAX_VALUE
+    if (linie.size == 1) return distanceM(p, linie[0])
+    val mProGradLat = 111_320.0
+    val mProGradLon = 111_320.0 * kotlin.math.cos(Math.toRadians(p.lat))
+    var best = Double.MAX_VALUE
+    for (i in 1 until linie.size) {
+        val ax = (linie[i - 1].lon - p.lon) * mProGradLon
+        val ay = (linie[i - 1].lat - p.lat) * mProGradLat
+        val bx = (linie[i].lon - p.lon) * mProGradLon
+        val by = (linie[i].lat - p.lat) * mProGradLat
+        val dx = bx - ax
+        val dy = by - ay
+        val l2 = dx * dx + dy * dy
+        val t = if (l2 == 0.0) 0.0 else (-(ax * dx + ay * dy) / l2).coerceIn(0.0, 1.0)
+        val x = ax + dx * t
+        val y = ay + dy * t
+        best = minOf(best, kotlin.math.sqrt(x * x + y * y))
+    }
+    return best
 }
 
 /**
@@ -165,6 +226,10 @@ sealed interface RouteResult {
         val restrictedM: Double = 0.0,
         /** Dieselben Abschnitte als Linienzüge — die Karte zeichnet sie rot. */
         val restricted: List<List<LatLon>> = emptyList(),
+        /** Strecke gegen die Strömung eines Flusses, in Metern. */
+        val upstreamM: Double = 0.0,
+        /** Strecke mit der Strömung. Kanäle zählen zu keinem von beiden. */
+        val downstreamM: Double = 0.0,
     ) : RouteResult
     data class Failed(val reason: RouteError) : RouteResult
 }
@@ -256,6 +321,9 @@ object WaterRouter {
 
     /** Bis zu dieser Entfernung vom Weg zählt ein Hindernis als „liegt darauf". */
     private const val OBSTACLE_NEAR_M = 40.0
+
+    /** Was zu einer Schleuse an der Route gehören kann, auch die Kammer daneben. */
+    private const val OBSTACLE_UMGEBUNG_M = 400.0
 
     /** Wie ein Weg für das gewählte Fahrzeug einzustufen ist. */
     internal enum class Zugang {
@@ -357,7 +425,7 @@ object WaterRouter {
 
         val quelle = offline ?: when (val r = askOverpass(buildQuery(from, to))) {
             is OverpassResult.Ok -> parseWays(r.body, craft).let { w ->
-                Quelle(w.ways, parseObstacles(r.body), barrierNodes(r.body), w.eingeschraenkt)
+                Quelle(w.ways, parseObstacles(r.body), barrierNodes(r.body), w.eingeschraenkt, w.stromab)
             }
             OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
             OverpassResult.Unreachable -> return RouteResult.Failed(RouteError.NO_NETWORK)
@@ -386,12 +454,15 @@ object WaterRouter {
         // Anfahrt und Auslauf sind Luftlinie – sie werden getrennt zurückgegeben, damit die
         // Karte sie anders zeichnen kann: dort fährt man auf eigene Rechnung.
         val full = listOf(from) + water + listOf(to)
+        val (flussauf, flussab) = stroemung(knoten, quelle.stromab)
         return RouteResult.Ok(
             path = full,
             water = water,
             obstacles = onPath(quelle.obstacles, water),
             restrictedM = eingeschraenkteLaenge(knoten, quelle.eingeschraenkt),
             restricted = eingeschraenkteZuege(knoten, quelle.eingeschraenkt),
+            upstreamM = flussauf,
+            downstreamM = flussab,
         )
     }
 
@@ -409,6 +480,27 @@ object WaterRouter {
             if (a in punkte && b in punkte) m += distanceM(a.toLatLon(), b.toLatLon())
         }
         return m
+    }
+
+    /**
+     * Wie viel der Strecke gegen und wie viel mit der Strömung läuft: (flussauf, flussab).
+     *
+     * Das Netz ist ungerichtet, die Route also eine Folge von Punkten ohne Richtung. Für
+     * jedes Stück wird nachgesehen, ob es in Zeichenrichtung eines Flusses liegt — dann
+     * flussab — oder umgekehrt. Liegt es auf keinem Fluss, zählt es nirgends mit: Ein
+     * Kanal steht still, und eine Zahl dafür wäre erfunden.
+     */
+    private fun stroemung(path: List<Node>, stromab: Set<Kante>): Pair<Double, Double> {
+        if (stromab.isEmpty()) return 0.0 to 0.0
+        var auf = 0.0
+        var ab = 0.0
+        for ((a, b) in path.zipWithNext()) {
+            when {
+                Kante(a, b) in stromab -> ab += distanceM(a.toLatLon(), b.toLatLon())
+                Kante(b, a) in stromab -> auf += distanceM(a.toLatLon(), b.toLatLon())
+            }
+        }
+        return auf to ab
     }
 
     /**
@@ -435,6 +527,76 @@ object WaterRouter {
         return zuege
     }
 
+    /**
+     * Schleusen und Wehre eines Ausschnitts aus den Kacheln — ohne gesetzte Route.
+     *
+     * Bisher gab es sie nur entlang einer gerechneten Strecke. Wer wissen wollte, wann
+     * eine Schleuse öffnet, musste erst ein Ziel setzen; dabei liegen alle Schleusen des
+     * Gebiets längst auf dem Gerät. Fehlt eine Kachel, kommt eben nichts — geholt wird
+     * dafür nichts, das entscheidet der Aufrufer.
+     */
+    fun obstaclesIn(
+        dir: java.io.File?,
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+    ): List<Obstacle> {
+        if (dir == null || !dir.isDirectory) return emptyList()
+        val ids = MapTiles.tilesFor(south, west, north, east)
+        if (ids.isEmpty() || MapTiles.missing(dir, ids).isNotEmpty()) return emptyList()
+        val alle = ArrayList<Obstacle>()
+        val ok = MapTiles.forEach(dir, ids) { json ->
+            parseObstacles(json).filterTo(alle) {
+                it.lat in south..north && it.lon in west..east
+            }
+        }
+        if (!ok) return emptyList()
+        return zusammenlegen(alle.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) })
+    }
+
+    /**
+     * Die Flüsse eines Ausschnitts, jeder **stromab** gezeichnet — für die Winkel, die
+     * auf der Karte die Fließrichtung zeigen.
+     *
+     * Nur `waterway=river`. Kanäle stehen still, und ihre Zeichenrichtung ist Zufall; ein
+     * Winkel darauf würde eine Strömung behaupten, die es nicht gibt.
+     */
+    fun riversIn(
+        dir: java.io.File?,
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+    ): List<List<LatLon>> {
+        if (dir == null || !dir.isDirectory) return emptyList()
+        val ids = MapTiles.tilesFor(south, west, north, east)
+        if (ids.isEmpty() || MapTiles.missing(dir, ids).isNotEmpty()) return emptyList()
+        val out = ArrayList<List<LatLon>>()
+        val gesehen = HashSet<String>()
+        MapTiles.forEach(dir, ids) { json ->
+            val elements = runCatching { JSONObject(json).optJSONArray("elements") }
+                .getOrNull() ?: return@forEach
+            for (i in 0 until elements.length()) {
+                val el = elements.getJSONObject(i)
+                if (el.optString("type") != "way") continue
+                if (el.optJSONObject("tags")?.optString("waterway") != "river") continue
+                val geom = el.optJSONArray("geometry") ?: continue
+                val punkte = (0 until geom.length()).map {
+                    val p = geom.getJSONObject(it)
+                    LatLon(p.getDouble("lat"), p.getDouble("lon"))
+                }
+                if (punkte.size < 2) continue
+                // Nur, was den Ausschnitt berührt. Ein Weg, der über eine Kachelkante
+                // läuft, steht in beiden — einmal reicht.
+                if (punkte.none { it.lat in south..north && it.lon in west..east }) continue
+                val schluessel = "${punkte.first()}|${punkte.last()}|${punkte.size}"
+                if (gesehen.add(schluessel)) out.add(punkte)
+            }
+        }
+        return out
+    }
+
     /* ------------------------------ Daten holen ------------------------------ */
 
     /**
@@ -449,6 +611,7 @@ object WaterRouter {
         val barriers: Set<Node>,
         /** Punkte auf Abschnitten mit allgemeinem Bootsverbot — befahrbar, aber gemeldet. */
         val eingeschraenkt: Set<Node> = emptySet(),
+        val stromab: Set<Kante> = emptySet(),
     )
 
     /**
@@ -474,14 +637,16 @@ object WaterRouter {
         val obstacles = ArrayList<Obstacle>()
         val barriers = HashSet<Node>()
         val eingeschraenkt = HashSet<Node>()
+        val stromab = HashSet<Kante>()
         val ok = MapTiles.forEach(tileDir, ids) { json ->
             val w = parseWays(json, craft)
             ways.addAll(w.ways)
             eingeschraenkt.addAll(w.eingeschraenkt)
+            stromab.addAll(w.stromab)
             obstacles.addAll(parseObstacles(json))
             barriers.addAll(barrierNodes(json))
         }
-        return if (ok) Quelle(ways, obstacles, barriers, eingeschraenkt) else null
+        return if (ok) Quelle(ways, obstacles, barriers, eingeschraenkt, stromab) else null
     }
 
     private fun buildQuery(from: LatLon, to: LatLon): String {
@@ -661,13 +826,26 @@ object WaterRouter {
      * sich hinterher an der fertigen Strecke ablesen, wie viel davon eingeschränkt war —
      * ohne den Graphen dafür umzubauen.
      */
-    private class Wege(val ways: List<List<Node>>, val eingeschraenkt: Set<Node>)
+    private class Wege(
+        val ways: List<List<Node>>,
+        val eingeschraenkt: Set<Node>,
+        /** Kanten von Flüssen, in Zeichenrichtung — also stromab. */
+        val stromab: Set<Kante> = emptySet(),
+    )
+
+    /**
+     * Ein Stück zwischen zwei Punkten, **mit Richtung**. Das Wegenetz selbst ist
+     * ungerichtet; für die Frage „flussauf oder flussab" zählt aber, in welcher Folge die
+     * Punkte in OSM stehen.
+     */
+    private data class Kante(val von: Node, val nach: Node)
 
     private fun parseWays(json: String, craft: Craft): Wege = runCatching {
         val elements = JSONObject(json).optJSONArray("elements")
-            ?: return@runCatching Wege(emptyList(), emptySet())
+            ?: return@runCatching Wege(emptyList(), emptySet(), emptySet())
         val ways = ArrayList<List<Node>>()
         val eingeschraenkt = HashSet<Node>()
+        val stromab = HashSet<Kante>()
         for (i in 0 until elements.length()) {
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags")
@@ -682,9 +860,16 @@ object WaterRouter {
             if (nodes.size < 2) continue
             ways.add(nodes)
             if (zugang == Zugang.EINGESCHRAENKT) eingeschraenkt.addAll(nodes)
+            // **Nur Flüsse haben eine Fließrichtung.** OSM zeichnet sie stromab; bei der
+            // Saale laufen 33 von 37 längeren Abschnitten nach Norden, die übrigen sind
+            // Mäander. Kanäle stehen still, und ihre Zeichenrichtung ist Zufall — sie
+            // zählen weder flussauf noch flussab.
+            if (tags?.optString("waterway") == "river") {
+                for ((a, b) in nodes.zipWithNext()) if (a != b) stromab.add(Kante(a, b))
+            }
         }
-        Wege(ways, eingeschraenkt)
-    }.getOrDefault(Wege(emptyList(), emptySet()))
+        Wege(ways, eingeschraenkt, stromab)
+    }.getOrDefault(Wege(emptyList(), emptySet(), emptySet()))
 
     private val NAVIGABLE = setOf("river", "canal", "fairway")
 
@@ -698,8 +883,25 @@ object WaterRouter {
             // OSM `waterway=canal` und daneben `lock=yes` — an ihr hängen Name,
             // Öffnungszeiten und Telefon. Wer nur auf `waterway` schaut, findet höchstens
             // die Tore, und die wissen nichts.
+            // **Brücken mit Durchfahrtshöhe.** Am Elbe-Lübeck-Kanal hängt an fast jeder
+            // eine Tafel mit der Höhe; in OSM steht sie als `seamark:type=bridge` mit
+            // `clearance_height`. Bisher war das nur ein Seezeichen unter vielen, mit
+            // durchsichtiger Trefferfläche und ohne eigenes Symbol — und bei gesetzter
+            // Route lag die Linie darüber. Wer wissen muss, ob er druntergeht, soll es
+            // sehen, ohne zu suchen.
+            val brueckenhoehe = tags.optString("seamark:bridge:clearance_height")
+                .takeIf { it.isNotBlank() }
+            val brueckenbreite = tags.optString("seamark:bridge:clearance_width")
+                .takeIf { it.isNotBlank() }
             val kind = when {
+                tags.optString("seamark:type") == "bridge" -> {
+                    // Ohne Maß ist eine Brücke keine Auskunft, nur ein Punkt mehr.
+                    if (brueckenhoehe == null && brueckenbreite == null) return@mapNotNull null
+                    ObstacleKind.BRIDGE
+                }
                 tags.optString("lock") == "yes" -> ObstacleKind.LOCK
+                // Manche Kammern tragen nur das Seezeichen, nicht `lock=yes`.
+                tags.optString("seamark:type") == "lock_basin" -> ObstacleKind.LOCK
                 else -> when (tags.optString("waterway")) {
                     "lock_gate" -> ObstacleKind.LOCK
                     "weir" -> ObstacleKind.WEIR
@@ -708,22 +910,38 @@ object WaterRouter {
                     else -> return@mapNotNull null
                 }
             }
-            val lat: Double
-            val lon: Double
+            val istTor = kind == ObstacleKind.LOCK && tags.optString("lock") != "yes" &&
+                tags.optString("seamark:type") != "lock_basin"
+            val linie: List<LatLon>
             if (el.has("lat")) {
-                lat = el.getDouble("lat"); lon = el.getDouble("lon")
+                linie = listOf(LatLon(el.getDouble("lat"), el.getDouble("lon")))
             } else {
                 val geom = el.optJSONArray("geometry") ?: return@mapNotNull null
                 if (geom.length() == 0) return@mapNotNull null
-                val mid = geom.getJSONObject(geom.length() / 2)
-                lat = mid.getDouble("lat"); lon = mid.getDouble("lon")
+                linie = (0 until geom.length()).map {
+                    val g = geom.getJSONObject(it)
+                    LatLon(g.getDouble("lat"), g.getDouble("lon"))
+                }
             }
+            // **Die Mitte entlang der Linie, nicht der mittlere Punkt.** Eine Kammer ist in
+            // OSM oft nur zwei Punkte lang; `geometry[2 / 2]` ist dann der zweite, also das
+            // Ende — und genau dort sitzt ein Tor. Darum lagen die Symbole auf den Toren.
+            // Eine Kammer als Fläche (`seamark:type=lock_basin`) ist ein geschlossener
+            // Ring. Halbe Länge läge da auf der Gegenseite des Umrisses, also Schwerpunkt.
+            val mitte = if (linie.size >= 4 && linie.first() == linie.last()) {
+                val ecken = linie.dropLast(1)
+                LatLon(ecken.map { it.lat }.average(), ecken.map { it.lon }.average())
+            } else {
+                mitteEntlang(linie)
+            }
+            val lat = mitte.lat
+            val lon = mitte.lon
             fun tag(key: String) = tags.optString(key).takeIf { it.isNotBlank() }
             Obstacle(
                 lat, lon, kind,
                 // `lock_name` ist der genauere: `name` trägt an einem Schleusenkanal
                 // gelegentlich den Namen des Kanals statt den der Schleuse.
-                name = tag("lock_name") ?: tag("name"),
+                name = tag("lock_name") ?: tag("name") ?: tag("seamark:name"),
                 // `service_times` ist bei Schleusen genauso verbreitet wie
                 // `opening_hours` — die Oeblitzschleuse führt das eine, die Schleuse
                 // Wettin das andere. Wer nur nach einem sucht, findet die Hälfte nicht.
@@ -733,38 +951,124 @@ object WaterRouter {
                 maxLengthM = tag("maxlength"),
                 maxWidthM = tag("maxwidth"),
                 cemt = tag("CEMT"),
+                clearanceHeightM = brueckenhoehe,
+                clearanceWidthM = brueckenbreite,
+                line = if (kind == ObstacleKind.LOCK && !istTor) linie else emptyList(),
+                isGate = istTor,
             )
         }
     }.getOrDefault(emptyList())
 
     /** Welche Hindernisse dicht genug am Weg liegen, um ihn zu betreffen. */
-    private fun onPath(all: List<Obstacle>, path: List<LatLon>): List<Obstacle> =
-        zusammenlegen(
-            all.filter { o ->
-                val p = LatLon(o.lat, o.lon)
-                path.any { distanceM(it, p) <= OBSTACLE_NEAR_M }
-            }.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) },
-        )
+    private fun onPath(all: List<Obstacle>, path: List<LatLon>): List<Obstacle> {
+        // Erst grob die Umgebung, dann zusammenlegen, dann fein prüfen. Andersherum fielen
+        // Tore und Kammerflächen neben der Route vorher heraus, und das Symbol der Route
+        // säße woanders als das der Karte.
+        val nah = all.filter { abstandZurLinie(LatLon(it.lat, it.lon), path) <= OBSTACLE_UMGEBUNG_M }
+            .distinctBy { "%.5f,%.5f".format(it.lat, it.lon) }
+        // Zur **Strecke**, nicht zu ihren Stützpunkten: Das Symbol sitzt in der Mitte der
+        // Kammer, bei 225 m Länge über 100 m von jedem Punkt entfernt.
+        return zusammenlegen(nah).filter { o ->
+            abstandZurLinie(LatLon(o.lat, o.lon), path) <= OBSTACLE_NEAR_M ||
+                o.line.any { abstandZurLinie(it, path) <= OBSTACLE_NEAR_M }
+        }
+    }
 
-    /** So nah beieinander gehört zu **einer** Schleuse. */
-    private const val LOCK_SAME_M = 200.0
+    /** So nah an ihrer Kammer liegt ein Tor, das zu ihr gehört. */
+    private const val TOR_AN_KAMMER_M = 60.0
 
     /**
-     * Eine Schleuse besteht in OSM aus mehreren Stücken: die Kammer mit `lock=yes` und je
-     * ein Tor an beiden Enden. Ungefiltert stünden dreimal „Schleuse" auf derselben
-     * Stelle, und zwei davon wüssten nichts. Beisammenliegende werden deshalb zu einer
-     * zusammengelegt — es bleibt die mit der Auskunft.
+     * So nah an der Linie einer anderen Kammer ist es **dieselbe**: dieselbe Kammer
+     * einmal als Linie mit `lock=yes` und einmal als Fläche mit `lock_basin`. Die
+     * Nachbarkammer einer Doppelschleuse liegt 30 m und mehr daneben.
+     */
+    private const val KAMMER_DOPPELT_M = 15.0
+
+    /** Tore ohne Kammer bis zu diesem Abstand gehören zu **einer** Schleuse. */
+    private const val TORE_EINE_SCHLEUSE_M = 350.0
+
+    /**
+     * Aus Kammern und Toren wird je **Kammer** ein Symbol, in ihrer Mitte.
+     *
+     * In OSM besteht eine Schleuse aus einer Kammer (`lock=yes`, oft auch
+     * `seamark:type=lock_basin`) mit Name, Zeiten, Telefon und Maßen, und aus je einem Tor
+     * an beiden Enden. Die Tore wissen nichts, auch wenn sie, wie an der Schleuse Hilter,
+     * den Namen tragen. Vorher reichte ein Name, damit ein Tor als „hat Auskunft" galt und
+     * gegen die Kammer gewann; die Kammer mit Zeiten und Telefon flog dann heraus.
+     *
+     * Doppelschleusen wie Hüntel bleiben **zwei** Symbole: Jede Kammer hat eigene Maße,
+     * und das Symbol der befahrenen soll auf der Route liegen, nicht zwischen beiden.
+     *
+     * 1. Ein Tor, das an einer Kammer liegt, gehört zu ihr und verschwindet.
+     * 2. Dieselbe Kammer als Linie und als Fläche wird eins, an der Stelle der Linie.
+     * 3. Tore ohne Kammer werden zu einem Symbol in ihrer Mitte.
      */
     private fun zusammenlegen(alle: List<Obstacle>): List<Obstacle> {
-        val raus = ArrayList<Obstacle>()
-        for (o in alle.sortedByDescending { it.hasInfo }) {
-            val doppelt = raus.any {
-                it.kind == o.kind && o.kind == ObstacleKind.LOCK &&
-                    distanceM(LatLon(it.lat, it.lon), LatLon(o.lat, o.lon)) <= LOCK_SAME_M
-            }
-            if (!doppelt) raus.add(o)
+        val kammern = alle.filter { it.kind == ObstacleKind.LOCK && !it.isGate }
+        val tore = alle.filter { it.kind == ObstacleKind.LOCK && it.isGate }
+        val rest = alle.filter { it.kind != ObstacleKind.LOCK }
+
+        val freieTore = tore.filter { t ->
+            val p = LatLon(t.lat, t.lon)
+            kammern.none { k -> abstandZurLinie(p, k.line) <= TOR_AN_KAMMER_M }
         }
-        return raus
+
+        val einzelne = gruppieren(kammern) { a, b ->
+            abstandZurLinie(LatLon(a.lat, a.lon), b.line) <= KAMMER_DOPPELT_M ||
+                abstandZurLinie(LatLon(b.lat, b.lon), a.line) <= KAMMER_DOPPELT_M
+        }.map { gruppe ->
+            // Die Linie liegt im Fahrwasser, die Fläche drumherum: Die Linie gibt den Ort.
+            val ort = gruppe.firstOrNull { !it.istRing } ?: gruppe.first()
+            zuEiner(gruppe).copy(lat = ort.lat, lon = ort.lon)
+        }
+
+        val torSchleusen = gruppieren(freieTore) { a, b ->
+            distanceM(LatLon(a.lat, a.lon), LatLon(b.lat, b.lon)) <= TORE_EINE_SCHLEUSE_M
+        }.map { zuEiner(it) }
+
+        return rest + einzelne + torSchleusen
+    }
+
+    private val Obstacle.istRing: Boolean
+        get() = line.size >= 4 && line.first() == line.last()
+
+    /** Fasst zusammen, was beieinander liegt — auch über Zwischenglieder hinweg. */
+    private fun gruppieren(
+        alle: List<Obstacle>,
+        gehoertZusammen: (Obstacle, Obstacle) -> Boolean,
+    ): List<List<Obstacle>> {
+        val offen = alle.toMutableList()
+        val gruppen = ArrayList<List<Obstacle>>()
+        while (offen.isNotEmpty()) {
+            val gruppe = mutableListOf(offen.removeAt(0))
+            var i = 0
+            while (i < gruppe.size) {
+                val weitere = offen.filter { gehoertZusammen(gruppe[i], it) }
+                offen.removeAll(weitere)
+                gruppe.addAll(weitere)
+                i++
+            }
+            gruppen.add(gruppe)
+        }
+        return gruppen
+    }
+
+    /** Eine Gruppe wird ein Symbol: in der Mitte, mit dem, was eines davon weiß. */
+    private fun zuEiner(gruppe: List<Obstacle>): Obstacle {
+        if (gruppe.size == 1) return gruppe.first()
+        fun <T> erstes(f: (Obstacle) -> T?): T? = gruppe.firstNotNullOfOrNull(f)
+        return gruppe.first().copy(
+            lat = gruppe.map { it.lat }.average(),
+            lon = gruppe.map { it.lon }.average(),
+            name = erstes { it.name },
+            openingHours = erstes { it.openingHours },
+            phone = erstes { it.phone },
+            vhf = erstes { it.vhf },
+            maxLengthM = erstes { it.maxLengthM },
+            maxWidthM = erstes { it.maxWidthM },
+            cemt = erstes { it.cemt },
+            line = gruppe.flatMap { it.line },
+        )
     }
 
     /* ------------------------------ Wegenetz ------------------------------ */

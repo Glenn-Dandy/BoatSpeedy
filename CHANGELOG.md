@@ -2,6 +2,23 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.4.2] - 2026-09-19
+
+### Neu
+- **Schleusen und Wehre ab Zoomstufe 11 auf der Karte**, auch ohne gesetzte Route.
+- **Brücken mit Durchfahrtshöhe** bekommen ein eigenes Symbol über der Route. Antippen
+  zeigt Höhe und Breite.
+- **Fließrichtung:** Winkel auf den Flüssen ab Zoomstufe 14, und im Kasten unten links,
+  wie viel der Route flussauf und flussab geht. Kanäle zählen nicht mit.
+- **Schleusenkammern, die nur als `seamark:type=lock_basin` erfasst sind,** kommen jetzt
+  mit. Kacheln auffrischen.
+
+### Behoben
+- **Das Schleusensymbol lag auf einem Tor** statt in der Mitte der Kammer, oft doppelt
+  und nur eines davon antippbar.
+- **Doppelschleusen** verloren die zweite Kammer. Jetzt hat jede ihr eigenes Symbol mit
+  ihren Maßen.
+
 ## [1.4.1] – 2026-09-16
 
 ### Neu

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brücke mit Durchfahrtshöhe: passierbar, wenn der Mast passt → Bernstein.
+
+     48 dp groß wie die anderen Kartensymbole, das Zeichen darin 26 dp. Der durchsichtige
+     Rand ist nur Trefferfläche; osmdroid prüft den Treffer gegen die Fläche des Symbols,
+     und ein Finger ist ungenauer als ein Zeiger. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="44" android:viewportHeight="44">
+    <group android:translateX="10" android:translateY="10">
+        <path android:fillColor="#FFFFFF" android:pathData="M12,1 A11,11 0 1,1 11.99,1 Z" />
+        <path android:fillColor="#EF6C00" android:pathData="M12,3 A9,9 0 1,1 11.99,3 Z" />
+        <!-- Der Brückenbalken oben, darunter der Pfeil für das lichte Maß. -->
+        <path android:fillColor="#FFFFFF" android:pathData="M6,7 h12 v2.4 h-12 Z" />
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M11,10.5 h2 v6 h-2 Z M12,19 l-3,-3 h6 Z" />
+    </group>
+</vector>
