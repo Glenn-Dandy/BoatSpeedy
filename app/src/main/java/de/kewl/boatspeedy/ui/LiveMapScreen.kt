@@ -972,7 +972,13 @@ fun LiveMapScreen(
                     o.phone?.let { InfoZeile(stringResource(R.string.lock_phone), it) }
                     o.vhf?.let { InfoZeile(stringResource(R.string.lock_vhf), it) }
                     val masse = listOfNotNull(o.maxLengthM, o.maxWidthM)
-                    if (masse.size == 2) {
+                    if (o.chamberSizes.isNotEmpty()) {
+                        // Doppelschleuse: jede Kammer mit eigenen Maßen, eine je Zeile.
+                        InfoZeile(
+                            stringResource(R.string.lock_size),
+                            o.chamberSizes.joinToString("\n") { "$it m" },
+                        )
+                    } else if (masse.size == 2) {
                         InfoZeile(stringResource(R.string.lock_size), "${masse[0]} × ${masse[1]} m")
                     }
                     o.cemt?.let { InfoZeile(stringResource(R.string.lock_cemt), it) }

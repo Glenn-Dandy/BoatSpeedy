@@ -38,6 +38,16 @@ data class Obstacle(
     val clearanceWidthM: String? = null,
     /** Wasserstraßenklasse nach CEMT. */
     val cemt: String? = null,
+    /**
+     * Die Kammer als Linie, sofern es eine ist. Daran wird entschieden, welche Tore zu
+     * ihr gehören — ein fester Abstand vom Symbol reichte nicht, am Dortmund-Ems-Kanal
+     * sind die Kammern 165 bis 225 m lang.
+     */
+    val line: List<LatLon> = emptyList(),
+    /** Ein Schleusentor, keine Kammer. Tore sprechen nie für die Schleuse. */
+    val isGate: Boolean = false,
+    /** Maße aller Kammern, wenn eine Schleuse mehrere hat, etwa "165 × 10". */
+    val chamberSizes: List<String> = emptyList(),
 ) {
     /** Ob es überhaupt etwas zu lesen gibt — sonst lohnt kein Antippen. */
     val hasInfo: Boolean
@@ -96,6 +106,50 @@ fun distanceM(a: LatLon, b: LatLon): Double {
     val h = kotlin.math.sin(dp / 2).let { it * it } +
         kotlin.math.cos(p1) * kotlin.math.cos(p2) * kotlin.math.sin(dl / 2).let { it * it }
     return 2 * r * kotlin.math.asin(kotlin.math.sqrt(h).coerceAtMost(1.0))
+}
+
+/** Der Punkt auf halber Länge einer Linie. */
+fun mitteEntlang(linie: List<LatLon>): LatLon {
+    if (linie.size < 2) return linie.first()
+    val haelfte = pathLengthM(linie) / 2
+    var bisher = 0.0
+    for (i in 1 until linie.size) {
+        val a = linie[i - 1]
+        val b = linie[i]
+        val d = distanceM(a, b)
+        if (bisher + d >= haelfte && d > 0) {
+            val t = (haelfte - bisher) / d
+            return LatLon(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t)
+        }
+        bisher += d
+    }
+    return linie.last()
+}
+
+/**
+ * Kürzester Abstand von [p] zu einer Linie in Metern, auch zwischen ihren Punkten.
+ * Auf ein paar hundert Metern genügt die flache Näherung um [p].
+ */
+fun abstandZurLinie(p: LatLon, linie: List<LatLon>): Double {
+    if (linie.isEmpty()) return Double.MAX_VALUE
+    if (linie.size == 1) return distanceM(p, linie[0])
+    val mProGradLat = 111_320.0
+    val mProGradLon = 111_320.0 * kotlin.math.cos(Math.toRadians(p.lat))
+    var best = Double.MAX_VALUE
+    for (i in 1 until linie.size) {
+        val ax = (linie[i - 1].lon - p.lon) * mProGradLon
+        val ay = (linie[i - 1].lat - p.lat) * mProGradLat
+        val bx = (linie[i].lon - p.lon) * mProGradLon
+        val by = (linie[i].lat - p.lat) * mProGradLat
+        val dx = bx - ax
+        val dy = by - ay
+        val l2 = dx * dx + dy * dy
+        val t = if (l2 == 0.0) 0.0 else (-(ax * dx + ay * dy) / l2).coerceIn(0.0, 1.0)
+        val x = ax + dx * t
+        val y = ay + dy * t
+        best = minOf(best, kotlin.math.sqrt(x * x + y * y))
+    }
+    return best
 }
 
 /**
@@ -269,6 +323,9 @@ object WaterRouter {
 
     /** Bis zu dieser Entfernung vom Weg zählt ein Hindernis als „liegt darauf". */
     private const val OBSTACLE_NEAR_M = 40.0
+
+    /** Was zu einer Schleuse an der Route gehören kann, auch die Kammer daneben. */
+    private const val OBSTACLE_UMGEBUNG_M = 400.0
 
     /** Wie ein Weg für das gewählte Fahrzeug einzustufen ist. */
     internal enum class Zugang {
@@ -845,6 +902,8 @@ object WaterRouter {
                     ObstacleKind.BRIDGE
                 }
                 tags.optString("lock") == "yes" -> ObstacleKind.LOCK
+                // Manche Kammern tragen nur das Seezeichen, nicht `lock=yes`.
+                tags.optString("seamark:type") == "lock_basin" -> ObstacleKind.LOCK
                 else -> when (tags.optString("waterway")) {
                     "lock_gate" -> ObstacleKind.LOCK
                     "weir" -> ObstacleKind.WEIR
@@ -853,16 +912,25 @@ object WaterRouter {
                     else -> return@mapNotNull null
                 }
             }
-            val lat: Double
-            val lon: Double
+            val istTor = kind == ObstacleKind.LOCK && tags.optString("lock") != "yes" &&
+                tags.optString("seamark:type") != "lock_basin"
+            val linie: List<LatLon>
             if (el.has("lat")) {
-                lat = el.getDouble("lat"); lon = el.getDouble("lon")
+                linie = listOf(LatLon(el.getDouble("lat"), el.getDouble("lon")))
             } else {
                 val geom = el.optJSONArray("geometry") ?: return@mapNotNull null
                 if (geom.length() == 0) return@mapNotNull null
-                val mid = geom.getJSONObject(geom.length() / 2)
-                lat = mid.getDouble("lat"); lon = mid.getDouble("lon")
+                linie = (0 until geom.length()).map {
+                    val g = geom.getJSONObject(it)
+                    LatLon(g.getDouble("lat"), g.getDouble("lon"))
+                }
             }
+            // **Die Mitte entlang der Linie, nicht der mittlere Punkt.** Eine Kammer ist in
+            // OSM oft nur zwei Punkte lang; `geometry[2 / 2]` ist dann der zweite, also das
+            // Ende — und genau dort sitzt ein Tor. Darum lagen die Symbole auf den Toren.
+            val mitte = mitteEntlang(linie)
+            val lat = mitte.lat
+            val lon = mitte.lon
             fun tag(key: String) = tags.optString(key).takeIf { it.isNotBlank() }
             Obstacle(
                 lat, lon, kind,
@@ -880,38 +948,121 @@ object WaterRouter {
                 cemt = tag("CEMT"),
                 clearanceHeightM = brueckenhoehe,
                 clearanceWidthM = brueckenbreite,
+                line = if (kind == ObstacleKind.LOCK && !istTor) linie else emptyList(),
+                isGate = istTor,
             )
         }
     }.getOrDefault(emptyList())
 
     /** Welche Hindernisse dicht genug am Weg liegen, um ihn zu betreffen. */
-    private fun onPath(all: List<Obstacle>, path: List<LatLon>): List<Obstacle> =
-        zusammenlegen(
-            all.filter { o ->
-                val p = LatLon(o.lat, o.lon)
-                path.any { distanceM(it, p) <= OBSTACLE_NEAR_M }
-            }.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) },
-        )
+    private fun onPath(all: List<Obstacle>, path: List<LatLon>): List<Obstacle> {
+        // Erst grob die Umgebung, dann zusammenlegen, dann fein prüfen. Andersherum fiele
+        // bei einer Doppelschleuse die Kammer neben der Route vorher heraus, und das
+        // Symbol der Route säße woanders als das der Karte.
+        val nah = all.filter { abstandZurLinie(LatLon(it.lat, it.lon), path) <= OBSTACLE_UMGEBUNG_M }
+            .distinctBy { "%.5f,%.5f".format(it.lat, it.lon) }
+        // Zur **Strecke**, nicht zu ihren Stützpunkten: Das Symbol sitzt in der Mitte der
+        // Kammer, bei 225 m Länge über 100 m von jedem Punkt entfernt.
+        return zusammenlegen(nah).filter { o ->
+            abstandZurLinie(LatLon(o.lat, o.lon), path) <= OBSTACLE_NEAR_M ||
+                o.line.any { abstandZurLinie(it, path) <= OBSTACLE_NEAR_M }
+        }
+    }
 
-    /** So nah beieinander gehört zu **einer** Schleuse. */
-    private const val LOCK_SAME_M = 200.0
+    /** So nah an ihrer Kammer liegt ein Tor, das zu ihr gehört. */
+    private const val TOR_AN_KAMMER_M = 60.0
+
+    /** Kammern gleichen Namens bis zu diesem Abstand sind **eine** Schleuse. */
+    private const val KAMMERN_EINE_SCHLEUSE_M = 300.0
+
+    /** Namenlose Kammern gelten nur so dicht nebeneinander als eine. */
+    private const val KAMMERN_NAMENLOS_M = 80.0
+
+    /** Tore ohne Kammer bis zu diesem Abstand gehören zu **einer** Schleuse. */
+    private const val TORE_EINE_SCHLEUSE_M = 350.0
 
     /**
-     * Eine Schleuse besteht in OSM aus mehreren Stücken: die Kammer mit `lock=yes` und je
-     * ein Tor an beiden Enden. Ungefiltert stünden dreimal „Schleuse" auf derselben
-     * Stelle, und zwei davon wüssten nichts. Beisammenliegende werden deshalb zu einer
-     * zusammengelegt — es bleibt die mit der Auskunft.
+     * Aus Kammern und Toren wird je Schleuse **ein** Symbol, in ihrer Mitte.
+     *
+     * In OSM besteht eine Schleuse aus einer Kammer (`lock=yes`, oft auch
+     * `seamark:type=lock_basin`) mit Name, Zeiten, Telefon und Maßen, und aus je einem Tor
+     * an beiden Enden. Die Tore wissen nichts — auch wenn sie, wie an der Schleuse Hilter,
+     * den Namen tragen. Vorher reichte ein Name, damit ein Tor als „hat Auskunft" galt und
+     * gegen die Kammer gewann; die Kammer mit Zeiten und Telefon flog dann heraus.
+     *
+     * Der feste Abstand von 200 m taugte nicht: Am Dortmund-Ems-Kanal sind Kammern bis
+     * 225 m lang, das Südtor von Hanekenfähr lag 203 m vom Symbol und blieb als leere
+     * Schleuse stehen. Und bei Hüntel verschluckte er die zweite Kammer, die 61 m daneben
+     * liegt und eigene Maße hat. Jetzt gilt:
+     *
+     * 1. Ein Tor, das an einer Kammer liegt, gehört zu ihr und verschwindet.
+     * 2. Kammern gleichen Namens sind eine Schleuse; ihre Maße stehen nebeneinander.
+     * 3. Tore ohne Kammer werden zu einem Symbol in ihrer Mitte.
      */
     private fun zusammenlegen(alle: List<Obstacle>): List<Obstacle> {
-        val raus = ArrayList<Obstacle>()
-        for (o in alle.sortedByDescending { it.hasInfo }) {
-            val doppelt = raus.any {
-                it.kind == o.kind && o.kind == ObstacleKind.LOCK &&
-                    distanceM(LatLon(it.lat, it.lon), LatLon(o.lat, o.lon)) <= LOCK_SAME_M
-            }
-            if (!doppelt) raus.add(o)
+        val kammern = alle.filter { it.kind == ObstacleKind.LOCK && !it.isGate }
+        val tore = alle.filter { it.kind == ObstacleKind.LOCK && it.isGate }
+        val rest = alle.filter { it.kind != ObstacleKind.LOCK }
+
+        val freieTore = tore.filter { t ->
+            val p = LatLon(t.lat, t.lon)
+            kammern.none { k -> abstandZurLinie(p, k.line) <= TOR_AN_KAMMER_M }
         }
-        return raus
+
+        val schleusen = gruppieren(kammern) { a, b ->
+            val d = distanceM(LatLon(a.lat, a.lon), LatLon(b.lat, b.lon))
+            (a.name != null && a.name == b.name && d <= KAMMERN_EINE_SCHLEUSE_M) ||
+                d <= KAMMERN_NAMENLOS_M
+        }.map { zuEiner(it) }
+
+        val torSchleusen = gruppieren(freieTore) { a, b ->
+            distanceM(LatLon(a.lat, a.lon), LatLon(b.lat, b.lon)) <= TORE_EINE_SCHLEUSE_M
+        }.map { zuEiner(it) }
+
+        return rest + schleusen + torSchleusen
+    }
+
+    /** Fasst zusammen, was beieinander liegt — auch über Zwischenglieder hinweg. */
+    private fun gruppieren(
+        alle: List<Obstacle>,
+        gehoertZusammen: (Obstacle, Obstacle) -> Boolean,
+    ): List<List<Obstacle>> {
+        val offen = alle.toMutableList()
+        val gruppen = ArrayList<List<Obstacle>>()
+        while (offen.isNotEmpty()) {
+            val gruppe = mutableListOf(offen.removeAt(0))
+            var i = 0
+            while (i < gruppe.size) {
+                val weitere = offen.filter { gehoertZusammen(gruppe[i], it) }
+                offen.removeAll(weitere)
+                gruppe.addAll(weitere)
+                i++
+            }
+            gruppen.add(gruppe)
+        }
+        return gruppen
+    }
+
+    /** Eine Gruppe wird ein Symbol: in der Mitte, mit dem, was eines davon weiß. */
+    private fun zuEiner(gruppe: List<Obstacle>): Obstacle {
+        if (gruppe.size == 1) return gruppe.first()
+        fun <T> erstes(f: (Obstacle) -> T?): T? = gruppe.firstNotNullOfOrNull(f)
+        val maße = gruppe.mapNotNull { o ->
+            if (o.maxLengthM != null && o.maxWidthM != null) "${o.maxLengthM} × ${o.maxWidthM}" else null
+        }.distinct()
+        return gruppe.first().copy(
+            lat = gruppe.map { it.lat }.average(),
+            lon = gruppe.map { it.lon }.average(),
+            name = erstes { it.name },
+            openingHours = erstes { it.openingHours },
+            phone = erstes { it.phone },
+            vhf = erstes { it.vhf },
+            maxLengthM = erstes { it.maxLengthM },
+            maxWidthM = erstes { it.maxWidthM },
+            cemt = erstes { it.cemt },
+            line = gruppe.flatMap { it.line },
+            chamberSizes = if (maße.size > 1) maße else emptyList(),
+        )
     }
 
     /* ------------------------------ Wegenetz ------------------------------ */
