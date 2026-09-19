@@ -11,7 +11,7 @@ Geholt wird dafür nichts: gezeigt wird, was in den geladenen Kacheln liegt.
 
 **Behoben**
 - Eine Schleuse ist ein Symbol in der Mitte der Kammer, nicht zwei auf den Toren.
-- Doppelschleusen zeigen alle Kammern mit ihren Maßen, und jedes Symbol lässt sich antippen.
+- Bei Doppelschleusen hat jede Kammer ihr eigenes Symbol mit ihren Maßen, antippbar.
 
 ## Since 1.4.1
 
@@ -26,4 +26,4 @@ Nothing is downloaded for it: what the stored tiles hold is what you see.
 
 **Fixed**
 - A lock is one symbol in the middle of its chamber, not two on the gates.
-- Double locks list every chamber with its size, and every symbol can be tapped.
+- Double locks show one tappable symbol per chamber, each with its own size.

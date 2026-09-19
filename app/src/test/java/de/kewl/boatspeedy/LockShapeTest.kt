@@ -21,7 +21,8 @@ import java.util.zip.GZIPOutputStream
  * war nur eines anklickbar. Die Daten hier sind aus OSM übernommen (Kachel n52e007):
  *
  * - **Hanekenfähr:** Kammer aus nur zwei Punkten, das Symbol lag auf ihrem Ende.
- * - **Hüntel:** zwei Kammern mit eigenen Maßen, die zweite wurde verschluckt.
+ * - **Hüntel:** zwei Kammern mit eigenen Maßen, die zweite wurde verschluckt. Jede
+ *   bekommt ihr eigenes Symbol, sonst läge es zwischen beiden statt auf der Route.
  * - **Hilter:** die Tore tragen den Namen und gewannen gegen die Kammer mit den Maßen.
  */
 class LockShapeTest {
@@ -82,19 +83,36 @@ class LockShapeTest {
     }
 
     @Test
-    fun `Huentel ist eine Schleuse mit beiden Kammern`() {
-        val s = schleusen(huentel).single()
-        assertEquals("Schleuse Hüntel", s.name)
-        assertEquals(listOf("165 × 10", "225 × 12"), s.chamberSizes.sorted())
-        assertTrue(s.hasInfo)
+    fun `Huentel zeigt beide Kammern, jede in ihrer Mitte`() {
+        val s = schleusen(huentel)
+        assertEquals(2, s.size)
+        assertEquals(listOf("165", "225"), s.mapNotNull { it.maxLengthM }.sorted())
+        assertTrue(s.all { it.hasInfo && it.name == "Schleuse Hüntel" })
+        val klein = s.single { it.maxLengthM == "165" }
+        assertTrue(klein.abstand((52.75591 + 52.75746) / 2, (7.25818 + 7.25768) / 2) < 3)
     }
 
     @Test
-    fun `Hilter zeigt die Kammer und nicht das Tor`() {
-        val s = schleusen(hilter).single()
-        assertEquals("Schleuse Hilter", s.name)
-        assertEquals(2, s.chamberSizes.size)
-        assertTrue("Tore dürfen nicht übrig bleiben", !s.isGate)
+    fun `Hilter zeigt die Kammern und nicht die Tore`() {
+        val s = schleusen(hilter)
+        assertEquals(2, s.size)
+        assertTrue("Tore dürfen nicht übrig bleiben", s.none { it.isGate })
+        assertEquals(listOf("10", "12"), s.mapNotNull { it.maxWidthM }.sorted())
+    }
+
+    /** Dieselbe Kammer als Linie und als Fläche ist ein Symbol, auf der Linie. */
+    @Test
+    fun `Linie und Flaeche derselben Kammer werden eins`() {
+        val linie =
+            """{"type":"way","tags":{"waterway":"canal","lock":"yes","lock_name":"Schleuse X"},""" +
+                """"geometry":[{"lat":52.50015,"lon":7.3},{"lat":52.50015,"lon":7.302}]}"""
+        val becken =
+            """{"type":"way","tags":{"seamark:type":"lock_basin","seamark:lock_basin:category":"x"},""" +
+                """"geometry":[{"lat":52.5,"lon":7.3},{"lat":52.5,"lon":7.302},""" +
+                """{"lat":52.5003,"lon":7.302},{"lat":52.5003,"lon":7.3},{"lat":52.5,"lon":7.3}]}"""
+        val s = schleusen("$linie,$becken").single()
+        assertEquals("Schleuse X", s.name)
+        assertTrue(s.abstand(52.50015, 7.301) < 3)
     }
 
     /** Ganz ohne Kammer bleiben die Tore — aber als eine Schleuse zwischen ihnen. */
@@ -124,11 +142,11 @@ class LockShapeTest {
     }
 
     /**
-     * Die Route fährt nur durch **eine** Kammer. Trotzdem gehört die andere dazu, und das
-     * Symbol der Route muss dort sitzen, wo die Karte es ohne Route zeigt.
+     * Die Route fährt durch die große Kammer. Ihr Symbol liegt auf der Route, an derselben
+     * Stelle wie auf der Karte, und die kleine daneben bleibt als eigenes Symbol stehen.
      */
     @Test
-    fun `die Route zeigt Huentel an derselben Stelle wie die Karte`() {
+    fun `die Route zeigt die befahrene Kammer von Huentel`() {
         val start = LatLon(52.7505, 7.2600)
         val ziel = LatLon(52.7645, 7.2562)
         val zufahrten =
@@ -149,10 +167,12 @@ class LockShapeTest {
             }
             val r = WaterRouter.route(start, ziel, Craft.MOTORBOAT, dir) as RouteResult.Ok
             val aufRoute = r.obstacles.single { it.kind == ObstacleKind.LOCK }
+            assertEquals("225", aufRoute.maxLengthM)
+            assertTrue(aufRoute.abstand((52.75551 + 52.75756) / 2, (7.25925 + 7.25858) / 2) < 3)
             val aufKarte = WaterRouter.obstaclesIn(dir, 52.1, 7.1, 52.9, 7.9)
-                .single { it.kind == ObstacleKind.LOCK }
-            assertEquals(2, aufRoute.chamberSizes.size)
-            assertTrue(aufRoute.abstand(aufKarte.lat, aufKarte.lon) < 1)
+                .filter { it.kind == ObstacleKind.LOCK }
+            assertEquals(2, aufKarte.size)
+            assertTrue(aufKarte.any { it.abstand(aufRoute.lat, aufRoute.lon) < 1 })
         } finally {
             dir.deleteRecursively()
         }
