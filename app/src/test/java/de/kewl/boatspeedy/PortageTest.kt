@@ -76,7 +76,7 @@ class PortageTest {
     @Test
     fun `am Wehr traegt das Kanu aussen herum`() {
         val r = fahre(Craft.CANOE, fluss, wehr, umtrageweg) as RouteResult.Ok
-        assertTrue("nichts getragen: ${r.portageM} m", r.portageM > 150)
+        assertTrue("nichts getragen: ${r.portageM} m", r.portageM > 50)
         assertTrue("der getragene Teil fehlt auf der Karte", r.portage.isNotEmpty())
         // Der Weg führt am Wehr vorbei, also nördlich daran vorbei.
         assertTrue(r.path.any { it.lat > 50.5003 })
@@ -99,7 +99,7 @@ class PortageTest {
     @Test
     fun `das Kanu nimmt den Weg drumherum statt durchs Wehr`() {
         val r = fahre(Craft.CANOE, fluss, wehr, umtrageweg) as RouteResult.Ok
-        assertTrue("durchs Wehr statt drumherum", r.portageM > 150)
+        assertTrue("durchs Wehr statt drumherum", r.portageM > 50)
     }
 
     /** Das Wehr selbst wird gemeldet, auch wenn es als Weg eingetragen ist. */

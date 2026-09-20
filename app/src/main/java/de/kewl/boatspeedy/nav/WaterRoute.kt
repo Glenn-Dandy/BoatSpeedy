@@ -455,11 +455,17 @@ object WaterRouter {
 
         // Umtragen nur im Kanu. Ein Motorboot trägt niemand um ein Wehr.
         val umtrage = if (craft == Craft.CANOE) {
-            quelle.umtrage + uferbruecken(quelle.obstacles, quelle.barriers)
+            quelle.umtrage + uferbruecken(quelle.obstacles, quelle.barriers, ways + sperrlinien(quelle.obstacles))
         } else {
             emptyList()
         }
-        val graph = buildGraph(ways, quelle.barriers, quelle.eingeschraenkt, umtrage)
+        val graph = buildGraph(
+            ways,
+            quelle.barriers,
+            quelle.eingeschraenkt,
+            umtrage,
+            sperrlinien(quelle.obstacles),
+        )
         if (graph.adj.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
         // Nicht einfach den nächsten Knoten nehmen: der liegt schnell auf einem
@@ -516,12 +522,19 @@ object WaterRouter {
      * jede zweite Slipanlage am gegenüberliegenden Ufer eine Abkürzung über Land, und die
      * Route spränge quer über den Fluss.
      */
-    private fun uferbruecken(obstacles: List<Obstacle>, barriers: Set<Node>): List<List<Node>> {
+    private fun uferbruecken(
+        obstacles: List<Obstacle>,
+        barriers: Set<Node>,
+        ways: List<List<Node>>,
+    ): List<List<Node>> {
         if (barriers.isEmpty()) return emptyList()
         val ufer = obstacles.filter { it.kind == ObstacleKind.LANDING }
             .distinctBy { "%.5f,%.5f".format(it.lat, it.lon) }
         if (ufer.size < 2) return emptyList()
         val sperren = raster(barriers.toList())
+        // In [ways] stecken hier auch die Wehrlinien: Eine erfundene Gerade über die
+        // Wehrkrone ist keine Umtragung, sondern eine Abkürzung durch das Hindernis.
+        val wasser = segmentRaster(ways, emptySet())
         val raus = ArrayList<List<Node>>()
         for (i in ufer.indices) {
             for (j in i + 1 until ufer.size) {
@@ -530,7 +543,12 @@ object WaterRouter {
                 if (distanceM(a, b) > UFER_PAAR_M) continue
                 val mitte = Node.of((a.lat + b.lat) / 2, (a.lon + b.lon) / 2)
                 if (naechster(sperren, mitte, SPERRE_DAZWISCHEN_M) == null) continue
-                raus.add(listOf(Node.of(a.lat, a.lon), Node.of(b.lat, b.lon)))
+                val von = Node.of(a.lat, a.lon)
+                val nach = Node.of(b.lat, b.lon)
+                // Getragen wird an Land. Eine Linie, die den Fluss quert, ist keine
+                // Umtragung, sondern sieht auf der Karte aus wie ein Sprung übers Wasser.
+                if (kreuztWasser(wasser, von, nach)) continue
+                raus.add(listOf(von, nach))
             }
         }
         return raus
@@ -1332,16 +1350,23 @@ object WaterRouter {
      * der Flusslinie; in OSM teilen sie fast nie einen Punkt. Ohne diese Brücke hinge der
      * Weg in der Luft und die Wegsuche fände ihn nie.
      */
-    private const val UMTRAGE_ANSCHLUSS_M = 60.0
+    private const val UMTRAGE_ANSCHLUSS_M = 80.0
 
     /** Kantenlänge des Suchrasters, rund 200 m. */
     private const val RASTER = 2_000
+
+    /** Die Wehre und Dämme als Linien — was eine erfundene Verbindung nicht queren darf. */
+    private fun sperrlinien(obstacles: List<Obstacle>): List<List<Node>> =
+        obstacles.filter { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
+            .map { o -> o.line.map { Node.of(it.lat, it.lon) } }
+            .filter { it.size >= 2 }
 
     private fun buildGraph(
         ways: List<List<Node>>,
         barriers: Set<Node>,
         eingeschraenkt: Set<Node> = emptySet(),
         umtrage: List<List<Node>> = emptyList(),
+        sperrwege: List<List<Node>> = emptyList(),
     ): Graph {
         val g = HashMap<Node, MutableList<Pair<Node, Double>>>()
         for (way in ways) {
@@ -1373,6 +1398,9 @@ object WaterRouter {
         }
         // Das Wasser **vor** den Umtragewegen: Sonst hinge der Anschluss an ihnen selbst.
         val wasser = segmentRaster(ways, barriers)
+        // Wogegen geprüft wird, ob eine erfundene Verbindung quer darüber läuft. Die
+        // eingetragenen Umtragewege sind davon nicht betroffen, die sind echt.
+        val verboten = segmentRaster(ways + sperrwege, emptySet())
         for (weg in umtrage) {
             for ((a, b) in weg.zipWithNext()) verbinde(a, b)
             for (ende in listOf(weg.first(), weg.last())) {
@@ -1396,6 +1424,10 @@ object WaterRouter {
                         if (b in barriers) 1.0 - rand else 1.0,
                     )
                     if (auf in barriers) continue
+                    // Der Anschluss darf das Wasser nur an seinem Ende berühren. Quert er
+                    // es, liefe die Umtragung quer über den Fluss — genau das sah auf der
+                    // Karte bei Kahla aus wie ein Sprung über das Wehr.
+                    if (kreuztWasser(verboten, ende, auf)) continue
                     // **Über die Sperre führt nichts.** Das Stück Saale oberhalb des Wehrs
                     // Kahla hängt am gesperrten Punkt; angeschlossen wird es trotzdem,
                     // aber nur an seinem freien Ende. Sonst wäre der Anschluss zugleich
@@ -1410,7 +1442,70 @@ object WaterRouter {
                 }
             }
         }
+        // **Bruchstücke zusammenhalten.** In Bad Kösen liegt der Umtrageweg in zwei
+        // Teilen, dazwischen 38 m gewöhnlicher Fußweg, den wir nicht laden. Ohne diesen
+        // Lückenschluss endet die Umtragung im Nichts.
+        val enden = umtrage.flatMap { listOf(it.first() to it, it.last() to it) }
+        for (i in enden.indices) {
+            for (j in i + 1 until enden.size) {
+                val (a, wegA) = enden[i]
+                val (b, wegB) = enden[j]
+                if (wegA === wegB || a == b) continue
+                if (distanceM(a.toLatLon(), b.toLatLon()) > UMTRAGE_LUECKE_M) continue
+                if (kreuztWasser(verboten, a, b)) continue
+                verbinde(a, b)
+            }
+        }
         return Graph(g, kanten)
+    }
+
+    /**
+     * Ob die Strecke [a]–[b] Wasser quert, statt es nur an einem Ende zu berühren.
+     *
+     * Getragen wird an Land. Eine erfundene Verbindung, die quer über den Fluss läuft,
+     * ist keine Umtragung; sie sieht aus wie ein Sprung über das Wehr und führt auch
+     * dorthin, wo niemand laufen kann.
+     */
+    private fun kreuztWasser(
+        raster: Map<Long, MutableList<Pair<Node, Node>>>,
+        a: Node,
+        b: Node,
+    ): Boolean {
+        val zellen = setOf(
+            zelle(a.lat / RASTER, a.lon / RASTER),
+            zelle(b.lat / RASTER, b.lon / RASTER),
+            zelle((a.lat + b.lat) / 2 / RASTER, (a.lon + b.lon) / 2 / RASTER),
+        )
+        for (z in zellen) {
+            for (dy in -1..1) {
+                for (dx in -1..1) {
+                    val nachbar = z + dy.toLong() * 1_000_000L + dx
+                    for ((c, d) in raster[nachbar].orEmpty()) {
+                        if (schneidet(a, b, c, d)) return true
+                    }
+                }
+            }
+        }
+        return false
+    }
+
+    /** Ob sich zwei Strecken kreuzen — Berührungen an den Enden zählen nicht. */
+    private fun schneidet(a: Node, b: Node, c: Node, d: Node): Boolean {
+        fun seite(p: Node, q: Node, r: Node): Double {
+            val x1 = (q.lon - p.lon).toDouble()
+            val y1 = (q.lat - p.lat).toDouble()
+            val x2 = (r.lon - p.lon).toDouble()
+            val y2 = (r.lat - p.lat).toDouble()
+            return x1 * y2 - y1 * x2
+        }
+        // Ein Ende auf der anderen Linie ist der erlaubte Fall: Genau dort wird das Boot
+        // ins Wasser gesetzt.
+        if (a == c || a == d || b == c || b == d) return false
+        val s1 = seite(a, b, c)
+        val s2 = seite(a, b, d)
+        val s3 = seite(c, d, a)
+        val s4 = seite(c, d, b)
+        return s1 * s2 < 0 && s3 * s4 < 0
     }
 
     /** Knoten in Zellen von rund 200 m, damit die Suche nach dem nächsten nicht alles abgeht. */
@@ -1471,6 +1566,9 @@ object WaterRouter {
      * Jeder Umweg, jede Schleuse und jede Umtragung darunter wird vorgezogen.
      */
     private const val SPERRE_AUFSCHLAG_M = 100_000.0
+
+    /** So groß darf die Lücke zwischen zwei Stücken eines Umtragewegs sein. */
+    private const val UMTRAGE_LUECKE_M = 80.0
 
     /** So weit hinter einer Sperre wird wieder eingesetzt. */
     private const val HINTER_DER_SPERRE_M = 10.0

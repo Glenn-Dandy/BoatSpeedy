@@ -2,6 +2,7 @@ package de.kewl.boatspeedy
 
 import de.kewl.boatspeedy.data.Craft
 import de.kewl.boatspeedy.nav.LatLon
+import de.kewl.boatspeedy.nav.distanceM
 import de.kewl.boatspeedy.nav.MapTiles
 import de.kewl.boatspeedy.nav.ObstacleKind
 import de.kewl.boatspeedy.nav.RouteResult
@@ -119,6 +120,30 @@ class WeirPortageTest {
         val r = fahre(Craft.CANOE, "koesen.json", koesenOben, koesenUnten) as RouteResult.Ok
         assertTrue("Route endet zu früh: ${r.water.last()}", r.water.last().lat > 51.140)
         assertTrue("kein Wehr gemeldet: ${r.obstacles}", r.obstacles.any { it.kind == ObstacleKind.WEIR })
+        assertTrue("nichts getragen: ${r.portageM} m", r.portageM > 50)
+    }
+
+    /**
+     * An allen drei Wehren wird getragen, und zwar in kurzen Stücken am Ufer. Eine
+     * erfundene Gerade quer über den Fluss wäre lang und sähe auf der Karte aus wie ein
+     * Sprung über das Wehr; solche Verbindungen entstehen nicht mehr.
+     */
+    @Test
+    fun `an jedem Wehr wird kurz und am Ufer getragen`() {
+        val stellen = listOf(
+            Triple("kahla.json", kahlaOben, kahlaUnten),
+            Triple("koesen.json", koesenOben, koesenUnten),
+            Triple("jena.json", jenaOben, jenaUnten),
+        )
+        for ((kachel, von, nach) in stellen) {
+            val r = fahre(Craft.CANOE, kachel, von, nach) as RouteResult.Ok
+            assertTrue("$kachel: nichts getragen", r.portageM > 50)
+            for (zug in r.portage) {
+                for ((p, q) in zug.zipWithNext()) {
+                    assertTrue("$kachel: Stück von ${distanceM(p, q)} m", distanceM(p, q) < 150)
+                }
+            }
+        }
     }
 
     /** In Uhlstädt führt der Kraftwerkskanal ums Wehr: Das Kanu fährt, statt zu tragen. */
