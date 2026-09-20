@@ -12,7 +12,7 @@ import java.io.File
 import java.util.zip.GZIPOutputStream
 
 /**
- * Drei Wehre an der Saale, mit den Daten aus OpenStreetMap (Kachel n50e011).
+ * Vier Wehre an der Saale, mit den Daten aus OpenStreetMap (Kachel n50e011).
  *
  * Beide liegen als **Weg** quer über den Fluss und teilen einen Punkt mit ihm. Genau die
  * fehlten in unseren Kacheln: Der Filter holte Wehre nur als Knoten, und so stand vor dem
@@ -30,6 +30,12 @@ class WeirPortageTest {
 
     /** Unterhalb, rund 300 m hinter der Wehrschwelle. */
     private val unten = LatLon(50.73854, 11.46342)
+
+    /** Oberhalb des Wehrs Bad Kösen. */
+    private val koesenOben = LatLon(51.12840, 11.71893)
+
+    /** Unterhalb, rund einen Kilometer weiter. */
+    private val koesenUnten = LatLon(51.14207, 11.71907)
 
     /** Oberhalb des Wehrs Kahla. */
     private val kahlaOben = LatLon(50.79508, 11.57369)
@@ -51,7 +57,7 @@ class WeirPortageTest {
         val dir = createTempDir("uhlstaedt")
         try {
             for (id in MapTiles.tilesForRoute(von, nach)) {
-                val text = if (id.name == "n50e011") {
+                val text = if (id.name == kachel.removeSuffix(".json").let { if (it == "koesen") "n51e011" else "n50e011" }) {
                     inhalt
                 } else {
                     """{"version":1,"tile":"${id.name}","generated":"2026-09-20","elements":[]}"""
@@ -97,6 +103,22 @@ class WeirPortageTest {
         val r = fahre(Craft.CANOE, "kahla.json", kahlaOben, kahlaUnten) as RouteResult.Ok
         assertTrue("nichts getragen: ${r.portageM} m", r.portageM > 30)
         assertTrue("Route endet zu früh: ${r.water.last()}", r.water.last().lat > 50.800)
+    }
+
+    /**
+     * Bad Kösen zeigt die Grenze. Das Wehr liegt schräg im Fluss, und Ausstieg wie
+     * Einstieg sind beide **unterhalb** der Kreuzung eingetragen; ein Weg zwischen ihnen
+     * führt an nichts vorbei. Der Umtrageweg selbst liegt in zwei Stücken, sein
+     * Mittelstück ist ein gewöhnlicher Fußweg und steht nicht in unseren Kacheln.
+     *
+     * Also bleibt nur das Wehr. Genau dafür ist es kein Verbot mehr, sondern teuer: Die
+     * Strecke geht hindurch, meldet das Wehr, und die Fahrt endet nicht vorher.
+     */
+    @Test
+    fun `in Bad Koesen kommt die Route durch und meldet das Wehr`() {
+        val r = fahre(Craft.CANOE, "koesen.json", koesenOben, koesenUnten) as RouteResult.Ok
+        assertTrue("Route endet zu früh: ${r.water.last()}", r.water.last().lat > 51.140)
+        assertTrue("kein Wehr gemeldet: ${r.obstacles}", r.obstacles.any { it.kind == ObstacleKind.WEIR })
     }
 
     /** In Uhlstädt führt der Kraftwerkskanal ums Wehr: Das Kanu fährt, statt zu tragen. */

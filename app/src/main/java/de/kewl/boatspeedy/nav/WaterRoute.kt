@@ -474,7 +474,8 @@ object WaterRouter {
             RouteResult.Failed(RouteError.NO_CONNECTION)
         }
 
-        val knoten = shortestPath(graph.adj, ends.first, ends.second)
+        val knoten = besterWeg(graph.adj, ends.first, to, maxSnap)
+            ?: shortestPath(graph.adj, ends.first, ends.second)
             ?: return RouteResult.Failed(RouteError.NO_CONNECTION)
         val water = knoten.map { it.toLatLon() }
         // Anfahrt und Auslauf sind Luftlinie – sie werden getrennt zurückgegeben, damit die
@@ -1346,10 +1347,15 @@ object WaterRouter {
         for (way in ways) {
             for ((a, b) in way.zipWithNext()) {
                 if (a == b) continue
-                // Kein Weg durch ein Wehr oder an einem Einfahrtsverbot vorbei.
-                if (a in barriers || b in barriers) continue
                 var d = distanceM(a.toLatLon(), b.toLatLon())
                 if (a in eingeschraenkt && b in eingeschraenkt) d *= RESTRICTED_COST
+                // Ein Wehr sperrt nicht mehr, es kostet. Vorher blieb die Wegsuche davor
+                // stehen und meldete „kein durchgängiger Wasserweg" — auf hunderten
+                // Kilometern reichte ein einziges falsch erfasstes Wehr dafür. Mit dem
+                // Aufschlag gewinnt jede Schleuse und jede Umtragung, und wo es nichts
+                // gibt, kommt wenigstens eine Strecke heraus. Dass ein Wehr darauf liegt,
+                // steht ohnehin darüber auf der Karte.
+                if (a in barriers || b in barriers) d += SPERRE_AUFSCHLAG_M
                 g.getOrPut(a) { mutableListOf() }.add(b to d)
                 g.getOrPut(b) { mutableListOf() }.add(a to d)
             }
@@ -1460,6 +1466,12 @@ object WaterRouter {
         return raus.toList()
     }
 
+    /**
+     * Was eine Sperre kostet: hundert Kilometer. Kein Verbot, sondern der letzte Ausweg.
+     * Jeder Umweg, jede Schleuse und jede Umtragung darunter wird vorgezogen.
+     */
+    private const val SPERRE_AUFSCHLAG_M = 100_000.0
+
     /** So weit hinter einer Sperre wird wieder eingesetzt. */
     private const val HINTER_DER_SPERRE_M = 10.0
 
@@ -1550,12 +1562,63 @@ object WaterRouter {
         return best?.let { it.second to it.third }
     }
 
+    /**
+     * So nah am Ziel darf ein Punkt liegen, damit unter mehreren der **günstigste**
+     * gewählt wird statt des nächsten. Weiter draußen zählt wieder allein die Nähe: Wer
+     * ein Ziel mitten im Feld setzt, will dorthin, so nah es eben geht.
+     */
+    private const val ZIEL_NAH_M = 150.0
+
+    /** Wie schwer das letzte Stück Luftlinie dabei wiegt. Es ist geraten, nicht gefahren. */
+    private const val LUFT_GEWICHT = 10.0
+
+    /**
+     * Der günstigste Weg von [start] zu einem Punkt, der nahe genug an [ziel] liegt.
+     *
+     * Das Ziel an den **nächstgelegenen** Punkt zu hängen war falsch, seit ein Wehr die
+     * Wegsuche nicht mehr trennt: Liegt am anderen Ufer ein Punkt fünfzehn Meter näher,
+     * fuhr die Strecke durch das Wehr hindurch, um ihn zu erreichen. Jetzt zählt, was der
+     * Weg dorthin kostet, plus das Stück Luftlinie am Ende — und der Ausstieg diesseits
+     * des Wehrs gewinnt.
+     */
+    private fun besterWeg(
+        graph: Map<Node, List<Pair<Node, Double>>>,
+        start: Node,
+        ziel: LatLon,
+        maxSnap: Double,
+    ): List<Node>? {
+        val (dist, prev) = dijkstra(graph, start)
+        var best: Node? = null
+        var bestKosten = Double.MAX_VALUE
+        for ((n, d) in dist) {
+            val luft = distanceM(n.toLatLon(), ziel)
+            if (luft > ZIEL_NAH_M) continue
+            val kosten = d + luft * LUFT_GEWICHT
+            if (kosten < bestKosten) {
+                bestKosten = kosten
+                best = n
+            }
+        }
+        return best?.let { zurueck(prev, it) }
+    }
+
     private fun shortestPath(
         graph: Map<Node, List<Pair<Node, Double>>>,
         start: Node,
         goal: Node,
     ): List<Node>? {
         if (start == goal) return listOf(start)
+        val (dist, prev) = dijkstra(graph, start, goal)
+        if (goal !in dist) return null
+        return zurueck(prev, goal)
+    }
+
+    /** Dijkstra von [start]; mit [goal] hört er auf, sobald der Punkt feststeht. */
+    private fun dijkstra(
+        graph: Map<Node, List<Pair<Node, Double>>>,
+        start: Node,
+        goal: Node? = null,
+    ): Pair<Map<Node, Double>, Map<Node, Node>> {
         val dist = HashMap<Node, Double>().apply { put(start, 0.0) }
         val prev = HashMap<Node, Node>()
         val seen = HashSet<Node>()
@@ -1576,10 +1639,17 @@ object WaterRouter {
                 }
             }
         }
-        if (goal !in dist) return null
+        return dist to prev
+    }
+
+    /** Aus den Vorgängern den Weg zurück zum Anfang. */
+    private fun zurueck(prev: Map<Node, Node>, bis: Node): List<Node> {
         val out = ArrayList<Node>()
-        var cur: Node? = goal
-        while (cur != null) { out.add(cur); cur = prev[cur] }
+        var cur: Node? = bis
+        while (cur != null) {
+            out.add(cur)
+            cur = prev[cur]
+        }
         return out.reversed()
     }
 }

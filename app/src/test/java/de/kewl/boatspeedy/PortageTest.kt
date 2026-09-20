@@ -83,15 +83,23 @@ class PortageTest {
     }
 
     /**
-     * Ein Motorboot trägt niemand. Das Fahrwasser endet am Wehr, und von dort läuft nur
-     * noch die Luftlinie — mit dem Wehr als Hinweis.
+     * Ein Motorboot trägt niemand, und der Umtrageweg hilft ihm nicht. Bleibt nur das
+     * Wehr: Die Strecke geht hindurch und meldet es. Eine Route, die vorher aufhört, ist
+     * unbrauchbar; wer im Boot sitzt, muss selbst entscheiden, ob er umkehrt.
      */
     @Test
-    fun `das Motorboot kommt am Wehr nicht vorbei`() {
+    fun `das Motorboot faehrt als letzter Ausweg durchs Wehr`() {
         val r = fahre(Craft.MOTORBOAT, fluss, wehr, umtrageweg) as RouteResult.Ok
-        assertTrue("über das Wehr hinweg gefahren: ${r.water}", r.water.none { it.lon > 11.0045 })
         assertEquals(0.0, r.portageM, 0.5)
+        assertTrue("die Strecke hört vor dem Wehr auf", r.water.any { it.lon > 11.006 })
         assertTrue("kein Wehr gemeldet", r.obstacles.any { it.kind == ObstacleKind.WEIR })
+    }
+
+    /** Gibt es einen Weg drumherum, wird er genommen — das Wehr ist der letzte Ausweg. */
+    @Test
+    fun `das Kanu nimmt den Weg drumherum statt durchs Wehr`() {
+        val r = fahre(Craft.CANOE, fluss, wehr, umtrageweg) as RouteResult.Ok
+        assertTrue("durchs Wehr statt drumherum", r.portageM > 150)
     }
 
     /** Das Wehr selbst wird gemeldet, auch wenn es als Weg eingetragen ist. */
