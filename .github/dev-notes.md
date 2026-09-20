@@ -5,8 +5,9 @@
   OpenStreetMap oder, wo es keine gibt, von Anleger zu Anleger. Sie läuft am Ufer entlang
   und quert weder Fluss noch Wehr. Grün gestrichelt, mit Meterangabe im Kasten.
 - Ein- und Ausstiege am Ufer (Slipanlagen, Kanu-Einstiege) ab Zoomstufe 13, antippbar.
-- Wasserkraftanlagen: eigenes Symbol, und die Route fährt nicht mehr durch die Turbinen.
-  Der Kanal durch die Anlage führt oft am Wehr vorbei und war bisher der kürzeste Weg.
+- Wasserkraftanlagen: eigenes Symbol auf der Karte, und die Route fährt nicht mehr durch
+  die Turbinen. Der Kanal durch die Anlage führt oft am Wehr vorbei und war der kürzeste
+  Weg.
 
 **Geändert**
 - Ein Wehr sperrt die Route nicht mehr, es kostet. Gibt es keinen Weg darum herum, führt
@@ -15,6 +16,8 @@
   fuhr die Route durchs Wehr, um einen Anleger fünfzehn Meter jenseits zu erreichen.
 
 **Geändert**
+- Der Kasten zählt nur noch Wehre, die die Strecke wirklich kreuzt. Was umtragen wird,
+  steht nicht mehr als Hindernis darin.
 - Im Kanu kostet ein Kanal mehr als ein Fluss. Mühlgräben und Seitenarme wie die Lache
   bei Porstendorf sind kürzer als die Flussschleife daneben; im Kanu zählt der Fluss.
 
@@ -37,8 +40,8 @@
   OpenStreetMap or, where there are none, from landing to landing. It follows the bank and
   crosses neither the river nor the weir. Green dashed, with the distance in the box.
 - Put-ins, egress points and slipways on the bank from zoom 13, tappable.
-- Hydro power plants get their own symbol, and the route no longer runs through the
-  turbines. The channel through the plant often bypasses the weir and used to win.
+- Hydro power plants get their own symbol on the map, and the route no longer runs through
+  the turbines. The channel through the plant often bypasses the weir and used to win.
 
 **Changed**
 - A weir no longer blocks the route, it costs. With no way around it, the route goes
@@ -47,6 +50,8 @@
   route crossed a weir to reach a landing fifteen metres beyond it.
 
 **Changed**
+- The box counts only weirs the route actually crosses. What you carry around is no longer
+  listed as an obstacle.
 - In canoe mode a canal costs more than a river. Mill races and side arms are shorter than
   the river loop beside them; in a canoe the river is what you want.
 

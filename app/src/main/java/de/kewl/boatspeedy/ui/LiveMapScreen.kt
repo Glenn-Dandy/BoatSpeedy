@@ -664,9 +664,6 @@ fun LiveMapScreen(
             navTarget?.takeIf { !weatherMode && it.mode == NavMode.ROUTE }?.let { t ->
                 val locks = t.obstacles.count { it.kind == ObstacleKind.LOCK || it.kind == ObstacleKind.SLUICE }
                 val weirs = t.obstacles.count { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
-                // Wasserkraft steht für sich: Ein Wehr lässt sich notfalls umtragen,
-                // durch eine Turbine kommt niemand.
-                val kraftwerke = t.obstacles.count { it.kind == ObstacleKind.POWER }
                 // Erst ab einem halben Kilometer. Kürzeres kommt an jeder zweiten Naht
                 // zustande, wo ein Weg mit Bootsverbot ein Stück weit mitläuft, und wäre
                 // als Warnung nur Rauschen.
@@ -678,8 +675,8 @@ fun LiveMapScreen(
                 // Umtragen steht in Metern: Es sind selten mehr als ein paar hundert, und
                 // gerundete Kilometer würden daraus eine Null machen.
                 val umtragenM = t.portageM.takeIf { it >= 1.0 }?.roundToInt()
-                if (locks > 0 || weirs > 0 || kraftwerke > 0 || restrictedKm != null ||
-                    aufKm != null || abKm != null || umtragenM != null
+                if (locks > 0 || weirs > 0 || restrictedKm != null || aufKm != null ||
+                    abKm != null || umtragenM != null
                 ) {
                     Surface(
                         modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 16.dp),
@@ -701,17 +698,6 @@ fun LiveMapScreen(
                                     iconRes = R.drawable.ic_obstacle_weir,
                                     text = if (weirs == 1) stringResource(R.string.nav_obstacles_weir_one)
                                     else stringResource(R.string.nav_obstacles_weirs, weirs),
-                                    color = MaterialTheme.colorScheme.error,
-                                )
-                            }
-                            if (kraftwerke > 0) {
-                                ObstacleLine(
-                                    iconRes = R.drawable.ic_obstacle_power,
-                                    text = if (kraftwerke == 1) {
-                                        stringResource(R.string.nav_obstacles_power_one)
-                                    } else {
-                                        stringResource(R.string.nav_obstacles_power, kraftwerke)
-                                    },
                                     color = MaterialTheme.colorScheme.error,
                                 )
                             }

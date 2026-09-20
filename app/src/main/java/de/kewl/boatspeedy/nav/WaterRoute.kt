@@ -1186,9 +1186,52 @@ object WaterRouter {
         // Zur **Strecke**, nicht zu ihren Stützpunkten: Das Symbol sitzt in der Mitte der
         // Kammer, bei 225 m Länge über 100 m von jedem Punkt entfernt.
         return zusammenlegen(nah).filter { o ->
-            abstandZurLinie(LatLon(o.lat, o.lon), path) <= OBSTACLE_NEAR_M ||
+            val nahGenug = abstandZurLinie(LatLon(o.lat, o.lon), path) <= OBSTACLE_NEAR_M ||
                 o.line.any { abstandZurLinie(it, path) <= OBSTACLE_NEAR_M }
+            // **Ein Wehr zählt nur, wenn die Strecke es kreuzt.** Vierzig Meter Nähe
+            // reichen dafür nicht: Wo umtragen wird, liegt das Wehr daneben, und es als
+            // Hindernis zu melden hieße, vor etwas zu warnen, an dem man vorbeigeht.
+            if (o.kind == ObstacleKind.WEIR || o.kind == ObstacleKind.DAM) {
+                nahGenug && kreuzt(o, path)
+            } else {
+                nahGenug
+            }
         }
+    }
+
+    /**
+     * Ob die Strecke dieses Hindernis wirklich kreuzt, statt nur daran vorbeizuführen.
+     *
+     * Zwei Fälle: Das Wehr kreuzt den Fluss frei, oder es teilt einen Punkt mit ihm —
+     * dann berühren sich die Linien nur, und ein strenges Kreuzen gäbe es nie. Wer
+     * umträgt, kommt dem Wehr nahe, ohne hindurchzufahren; deshalb zählen nur wenige
+     * Meter als Berührung.
+     */
+    private fun kreuzt(o: Obstacle, path: List<LatLon>): Boolean {
+        if (o.line.size >= 2) {
+            if (o.line.any { abstandZurLinie(it, path) <= WEHR_BERUEHRT_M }) return true
+            for ((a, b) in o.line.zipWithNext()) {
+                for ((c, d) in path.zipWithNext()) {
+                    if (kreuzen(a, b, c, d)) return true
+                }
+            }
+            return false
+        }
+        // Ein Wehr als einzelner Punkt hat keine Linie; dann zählt die Nähe zur Strecke.
+        return abstandZurLinie(LatLon(o.lat, o.lon), path) <= WEHR_AUF_STRECKE_M
+    }
+
+    /** So nah heißt: Die Strecke führt durch das Wehr, nicht daran vorbei. */
+    private const val WEHR_BERUEHRT_M = 3.0
+
+    /** So nah an der Strecke liegt ein Wehr, das nur als Punkt erfasst ist, auf ihr. */
+    private const val WEHR_AUF_STRECKE_M = 15.0
+
+    /** Ob sich zwei Strecken kreuzen; Berührungen an den Enden zählen nicht. */
+    private fun kreuzen(a: LatLon, b: LatLon, c: LatLon, d: LatLon): Boolean {
+        fun seite(p: LatLon, q: LatLon, r: LatLon): Double =
+            (q.lon - p.lon) * (r.lat - p.lat) - (q.lat - p.lat) * (r.lon - p.lon)
+        return seite(a, b, c) * seite(a, b, d) < 0 && seite(c, d, a) * seite(c, d, b) < 0
     }
 
     /** So nah an ihrer Kammer liegt ein Tor, das zu ihr gehört. */

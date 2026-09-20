@@ -48,6 +48,20 @@ class PortageTest {
         """{"type":"node","lat":50.50015,"lon":11.0041,"tags":{"leisure":"slipway",""" +
             """"whitewater":"put_in;egress","name":"Uhlstädter Wehr"}}"""
 
+    private fun kacheln(vararg elemente: String): File {
+        val dir = createTempDir("umtragen")
+        for (id in MapTiles.tilesForRoute(west, ost)) {
+            val inhalt = if (id.name == "n50e011") elemente.joinToString(",") else ""
+            GZIPOutputStream(File(dir, "${id.name}.json.gz").outputStream()).use {
+                it.write(
+                    ("""{"version":1,"tile":"${id.name}","generated":"2026-09-20",""" +
+                        """"elements":[$inhalt]}""").toByteArray(),
+                )
+            }
+        }
+        return dir
+    }
+
     private fun fahre(craft: Craft, vararg elemente: String): RouteResult {
         val dir = createTempDir("umtragen")
         try {
@@ -102,11 +116,24 @@ class PortageTest {
         assertTrue("durchs Wehr statt drumherum", r.portageM > 50)
     }
 
-    /** Das Wehr selbst wird gemeldet, auch wenn es als Weg eingetragen ist. */
+    /**
+     * Gemeldet wird nur, was auf der Strecke liegt. Wer umträgt, geht am Wehr **vorbei**;
+     * es dann als Hindernis zu nennen hieße, vor etwas zu warnen, das man umgeht. Auf der
+     * Karte steht es trotzdem.
+     */
     @Test
-    fun `ein Wehr als Weg wird gemeldet`() {
+    fun `ein umtragenes Wehr wird nicht als Hindernis gemeldet`() {
         val r = fahre(Craft.CANOE, fluss, wehr, umtrageweg) as RouteResult.Ok
-        assertTrue("kein Wehr gemeldet: ${r.obstacles}", r.obstacles.any { it.kind == ObstacleKind.WEIR })
+        assertTrue("getragen wurde nichts", r.portageM > 50)
+        assertTrue("das umgangene Wehr steht als Hindernis: ${r.obstacles}",
+            r.obstacles.none { it.kind == ObstacleKind.WEIR })
+        val dir = kacheln(fluss, wehr, umtrageweg)
+        try {
+            val aufKarte = WaterRouter.obstaclesIn(dir, 50.4, 10.9, 50.6, 11.1)
+            assertTrue("das Wehr fehlt auf der Karte", aufKarte.any { it.kind == ObstacleKind.WEIR })
+        } finally {
+            dir.deleteRecursively()
+        }
     }
 
     @Test
