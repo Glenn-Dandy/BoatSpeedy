@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wasserkraftanlage, Fassung für die Karte: 48 dp für die Trefferfläche, das Zeichen
+     darin 26 dp wie bei den anderen Symbolen. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="44" android:viewportHeight="44">
+    <group android:translateX="10" android:translateY="10">
+        <path android:fillColor="#FFFFFF" android:pathData="M12,1 A11,11 0 1,1 11.99,1 Z" />
+        <path android:fillColor="#C62828" android:pathData="M12,3 A9,9 0 1,1 11.99,3 Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M13.2,5 L7.5,13 h3.4 l-1.1,6 5.7,-8 h-3.4 Z" />
+    </group>
+</vector>

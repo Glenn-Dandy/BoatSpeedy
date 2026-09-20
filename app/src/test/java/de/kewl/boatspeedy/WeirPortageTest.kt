@@ -7,6 +7,7 @@ import de.kewl.boatspeedy.nav.MapTiles
 import de.kewl.boatspeedy.nav.ObstacleKind
 import de.kewl.boatspeedy.nav.RouteResult
 import de.kewl.boatspeedy.nav.WaterRouter
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -19,18 +20,22 @@ import java.util.zip.GZIPOutputStream
  * fehlten in unseren Kacheln: Der Filter holte Wehre nur als Knoten, und so stand vor dem
  * Saale-Wehr Uhlstädt und dem Paradieswehr in Jena kein Wort.
  *
- * Die drei Stellen gehen verschieden aus. In Uhlstädt führt ein Kraftwerkskanal ums Wehr
- * herum, dort wird nichts getragen. In Jena gibt es nur den Weg über Land, mit
- * `portage=designated` an den beiden Rampen. In Kahla steht überhaupt kein Weg in OSM,
- * sondern nur zwei Slipanlagen mit dem Wehr dazwischen.
+ * Die Stellen gehen verschieden aus. In Uhlstädt führt ein Kanal ums Wehr herum, aber
+ * durch die Turbinen einer Wasserkraftanlage; getragen wird über die Rampen daneben. In
+ * Jena gibt es nur den Weg über Land, mit `portage=designated` an beiden Rampen. In Kahla
+ * steht kein Weg in OSM, nur zwei Slipanlagen mit dem Wehr dazwischen. In Bad Kösen hilft
+ * nichts davon, dort führt die Strecke durch das Wehr und sagt es.
  */
 class WeirPortageTest {
 
-    /** Oberhalb des Wehrs auf der Saale. */
-    private val oben = LatLon(50.74232, 11.45835)
+    /** Die Wasserkraftanlage Uhlstädt, mitten im Kanal neben dem Wehr. */
+    private val kraftwerk = LatLon(50.74102, 11.46281)
 
-    /** Unterhalb, rund 300 m hinter der Wehrschwelle. */
-    private val unten = LatLon(50.73854, 11.46342)
+    /** Oberhalb des Wehrs Uhlstädt. */
+    private val uhlstaedtOben = LatLon(50.74208, 11.45333)
+
+    /** Unterhalb, gut einen halben Kilometer weiter. */
+    private val uhlstaedtUnten = LatLon(50.73706, 11.46652)
 
     /** Oberhalb des Wehrs Bad Kösen. */
     private val koesenOben = LatLon(51.12840, 11.71893)
@@ -50,15 +55,13 @@ class WeirPortageTest {
     /** Unterhalb, hinter der Wehrschwelle. */
     private val jenaUnten = LatLon(50.92700, 11.59300)
 
-    private fun fahre(craft: Craft, kachel: String = "uhlstaedt.json"): RouteResult =
-        fahre(craft, kachel, oben, unten)
-
     private fun fahre(craft: Craft, kachel: String, von: LatLon, nach: LatLon): RouteResult {
         val inhalt = javaClass.classLoader!!.getResource(kachel)!!.readText()
         val dir = createTempDir("uhlstaedt")
         try {
             for (id in MapTiles.tilesForRoute(von, nach)) {
-                val text = if (id.name == kachel.removeSuffix(".json").let { if (it == "koesen") "n51e011" else "n50e011" }) {
+                val kachelname = if (kachel == "koesen.json") "n51e011" else "n50e011"
+                val text = if (id.name == kachelname) {
                     inhalt
                 } else {
                     """{"version":1,"tile":"${id.name}","generated":"2026-09-20","elements":[]}"""
@@ -146,25 +149,48 @@ class WeirPortageTest {
         }
     }
 
-    /** In Uhlstädt führt der Kraftwerkskanal ums Wehr: Das Kanu fährt, statt zu tragen. */
+    /**
+     * In Uhlstädt führt ein Kanal ums Wehr herum — **durch die Turbinen** der
+     * Wasserkraftanlage. Für die Wegsuche war das lange der bequemste Weg, in
+     * Wirklichkeit ist es keiner. Getragen wird stattdessen über die Rampen am Westufer.
+     */
     @Test
-    fun `in Uhlstaedt fuehrt Wasser ums Wehr`() {
-        val r = fahre(Craft.CANOE) as RouteResult.Ok
-        assertTrue("hier wird nicht getragen: ${r.portageM} m", r.portageM == 0.0)
-        assertTrue("Route endet zu früh: ${r.water.last()}", r.water.last().lat < 50.7395)
+    fun `in Uhlstaedt faehrt niemand durch die Turbinen`() {
+        val r = fahre(Craft.CANOE, "uhlstaedt.json", uhlstaedtOben, uhlstaedtUnten) as RouteResult.Ok
+        assertTrue("nichts getragen: ${r.portageM} m", r.portageM > 50)
+        assertTrue(
+            "die Strecke läuft durch die Anlage",
+            r.water.none { distanceM(it, kraftwerk) < 30 },
+        )
+    }
+
+    /**
+     * An Reschwitz und Fischersdorf liegen Aus- und Einstieg am **selben** Ufer, und die
+     * Linie zwischen ihnen streift das Wehr an seinem Ende. Genau dort trägt man vorbei.
+     */
+    @Test
+    fun `an der Saale bei Saalfeld wird an beiden Wehren getragen`() {
+        val r = fahre(
+            Craft.CANOE, "saalfeld.json",
+            LatLon(50.62328, 11.40642), LatLon(50.61801, 11.38566),
+        ) as RouteResult.Ok
+        assertTrue("nichts getragen: ${r.portageM} m", r.portageM > 100)
+        assertEquals("beide Wehre umtragen", 2, r.portage.size)
     }
 
     @Test
     fun `das Wehr wird gemeldet`() {
-        val r = fahre(Craft.CANOE) as RouteResult.Ok
+        val r = fahre(Craft.CANOE, "uhlstaedt.json", uhlstaedtOben, uhlstaedtUnten) as RouteResult.Ok
         assertTrue("kein Wehr: ${r.obstacles}", r.obstacles.any { it.kind == ObstacleKind.WEIR })
     }
 
-    /** Unterhalb von Uhlstädt liegt auf der Saale ein Bootsverbot: Dort endet das Motorboot. */
+    /** Ein Motorboot trägt nicht. Unterhalb liegt auf der Saale ein Bootsverbot. */
     @Test
-    fun `das Motorboot endet in Uhlstaedt am Kraftwerkskanal`() {
-        val r = fahre(Craft.MOTORBOAT) as RouteResult.Ok
-        assertTrue("getragen wurde nichts", r.portageM == 0.0)
-        assertTrue("zu weit gekommen: ${r.water.last()}", r.water.last().lat > 50.7400)
+    fun `das Motorboot kommt in Uhlstaedt nicht durch`() {
+        val r = fahre(Craft.MOTORBOAT, "uhlstaedt.json", uhlstaedtOben, uhlstaedtUnten)
+        if (r is RouteResult.Ok) {
+            assertTrue("getragen wurde nichts", r.portageM == 0.0)
+            assertTrue("zu weit gekommen: ${r.water.last()}", r.water.last().lat > 50.7400)
+        }
     }
 }

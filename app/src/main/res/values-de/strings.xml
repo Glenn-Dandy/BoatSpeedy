@@ -343,6 +343,9 @@
     <string name="obstacle_weir">Wehr</string>
     <string name="obstacle_bridge">Brücke</string>
     <string name="obstacle_landing">Ein- und Ausstieg</string>
+    <string name="obstacle_power">Wasserkraftanlage</string>
+    <string name="nav_obstacles_power_one">1 Wasserkraftanlage</string>
+    <string name="nav_obstacles_power">%d Wasserkraftanlagen</string>
     <string name="landing_slipway">Slipanlage</string>
     <string name="landing_put_in">Einstieg</string>
     <string name="landing_egress">Ausstieg</string>

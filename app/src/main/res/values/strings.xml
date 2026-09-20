@@ -346,6 +346,9 @@
     <string name="obstacle_weir">Weir</string>
     <string name="obstacle_bridge">Bridge</string>
     <string name="obstacle_landing">Landing</string>
+    <string name="obstacle_power">Hydro power plant</string>
+    <string name="nav_obstacles_power_one">1 hydro power plant</string>
+    <string name="nav_obstacles_power">%d hydro power plants</string>
     <string name="landing_slipway">Slipway</string>
     <string name="landing_put_in">Put-in</string>
     <string name="landing_egress">Egress</string>

@@ -482,6 +482,7 @@ fun OsmMap(
                         -> R.drawable.ic_marker_weir
                         de.kewl.boatspeedy.nav.ObstacleKind.BRIDGE -> R.drawable.ic_marker_bridge
                         de.kewl.boatspeedy.nav.ObstacleKind.LANDING -> R.drawable.ic_marker_landing
+                        de.kewl.boatspeedy.nav.ObstacleKind.POWER -> R.drawable.ic_marker_power
                         else -> R.drawable.ic_marker_lock
                     },
                 )

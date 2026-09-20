@@ -11,7 +11,7 @@ import java.util.PriorityQueue
 data class LatLon(val lat: Double, val lon: Double)
 
 /** Was auf dem Weg liegen kann. Ein Wehr heißt in aller Regel: hier ist Schluss. */
-enum class ObstacleKind { LOCK, WEIR, SLUICE, DAM, BRIDGE, LANDING }
+enum class ObstacleKind { LOCK, WEIR, SLUICE, DAM, BRIDGE, LANDING, POWER }
 
 /**
  * Wozu ein Ein- oder Ausstieg am Ufer taugt, so wie OSM ihn führt: eine Slipanlage zum
@@ -58,7 +58,8 @@ data class Obstacle(
     /** Ob es überhaupt etwas zu lesen gibt — sonst lohnt kein Antippen. */
     val hasInfo: Boolean
         // Ein Ein- oder Ausstieg hat auch ohne Namen etwas zu sagen: wozu er taugt.
-        get() = kind == ObstacleKind.LANDING || !name.isNullOrBlank() || !openingHours.isNullOrBlank() ||
+        get() = kind == ObstacleKind.LANDING || kind == ObstacleKind.POWER ||
+            !name.isNullOrBlank() || !openingHours.isNullOrBlank() ||
             !phone.isNullOrBlank() || !vhf.isNullOrBlank() ||
             !maxLengthM.isNullOrBlank() || !cemt.isNullOrBlank() ||
             !clearanceHeightM.isNullOrBlank() || !clearanceWidthM.isNullOrBlank()
@@ -455,7 +456,7 @@ object WaterRouter {
 
         // Umtragen nur im Kanu. Ein Motorboot trägt niemand um ein Wehr.
         val umtrage = if (craft == Craft.CANOE) {
-            quelle.umtrage + uferbruecken(quelle.obstacles, quelle.barriers, ways + sperrlinien(quelle.obstacles))
+            quelle.umtrage + uferbruecken(quelle.obstacles, quelle.barriers, ways)
         } else {
             emptyList()
         }
@@ -465,6 +466,7 @@ object WaterRouter {
             quelle.eingeschraenkt,
             umtrage,
             sperrlinien(quelle.obstacles),
+            kraftwerke(quelle.obstacles),
         )
         if (graph.adj.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
@@ -532,8 +534,11 @@ object WaterRouter {
             .distinctBy { "%.5f,%.5f".format(it.lat, it.lon) }
         if (ufer.size < 2) return emptyList()
         val sperren = raster(barriers.toList())
-        // In [ways] stecken hier auch die Wehrlinien: Eine erfundene Gerade über die
-        // Wehrkrone ist keine Umtragung, sondern eine Abkürzung durch das Hindernis.
+        // Geprüft wird nur gegen das **Wasser**, nicht gegen das Wehr. Am Wehr Reschwitz
+        // liegen Aus- und Einstieg beide am selben Ufer, und die Linie zwischen ihnen
+        // streift das Wehr an seinem Ende — dort, wo es an Land stößt und wo man
+        // vorbeiträgt. Diese Prüfung hatte genau die Umtragungen verhindert, um die es
+        // geht.
         val wasser = segmentRaster(ways, emptySet())
         val raus = ArrayList<List<Node>>()
         for (i in ufer.indices) {
@@ -1055,6 +1060,11 @@ object WaterRouter {
                 .takeIf { it.isNotBlank() }
             val ufer = landungsart(tags)
             val kind = when {
+                // **Wasserkraft.** Der Kanal durch die Turbinen ist in OSM ein
+                // gewöhnlicher Kanal, und die Route nahm ihn gern, weil er am Wehr
+                // vorbeiführt. Dort fährt niemand durch.
+                tags.optString("generator:source") == "hydro" ||
+                    tags.optString("plant:source") == "hydro" -> ObstacleKind.POWER
                 // Ein- und Ausstiege zuerst: Eine Slipanlage trägt oft zugleich
                 // `portage=designated`, und als Umtrageweg wäre sie kein Symbol.
                 ufer != null -> ObstacleKind.LANDING
@@ -1120,6 +1130,7 @@ object WaterRouter {
                 // Auch ein Wehr ist meist ein Weg quer über den Fluss. Seine Linie
                 // entscheidet, ob die Route hindurchführt, nicht nur sein Mittelpunkt.
                 line = if (istTor || kind == ObstacleKind.LANDING) emptyList() else linie,
+                // Ein Kraftwerk hat keine Auskunft, aber es steht im Weg.
                 isGate = istTor,
                 landingKind = ufer,
             )
@@ -1346,6 +1357,13 @@ object WaterRouter {
     private const val UMTRAGE_KOSTEN = 8.0
 
     /**
+     * Was eine **erfundene** Verbindung kostet: der Anschluss ans Ufer, die Linie von
+     * Anleger zu Anleger, der Lückenschluss. Teurer als ein eingetragener Umtrageweg,
+     * damit ein vorhandener Pfad benutzt wird und nicht quer daran vorbei abgekürzt.
+     */
+    private const val ERFUNDEN_KOSTEN = 30.0
+
+    /**
      * So weit darf der Anschluss ans Wasser sein. Ein Umtrageweg endet am Ufer, nicht auf
      * der Flusslinie; in OSM teilen sie fast nie einen Punkt. Ohne diese Brücke hinge der
      * Weg in der Luft und die Wegsuche fände ihn nie.
@@ -1354,6 +1372,14 @@ object WaterRouter {
 
     /** Kantenlänge des Suchrasters, rund 200 m. */
     private const val RASTER = 2_000
+
+    /** Die Wasserkraftanlagen: Knoten als einzelner Punkt, Gebäude als Umriss. */
+    private fun kraftwerke(obstacles: List<Obstacle>): List<List<Node>> =
+        obstacles.filter { it.kind == ObstacleKind.POWER }
+            .map { o ->
+                o.line.takeIf { it.isNotEmpty() }?.map { Node.of(it.lat, it.lon) }
+                    ?: listOf(Node.of(o.lat, o.lon))
+            }
 
     /** Die Wehre und Dämme als Linien — was eine erfundene Verbindung nicht queren darf. */
     private fun sperrlinien(obstacles: List<Obstacle>): List<List<Node>> =
@@ -1367,20 +1393,36 @@ object WaterRouter {
         eingeschraenkt: Set<Node> = emptySet(),
         umtrage: List<List<Node>> = emptyList(),
         sperrwege: List<List<Node>> = emptyList(),
+        kraftwerke: List<List<Node>> = emptyList(),
     ): Graph {
         val g = HashMap<Node, MutableList<Pair<Node, Double>>>()
+        val kraftPunkte = if (kraftwerke.isEmpty()) null else raster(kraftwerke.flatten())
+        val kraftUmrisse =
+            if (kraftwerke.isEmpty()) null else segmentRaster(kraftwerke.filter { it.size >= 2 }, emptySet())
+        /**
+         * Was ein Stück Wasser kostet — **an einer Stelle** gerechnet, damit kein
+         * zweiter Weg daran vorbeiführt. Beim Anschluss einer Umtragung wird ein Stück
+         * geteilt; die Hälften wurden vorher ohne Aufschlag eingesetzt, und schon lief
+         * ein billiger Nebenweg um Wehr und Turbine herum.
+         *
+         * Ein Wehr sperrt nicht, es kostet: Sonst blieb die Wegsuche davor stehen und
+         * meldete „kein durchgängiger Wasserweg", wofür auf hunderten Kilometern ein
+         * einziges falsch erfasstes Wehr reichte. Eine Wasserkraftanlage kostet das
+         * Zehnfache — über ein Wehr kommt man notfalls, durch eine Turbine niemand.
+         */
+        fun wasserkosten(a: Node, b: Node): Double {
+            var d = distanceM(a.toLatLon(), b.toLatLon())
+            if (a in eingeschraenkt && b in eingeschraenkt) d *= RESTRICTED_COST
+            if (a in barriers || b in barriers) d += SPERRE_AUFSCHLAG_M
+            if (kraftPunkte != null && durchKraftwerk(kraftPunkte, kraftUmrisse, a, b)) {
+                d += KRAFTWERK_AUFSCHLAG_M
+            }
+            return d
+        }
         for (way in ways) {
             for ((a, b) in way.zipWithNext()) {
                 if (a == b) continue
-                var d = distanceM(a.toLatLon(), b.toLatLon())
-                if (a in eingeschraenkt && b in eingeschraenkt) d *= RESTRICTED_COST
-                // Ein Wehr sperrt nicht mehr, es kostet. Vorher blieb die Wegsuche davor
-                // stehen und meldete „kein durchgängiger Wasserweg" — auf hunderten
-                // Kilometern reichte ein einziges falsch erfasstes Wehr dafür. Mit dem
-                // Aufschlag gewinnt jede Schleuse und jede Umtragung, und wo es nichts
-                // gibt, kommt wenigstens eine Strecke heraus. Dass ein Wehr darauf liegt,
-                // steht ohnehin darüber auf der Karte.
-                if (a in barriers || b in barriers) d += SPERRE_AUFSCHLAG_M
+                val d = wasserkosten(a, b)
                 g.getOrPut(a) { mutableListOf() }.add(b to d)
                 g.getOrPut(b) { mutableListOf() }.add(a to d)
             }
@@ -1388,9 +1430,9 @@ object WaterRouter {
         if (umtrage.isEmpty() || g.isEmpty()) return Graph(g)
 
         val kanten = HashSet<Kante>()
-        fun verbinde(a: Node, b: Node) {
+        fun verbinde(a: Node, b: Node, faktor: Double = UMTRAGE_KOSTEN) {
             if (a == b) return
-            val d = distanceM(a.toLatLon(), b.toLatLon()) * UMTRAGE_KOSTEN
+            val d = distanceM(a.toLatLon(), b.toLatLon()) * faktor
             g.getOrPut(a) { mutableListOf() }.add(b to d)
             g.getOrPut(b) { mutableListOf() }.add(a to d)
             kanten.add(Kante(a, b))
@@ -1398,9 +1440,10 @@ object WaterRouter {
         }
         // Das Wasser **vor** den Umtragewegen: Sonst hinge der Anschluss an ihnen selbst.
         val wasser = segmentRaster(ways, barriers)
-        // Wogegen geprüft wird, ob eine erfundene Verbindung quer darüber läuft. Die
-        // eingetragenen Umtragewege sind davon nicht betroffen, die sind echt.
-        val verboten = segmentRaster(ways + sperrwege, emptySet())
+        // Geprüft wird gegen das **Wasser**. Nicht gegen das Wehr: An Reschwitz und
+        // Fischersdorf liegen Aus- und Einstieg am selben Ufer, und jede Verbindung
+        // dorthin streift das Wehr an seinem Ende — genau dort, wo man vorbeiträgt.
+        val verboten = segmentRaster(ways, emptySet())
         for (weg in umtrage) {
             for ((a, b) in weg.zipWithNext()) verbinde(a, b)
             for (ende in listOf(weg.first(), weg.last())) {
@@ -1434,11 +1477,11 @@ object WaterRouter {
                     // ein Weg durch das Wehr.
                     for (ecke in listOf(a, b)) {
                         if (ecke in barriers || ecke == auf) continue
-                        val d = distanceM(ecke.toLatLon(), auf.toLatLon())
+                        val d = wasserkosten(ecke, auf)
                         g.getOrPut(ecke) { mutableListOf() }.add(auf to d)
                         g.getOrPut(auf) { mutableListOf() }.add(ecke to d)
                     }
-                    verbinde(ende, auf)
+                    verbinde(ende, auf, ERFUNDEN_KOSTEN)
                 }
             }
         }
@@ -1453,7 +1496,7 @@ object WaterRouter {
                 if (wegA === wegB || a == b) continue
                 if (distanceM(a.toLatLon(), b.toLatLon()) > UMTRAGE_LUECKE_M) continue
                 if (kreuztWasser(verboten, a, b)) continue
-                verbinde(a, b)
+                verbinde(a, b, ERFUNDEN_KOSTEN)
             }
         }
         return Graph(g, kanten)
@@ -1468,9 +1511,15 @@ object WaterRouter {
      */
     private fun kreuztWasser(
         raster: Map<Long, MutableList<Pair<Node, Node>>>,
-        a: Node,
-        b: Node,
+        von: Node,
+        bis: Node,
     ): Boolean {
+        // **Ohne die letzten zwei Meter an beiden Enden.** Ein Anschluss endet auf dem
+        // Fluss, oft mitten auf einem Stück und nicht auf einem seiner Punkte. Ohne diese
+        // Verkürzung galt genau das als Queren, und der Ausstieg am Wehr Fischersdorf
+        // bekam keine Verbindung zum Wasser oberhalb.
+        val a = einwaerts(von, bis)
+        val b = einwaerts(bis, von)
         val zellen = setOf(
             zelle(a.lat / RASTER, a.lon / RASTER),
             zelle(b.lat / RASTER, b.lon / RASTER),
@@ -1487,6 +1536,16 @@ object WaterRouter {
             }
         }
         return false
+    }
+
+    /** Zwei Meter von [p] aus in Richtung [ziel]. */
+    private fun einwaerts(p: Node, ziel: Node): Node {
+        val laenge = distanceM(p.toLatLon(), ziel.toLatLon())
+        if (laenge < 6.0) return p
+        val t = 2.0 / laenge
+        val a = p.toLatLon()
+        val b = ziel.toLatLon()
+        return Node.of(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t)
     }
 
     /** Ob sich zwei Strecken kreuzen — Berührungen an den Enden zählen nicht. */
@@ -1506,6 +1565,37 @@ object WaterRouter {
         val s3 = seite(c, d, a)
         val s4 = seite(c, d, b)
         return s1 * s2 < 0 && s3 * s4 < 0
+    }
+
+    /**
+     * Was eine Wasserkraftanlage kostet: das Zehnfache eines Wehrs. Über ein Wehr kommt
+     * man notfalls, durch eine Turbine niemand. Der Kanal durch die Anlage führt oft am
+     * Wehr vorbei und war damit der kürzere Weg — genau das soll er nie sein.
+     */
+    private const val KRAFTWERK_AUFSCHLAG_M = 1_000_000.0
+
+    /** So nah an einer Wasserkraftanlage führt das Wasser durch sie hindurch. */
+    private const val KRAFTWERK_NAH_M = 25.0
+
+    /**
+     * Ob dieses Stück Wasser durch eine Wasserkraftanlage läuft.
+     *
+     * Am Saale-Wehr Uhlstädt führt ein Kanal am Wehr vorbei, mitten durch die Turbinen —
+     * für die Wegsuche der bequemste Weg, in Wirklichkeit keiner. In OSM steht die Anlage
+     * als Knoten daneben oder als Gebäude, durch das der Kanal läuft.
+     */
+    private fun durchKraftwerk(
+        punkte: Map<Long, MutableList<Node>>,
+        umrisse: Map<Long, MutableList<Pair<Node, Node>>>?,
+        a: Node,
+        b: Node,
+    ): Boolean {
+        val mitte = Node.of(
+            (a.toLatLon().lat + b.toLatLon().lat) / 2,
+            (a.toLatLon().lon + b.toLatLon().lon) / 2,
+        )
+        if (listOf(a, b, mitte).any { naechster(punkte, it, KRAFTWERK_NAH_M) != null }) return true
+        return umrisse != null && kreuztWasser(umrisse, a, b)
     }
 
     /** Knoten in Zellen von rund 200 m, damit die Suche nach dem nächsten nicht alles abgeht. */

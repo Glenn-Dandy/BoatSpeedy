@@ -5,6 +5,8 @@
   OpenStreetMap oder, wo es keine gibt, von Anleger zu Anleger. Sie läuft am Ufer entlang
   und quert weder Fluss noch Wehr. Grün gestrichelt, mit Meterangabe im Kasten.
 - Ein- und Ausstiege am Ufer (Slipanlagen, Kanu-Einstiege) ab Zoomstufe 13, antippbar.
+- Wasserkraftanlagen: eigenes Symbol, und die Route fährt nicht mehr durch die Turbinen.
+  Der Kanal durch die Anlage führt oft am Wehr vorbei und war bisher der kürzeste Weg.
 
 **Geändert**
 - Ein Wehr sperrt die Route nicht mehr, es kostet. Gibt es keinen Weg darum herum, führt
@@ -18,6 +20,9 @@
 - Wehre, die in OSM als Weg quer über den Fluss stehen, fehlten ganz. In Deutschland ist
   das fast jedes zweite. Kacheln auffrischen.
 - Hinweise gelten jetzt für die ganze Route, auch für den Luftlinienteil hinter einem Wehr.
+- Am Wehr wurde oft nicht umtragen, obwohl Aus- und Einstieg eingetragen sind. Zwei
+  Fehler: Der Anschluss ans Ufer galt als Queren des Flusses, und beim Anschluss geteilte
+  Flussstücke kosteten keinen Aufschlag mehr, womit sich jedes Wehr umgehen ließ.
 
 ## Since 1.4.2
 
@@ -26,6 +31,8 @@
   OpenStreetMap or, where there are none, from landing to landing. It follows the bank and
   crosses neither the river nor the weir. Green dashed, with the distance in the box.
 - Put-ins, egress points and slipways on the bank from zoom 13, tappable.
+- Hydro power plants get their own symbol, and the route no longer runs through the
+  turbines. The channel through the plant often bypasses the weir and used to win.
 
 **Changed**
 - A weir no longer blocks the route, it costs. With no way around it, the route goes
@@ -39,3 +46,6 @@
 - Weirs mapped as a way across the river were missing entirely, which is nearly half of
   them in Germany. Refresh the map tiles.
 - Warnings now cover the whole route, including the straight-line part beyond a weir.
+- Portage was often skipped although put-in and egress are mapped. Two causes: the link to
+  the bank counted as crossing the river, and river pieces split by that link lost their
+  surcharge, which let any weir be bypassed.
