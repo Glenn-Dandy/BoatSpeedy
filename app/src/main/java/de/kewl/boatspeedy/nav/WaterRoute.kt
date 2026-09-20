@@ -454,12 +454,12 @@ object WaterRouter {
         if (ways.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
         // Umtragen nur im Kanu. Ein Motorboot trägt niemand um ein Wehr.
-        val graph = buildGraph(
-            ways,
-            quelle.barriers,
-            quelle.eingeschraenkt,
-            if (craft == Craft.CANOE) quelle.umtrage else emptyList(),
-        )
+        val umtrage = if (craft == Craft.CANOE) {
+            quelle.umtrage + uferbruecken(quelle.obstacles, quelle.barriers)
+        } else {
+            emptyList()
+        }
+        val graph = buildGraph(ways, quelle.barriers, quelle.eingeschraenkt, umtrage)
         if (graph.adj.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
         // Nicht einfach den nächsten Knoten nehmen: der liegt schnell auf einem
@@ -496,6 +496,43 @@ object WaterRouter {
             portageM = kantenLaenge(knoten, graph.umtrage),
             portage = kantenZuege(knoten, graph.umtrage),
         )
+    }
+
+    /** So weit dürfen zwei Anleger auseinanderliegen, um ein Paar an einem Wehr zu sein. */
+    private const val UFER_PAAR_M = 300.0
+
+    /** So nah muss die Sperre dazwischenliegen, damit es eine Umtragung ist. */
+    private const val SPERRE_DAZWISCHEN_M = 150.0
+
+    /**
+     * Umtragungen, die nur aus zwei Anlegern bestehen.
+     *
+     * Am Wehr Kahla steht kein Weg in OSM, sondern nur zwei Slipanlagen mit
+     * `whitewater=put_in;egress`, 40 m auseinander, das Wehr dazwischen. Sie sind genau
+     * dafür eingetragen, und ohne eine Verbindung zwischen ihnen endet die Route am Wehr.
+     *
+     * Gezogen wird die Linie nur, wenn eine **Sperre zwischen ihnen liegt**. Sonst wäre
+     * jede zweite Slipanlage am gegenüberliegenden Ufer eine Abkürzung über Land, und die
+     * Route spränge quer über den Fluss.
+     */
+    private fun uferbruecken(obstacles: List<Obstacle>, barriers: Set<Node>): List<List<Node>> {
+        if (barriers.isEmpty()) return emptyList()
+        val ufer = obstacles.filter { it.kind == ObstacleKind.LANDING }
+            .distinctBy { "%.5f,%.5f".format(it.lat, it.lon) }
+        if (ufer.size < 2) return emptyList()
+        val sperren = raster(barriers.toList())
+        val raus = ArrayList<List<Node>>()
+        for (i in ufer.indices) {
+            for (j in i + 1 until ufer.size) {
+                val a = LatLon(ufer[i].lat, ufer[i].lon)
+                val b = LatLon(ufer[j].lat, ufer[j].lon)
+                if (distanceM(a, b) > UFER_PAAR_M) continue
+                val mitte = Node.of((a.lat + b.lat) / 2, (a.lon + b.lon) / 2)
+                if (naechster(sperren, mitte, SPERRE_DAZWISCHEN_M) == null) continue
+                raus.add(listOf(Node.of(a.lat, a.lon), Node.of(b.lat, b.lon)))
+            }
+        }
+        return raus
     }
 
     /** Wie viel der Strecke über die angegebenen Kanten läuft, in Metern. */
@@ -1329,11 +1366,42 @@ object WaterRouter {
             kanten.add(Kante(b, a))
         }
         // Das Wasser **vor** den Umtragewegen: Sonst hinge der Anschluss an ihnen selbst.
-        val wasser = raster(g.keys.toList())
+        val wasser = segmentRaster(ways, barriers)
         for (weg in umtrage) {
             for ((a, b) in weg.zipWithNext()) verbinde(a, b)
             for (ende in listOf(weg.first(), weg.last())) {
-                naechster(wasser, ende, UMTRAGE_ANSCHLUSS_M)?.let { verbinde(ende, it) }
+                // Angeschlossen wird an den nächsten Punkt **auf der Linie**, nicht an den
+                // nächsten eingetragenen Punkt, und an jedes Gewässer in Reichweite. Am
+                // Wehr Kahla liegt der Ausstieg 34 m von der Saale oberhalb, aber 60 m
+                // von ihrem nächsten Punkt: Über Punkte hingen beide Enden unterhalb des
+                // Wehrs, und die Route brach dort ab.
+                for ((a, b) in segmenteNah(wasser, ende, UMTRAGE_ANSCHLUSS_M)) {
+                    // **Nicht auf die Sperre selbst.** Oberhalb des Wehrs Kahla beginnt
+                    // die Saale genau im gesperrten Punkt; der nächste Punkt der Linie
+                    // ist er selbst, und der Anschluss fiel jedes Mal weg. Ein Stück
+                    // dahinter liegt das Wasser, in das man das Boot wieder setzt.
+                    val laenge = distanceM(a.toLatLon(), b.toLatLon())
+                    val rand = if (laenge > 0) (HINTER_DER_SPERRE_M / laenge).coerceAtMost(0.5) else 0.0
+                    val auf = aufSegment(
+                        ende,
+                        a,
+                        b,
+                        if (a in barriers) rand else 0.0,
+                        if (b in barriers) 1.0 - rand else 1.0,
+                    )
+                    if (auf in barriers) continue
+                    // **Über die Sperre führt nichts.** Das Stück Saale oberhalb des Wehrs
+                    // Kahla hängt am gesperrten Punkt; angeschlossen wird es trotzdem,
+                    // aber nur an seinem freien Ende. Sonst wäre der Anschluss zugleich
+                    // ein Weg durch das Wehr.
+                    for (ecke in listOf(a, b)) {
+                        if (ecke in barriers || ecke == auf) continue
+                        val d = distanceM(ecke.toLatLon(), auf.toLatLon())
+                        g.getOrPut(ecke) { mutableListOf() }.add(auf to d)
+                        g.getOrPut(auf) { mutableListOf() }.add(ecke to d)
+                    }
+                    verbinde(ende, auf)
+                }
             }
         }
         return Graph(g, kanten)
@@ -1349,6 +1417,71 @@ object WaterRouter {
     }
 
     private fun zelle(y: Int, x: Int): Long = y.toLong() * 1_000_000L + x
+
+    /** Die Wasserstücke in Zellen von rund 200 m, für die Suche nach dem Anschluss. */
+    private fun segmentRaster(
+        ways: List<List<Node>>,
+        barriers: Set<Node>,
+    ): Map<Long, MutableList<Pair<Node, Node>>> {
+        val r = HashMap<Long, MutableList<Pair<Node, Node>>>()
+        for (way in ways) {
+            for ((a, b) in way.zipWithNext()) {
+                // Ein Stück, dessen **beide** Enden gesperrt sind, führt nirgendwohin.
+                if (a == b || (a in barriers && b in barriers)) continue
+                val cells = setOf(
+                    zelle(a.lat / RASTER, a.lon / RASTER),
+                    zelle(b.lat / RASTER, b.lon / RASTER),
+                    zelle((a.lat + b.lat) / 2 / RASTER, (a.lon + b.lon) / 2 / RASTER),
+                )
+                for (c in cells) r.getOrPut(c) { mutableListOf() }.add(a to b)
+            }
+        }
+        return r
+    }
+
+    /** Alle Wasserstücke, die höchstens [grenze] Meter von [p] entfernt sind. */
+    private fun segmenteNah(
+        raster: Map<Long, MutableList<Pair<Node, Node>>>,
+        p: Node,
+        grenze: Double,
+    ): List<Pair<Node, Node>> {
+        val y = p.lat / RASTER
+        val x = p.lon / RASTER
+        val raus = LinkedHashSet<Pair<Node, Node>>()
+        val punkt = p.toLatLon()
+        for (dy in -1..1) {
+            for (dx in -1..1) {
+                for (seg in raster[zelle(y + dy, x + dx)].orEmpty()) {
+                    val d = abstandZurLinie(punkt, listOf(seg.first.toLatLon(), seg.second.toLatLon()))
+                    if (d <= grenze) raus.add(seg)
+                }
+            }
+        }
+        return raus.toList()
+    }
+
+    /** So weit hinter einer Sperre wird wieder eingesetzt. */
+    private const val HINTER_DER_SPERRE_M = 10.0
+
+    /**
+     * Der Punkt auf dem Stück [a]–[b], der [p] am nächsten liegt, begrenzt auf den
+     * Abschnitt zwischen [tMin] und [tMax] — damit er nicht auf einer Sperre landet.
+     */
+    private fun aufSegment(p: Node, a: Node, b: Node, tMin: Double = 0.0, tMax: Double = 1.0): Node {
+        val mProLat = 111_320.0
+        val mProLon = 111_320.0 * kotlin.math.cos(Math.toRadians(p.toLatLon().lat))
+        val ax = (a.lon - p.lon) / SNAP * mProLon
+        val ay = (a.lat - p.lat) / SNAP * mProLat
+        val bx = (b.lon - p.lon) / SNAP * mProLon
+        val by = (b.lat - p.lat) / SNAP * mProLat
+        val dx = bx - ax
+        val dy = by - ay
+        val l2 = dx * dx + dy * dy
+        val t = if (l2 == 0.0) tMin else (-(ax * dx + ay * dy) / l2).coerceIn(tMin, tMax)
+        val la = a.toLatLon()
+        val lb = b.toLatLon()
+        return Node.of(la.lat + (lb.lat - la.lat) * t, la.lon + (lb.lon - la.lon) * t)
+    }
 
     /** Der nächste Knoten im Raster, höchstens [grenze] Meter entfernt. */
     private fun naechster(

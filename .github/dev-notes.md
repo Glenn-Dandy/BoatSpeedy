@@ -1,8 +1,9 @@
 ## Seit 1.4.2
 
 **Neu**
-- Umtragen: Im Kanu führt die Route über die Umtragewege ums Wehr herum, grün gestrichelt,
-  mit Meterangabe im Kasten unten links.
+- Umtragen: Im Kanu führt die Route ums Wehr herum, über die Umtragewege aus
+  OpenStreetMap oder, wo es keine gibt, von Anleger zu Anleger. Grün gestrichelt, mit
+  Meterangabe im Kasten unten links.
 - Ein- und Ausstiege am Ufer (Slipanlagen, Kanu-Einstiege) ab Zoomstufe 13, antippbar.
 
 **Behoben**
@@ -13,8 +14,9 @@
 ## Since 1.4.2
 
 **New**
-- Portage: in canoe mode the route takes the portage paths around a weir, drawn as a green
-  dashed line, with the distance in the box at the bottom left.
+- Portage: in canoe mode the route goes around a weir, along the portage paths from
+  OpenStreetMap or, where there are none, from landing to landing. Drawn as a green dashed
+  line, with the distance in the box at the bottom left.
 - Put-ins, egress points and slipways on the bank from zoom 13, tappable.
 
 **Fixed**

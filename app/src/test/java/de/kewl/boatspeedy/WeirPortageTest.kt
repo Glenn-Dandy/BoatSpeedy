@@ -12,23 +12,30 @@ import java.io.File
 import java.util.zip.GZIPOutputStream
 
 /**
- * Zwei Wehre an der Saale, mit den Daten aus OpenStreetMap (Kachel n50e011).
+ * Drei Wehre an der Saale, mit den Daten aus OpenStreetMap (Kachel n50e011).
  *
  * Beide liegen als **Weg** quer über den Fluss und teilen einen Punkt mit ihm. Genau die
  * fehlten in unseren Kacheln: Der Filter holte Wehre nur als Knoten, und so stand vor dem
  * Saale-Wehr Uhlstädt und dem Paradieswehr in Jena kein Wort.
  *
- * Die beiden Stellen gehen verschieden aus. In Uhlstädt führt ein Kraftwerkskanal ums
- * Wehr herum, dort wird nichts getragen. In Jena gibt es nur den Weg über Land, mit
- * `portage=designated` an den beiden Rampen — dort muss das Kanu aussteigen.
+ * Die drei Stellen gehen verschieden aus. In Uhlstädt führt ein Kraftwerkskanal ums Wehr
+ * herum, dort wird nichts getragen. In Jena gibt es nur den Weg über Land, mit
+ * `portage=designated` an den beiden Rampen. In Kahla steht überhaupt kein Weg in OSM,
+ * sondern nur zwei Slipanlagen mit dem Wehr dazwischen.
  */
-class UhlstaedtPortageTest {
+class WeirPortageTest {
 
     /** Oberhalb des Wehrs auf der Saale. */
     private val oben = LatLon(50.74232, 11.45835)
 
     /** Unterhalb, rund 300 m hinter der Wehrschwelle. */
     private val unten = LatLon(50.73854, 11.46342)
+
+    /** Oberhalb des Wehrs Kahla. */
+    private val kahlaOben = LatLon(50.79508, 11.57369)
+
+    /** Unterhalb, gut einen halben Kilometer weiter. */
+    private val kahlaUnten = LatLon(50.80113, 11.59127)
 
     /** Oberhalb des Paradieswehrs in Jena. */
     private val jenaOben = LatLon(50.92299, 11.58690)
@@ -79,6 +86,17 @@ class UhlstaedtPortageTest {
     @Test
     fun `in Jena faehrt kein Motorboot`() {
         assertTrue(fahre(Craft.MOTORBOAT, "jena.json", jenaOben, jenaUnten) is RouteResult.Failed)
+    }
+
+    /**
+     * In Kahla gibt es keinen Umtrageweg, nur zwei Slipanlagen mit dem Wehr dazwischen.
+     * Ohne eine Verbindung zwischen ihnen brach die Route am Wehr ab.
+     */
+    @Test
+    fun `in Kahla traegt das Kanu von Anleger zu Anleger`() {
+        val r = fahre(Craft.CANOE, "kahla.json", kahlaOben, kahlaUnten) as RouteResult.Ok
+        assertTrue("nichts getragen: ${r.portageM} m", r.portageM > 30)
+        assertTrue("Route endet zu früh: ${r.water.last()}", r.water.last().lat > 50.800)
     }
 
     /** In Uhlstädt führt der Kraftwerkskanal ums Wehr: Das Kanu fährt, statt zu tragen. */
