@@ -14,7 +14,13 @@
 - Das Ziel hängt sich an den günstigsten Punkt in der Nähe, nicht an den nächsten. Sonst
   fuhr die Route durchs Wehr, um einen Anleger fünfzehn Meter jenseits zu erreichen.
 
+**Geändert**
+- Im Kanu kostet ein Kanal mehr als ein Fluss. Mühlgräben und Seitenarme wie die Lache
+  bei Porstendorf sind kürzer als die Flussschleife daneben; im Kanu zählt der Fluss.
+
 **Behoben**
+- Ein Wehr, das keinen Punkt mit dem Fluss teilt, sperrte gar nichts. Am Burgauer Wehr in
+  Jena fuhr die Strecke mitten hindurch, obwohl daneben umtragen wird.
 - Routen, die oberhalb eines Wehrs begannen, scheiterten ganz. Kahla nach Lübeck geht
   wieder: 581 km, davon 646 m umtragen.
 - Wehre, die in OSM als Weg quer über den Fluss stehen, fehlten ganz. In Deutschland ist
@@ -40,7 +46,13 @@
 - The destination snaps to the cheapest point nearby, not the closest one. Otherwise the
   route crossed a weir to reach a landing fifteen metres beyond it.
 
+**Changed**
+- In canoe mode a canal costs more than a river. Mill races and side arms are shorter than
+  the river loop beside them; in a canoe the river is what you want.
+
 **Fixed**
+- A weir sharing no node with the river blocked nothing. At the Burgauer Wehr in Jena the
+  route went straight through although there is a portage beside it.
 - Routes starting above a weir failed outright. Kahla to Lübeck works again: 581 km, of
   which 646 m are carried.
 - Weirs mapped as a way across the river were missing entirely, which is nearly half of

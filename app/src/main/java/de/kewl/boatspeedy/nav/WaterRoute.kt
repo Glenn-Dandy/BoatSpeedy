@@ -445,7 +445,7 @@ object WaterRouter {
             is OverpassResult.Ok -> parseWays(r.body, craft).let { w ->
                 Quelle(
                     w.ways, parseObstacles(r.body), barrierNodes(r.body),
-                    w.eingeschraenkt, w.stromab, w.umtrage,
+                    w.eingeschraenkt, w.stromab, w.umtrage, w.kanal,
                 )
             }
             OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
@@ -467,6 +467,8 @@ object WaterRouter {
             umtrage,
             sperrlinien(quelle.obstacles),
             kraftwerke(quelle.obstacles),
+            quelle.kanal,
+            if (craft == Craft.CANOE) KANAL_KOSTEN_KANU else 1.0,
         )
         if (graph.adj.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
@@ -735,6 +737,8 @@ object WaterRouter {
         val stromab: Set<Kante> = emptySet(),
         /** Wege über Land um ein Wehr herum, für das Kanu. */
         val umtrage: List<List<Node>> = emptyList(),
+        /** Stücke, die zu einem Kanal gehören. */
+        val kanal: Set<Kante> = emptySet(),
     )
 
     /**
@@ -762,17 +766,19 @@ object WaterRouter {
         val eingeschraenkt = HashSet<Node>()
         val stromab = HashSet<Kante>()
         val umtrage = ArrayList<List<Node>>()
+        val kanal = HashSet<Kante>()
         val ok = MapTiles.forEach(tileDir, ids) { json ->
             val w = parseWays(json, craft)
             ways.addAll(w.ways)
             eingeschraenkt.addAll(w.eingeschraenkt)
             stromab.addAll(w.stromab)
             umtrage.addAll(w.umtrage)
+            kanal.addAll(w.kanal)
             obstacles.addAll(parseObstacles(json))
             barriers.addAll(barrierNodes(json))
         }
         return if (ok) {
-            Quelle(ways, obstacles, barriers, eingeschraenkt, stromab, umtrage)
+            Quelle(ways, obstacles, barriers, eingeschraenkt, stromab, umtrage, kanal)
         } else {
             null
         }
@@ -968,6 +974,8 @@ object WaterRouter {
         val stromab: Set<Kante> = emptySet(),
         /** Wege über Land um ein Wehr herum. */
         val umtrage: List<List<Node>> = emptyList(),
+        /** Stücke, die zu einem Kanal gehören — für das Kanu ein Umweg zweiter Wahl. */
+        val kanal: Set<Kante> = emptySet(),
     )
 
     /**
@@ -984,6 +992,7 @@ object WaterRouter {
         val eingeschraenkt = HashSet<Node>()
         val stromab = HashSet<Kante>()
         val umtrage = ArrayList<List<Node>>()
+        val kanal = HashSet<Kante>()
         for (i in 0 until elements.length()) {
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags")
@@ -1009,8 +1018,19 @@ object WaterRouter {
             if (tags?.optString("waterway") == "river") {
                 for ((a, b) in nodes.zipWithNext()) if (a != b) stromab.add(Kante(a, b))
             }
+            // **Mühlgräben und Seitenarme sind Kanäle.** Die Lache bei Porstendorf etwa
+            // schneidet die Saaleschleife ab und ist kürzer — im Kanu will man trotzdem
+            // den Fluss. Ein Kanal ohne Alternative bleibt davon unberührt: Dort ändert
+            // ein gleichmäßiger Aufschlag an der Wahl nichts.
+            if (tags?.optString("waterway") == "canal") {
+                for ((a, b) in nodes.zipWithNext()) {
+                    if (a == b) continue
+                    kanal.add(Kante(a, b))
+                    kanal.add(Kante(b, a))
+                }
+            }
         }
-        Wege(ways, eingeschraenkt, stromab, umtrage)
+        Wege(ways, eingeschraenkt, stromab, umtrage, kanal)
     }.getOrDefault(Wege(emptyList(), emptySet(), emptySet()))
 
     /**
@@ -1354,6 +1374,13 @@ object WaterRouter {
      * genommen, wenn der Umweg über Wasser mehr als das Achtfache kostet — meistens also
      * dann, wenn es über Wasser gar nicht weitergeht.
      */
+    /**
+     * Was ein Kanal im Kanu kostet. Seitenarme und Mühlgräben sind in OSM Kanäle und oft
+     * kürzer als die Flussschleife daneben; im Kanu will man den Fluss. Wo es keinen
+     * Fluss gibt, ändert der gleichmäßige Aufschlag an der Wahl nichts.
+     */
+    private const val KANAL_KOSTEN_KANU = 2.5
+
     private const val UMTRAGE_KOSTEN = 8.0
 
     /**
@@ -1394,9 +1421,16 @@ object WaterRouter {
         umtrage: List<List<Node>> = emptyList(),
         sperrwege: List<List<Node>> = emptyList(),
         kraftwerke: List<List<Node>> = emptyList(),
+        kanal: Set<Kante> = emptySet(),
+        kanalFaktor: Double = 1.0,
     ): Graph {
         val g = HashMap<Node, MutableList<Pair<Node, Double>>>()
         val kraftPunkte = if (kraftwerke.isEmpty()) null else raster(kraftwerke.flatten())
+        // Die Wehre als Linien. **Ein Wehr teilt oft keinen Punkt mit dem Fluss.** Am
+        // Burgauer Wehr in Jena kreuzt es ihn nur geometrisch, und über die Punkte
+        // gesperrt war dort gar nichts: Die Strecke fuhr mitten hindurch, und die
+        // Umtragung daneben blieb ungenutzt.
+        val wehrLinien = if (sperrwege.isEmpty()) null else segmentRaster(sperrwege, emptySet())
         val kraftUmrisse =
             if (kraftwerke.isEmpty()) null else segmentRaster(kraftwerke.filter { it.size >= 2 }, emptySet())
         /**
@@ -1413,7 +1447,12 @@ object WaterRouter {
         fun wasserkosten(a: Node, b: Node): Double {
             var d = distanceM(a.toLatLon(), b.toLatLon())
             if (a in eingeschraenkt && b in eingeschraenkt) d *= RESTRICTED_COST
-            if (a in barriers || b in barriers) d += SPERRE_AUFSCHLAG_M
+            if (kanalFaktor != 1.0 && Kante(a, b) in kanal) d *= kanalFaktor
+            // **Ohne Rand.** Ein Wehr trifft den Fluss oft genau in einem seiner Punkte;
+            // am Burgauer Wehr liegt der Schnitt 30 cm hinter dem Kantenanfang. Die
+            // Toleranz, die einen Anschluss an seinem Ende erlaubt, verschluckte das.
+            val ueberWehr = wehrLinien != null && kreuztWasser(wehrLinien, a, b, 0.0)
+            if (a in barriers || b in barriers || ueberWehr) d += SPERRE_AUFSCHLAG_M
             if (kraftPunkte != null && durchKraftwerk(kraftPunkte, kraftUmrisse, a, b)) {
                 d += KRAFTWERK_AUFSCHLAG_M
             }
@@ -1513,13 +1552,14 @@ object WaterRouter {
         raster: Map<Long, MutableList<Pair<Node, Node>>>,
         von: Node,
         bis: Node,
+        rand: Double = ENDEN_RAND_M,
     ): Boolean {
         // **Ohne die letzten zwei Meter an beiden Enden.** Ein Anschluss endet auf dem
         // Fluss, oft mitten auf einem Stück und nicht auf einem seiner Punkte. Ohne diese
         // Verkürzung galt genau das als Queren, und der Ausstieg am Wehr Fischersdorf
         // bekam keine Verbindung zum Wasser oberhalb.
-        val a = einwaerts(von, bis)
-        val b = einwaerts(bis, von)
+        val a = einwaerts(von, bis, rand)
+        val b = einwaerts(bis, von, rand)
         val zellen = setOf(
             zelle(a.lat / RASTER, a.lon / RASTER),
             zelle(b.lat / RASTER, b.lon / RASTER),
@@ -1538,11 +1578,15 @@ object WaterRouter {
         return false
     }
 
-    /** Zwei Meter von [p] aus in Richtung [ziel]. */
-    private fun einwaerts(p: Node, ziel: Node): Node {
+    /** So viel wird an beiden Enden nicht mitgeprüft, wenn eine Linie dort enden darf. */
+    private const val ENDEN_RAND_M = 2.0
+
+    /** [meter] von [p] aus in Richtung [ziel]. */
+    private fun einwaerts(p: Node, ziel: Node, meter: Double): Node {
+        if (meter <= 0.0) return p
         val laenge = distanceM(p.toLatLon(), ziel.toLatLon())
-        if (laenge < 6.0) return p
-        val t = 2.0 / laenge
+        if (laenge < meter * 3) return p
+        val t = meter / laenge
         val a = p.toLatLon()
         val b = ziel.toLatLon()
         return Node.of(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t)

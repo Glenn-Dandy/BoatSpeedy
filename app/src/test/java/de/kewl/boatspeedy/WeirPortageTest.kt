@@ -3,6 +3,7 @@ package de.kewl.boatspeedy
 import de.kewl.boatspeedy.data.Craft
 import de.kewl.boatspeedy.nav.LatLon
 import de.kewl.boatspeedy.nav.distanceM
+import de.kewl.boatspeedy.nav.pathLengthM
 import de.kewl.boatspeedy.nav.MapTiles
 import de.kewl.boatspeedy.nav.ObstacleKind
 import de.kewl.boatspeedy.nav.RouteResult
@@ -162,6 +163,39 @@ class WeirPortageTest {
             "die Strecke läuft durch die Anlage",
             r.water.none { distanceM(it, kraftwerk) < 30 },
         )
+    }
+
+    /**
+     * Das Burgauer Wehr in Jena teilt **keinen Punkt** mit der Saale, es kreuzt sie nur.
+     * Über die Punkte gesperrt war dort nichts: Die Strecke fuhr mitten hindurch, und die
+     * Umtragung daneben blieb ungenutzt. Der Schnitt liegt 30 cm hinter einem Flusspunkt.
+     */
+    @Test
+    fun `ein Wehr ohne gemeinsamen Punkt sperrt trotzdem`() {
+        val r = fahre(
+            Craft.CANOE, "burgau.json",
+            LatLon(50.87794, 11.59478), LatLon(50.90988, 11.58122),
+        ) as RouteResult.Ok
+        assertTrue("nichts getragen: ${r.portageM} m", r.portageM > 50)
+    }
+
+    /**
+     * Bei Porstendorf schneidet die Lache, ein Mühlgraben, die Saaleschleife ab: kürzer,
+     * aber mitten durch die Wasserkraftanlage. Im Kanu zählt der Fluss, und ein Kanal
+     * kostet mehr.
+     */
+    @Test
+    fun `das Kanu bleibt im Fluss statt in den Muehlgraben zu gehen`() {
+        val r = fahre(
+            Craft.CANOE, "porstendorf.json",
+            LatLon(50.95577, 11.63309), LatLon(50.98375, 11.66556),
+        ) as RouteResult.Ok
+        assertTrue(
+            "die Strecke läuft durch die Anlage",
+            r.obstacles.none { it.kind == ObstacleKind.POWER },
+        )
+        // Die Schleife ist rund einen Kilometer länger als der Graben.
+        assertTrue("zu kurz, also durch die Lache: ${pathLengthM(r.water)}", pathLengthM(r.water) > 5_000)
     }
 
     /**
