@@ -336,8 +336,8 @@
     <string name="nav_seamarks_disclaimer">No substitute for official nautical charts. Map tiles © OpenSeaMap (CC-BY-SA), data ODbL.</string>
     <string name="nav_obstacles_locks">%d locks</string>
     <string name="nav_obstacles_lock_one">1 lock</string>
-    <string name="nav_obstacles_weirs">%d weirs nearby</string>
-    <string name="nav_obstacles_weir_one">1 weir nearby</string>
+    <string name="nav_obstacles_weirs">%d weirs on the route</string>
+    <string name="nav_obstacles_weir_one">1 weir on the route</string>
     <string name="nav_restricted">%s km restricted</string>
     <string name="flow_up">%1$s km upstream</string>
     <string name="flow_down">%1$s km downstream</string>
@@ -345,6 +345,14 @@
     <string name="obstacle_lock">Lock</string>
     <string name="obstacle_weir">Weir</string>
     <string name="obstacle_bridge">Bridge</string>
+    <string name="obstacle_landing">Landing</string>
+    <string name="obstacle_power">Hydro power plant</string>
+    <string name="landing_slipway">Slipway</string>
+    <string name="landing_put_in">Put-in</string>
+    <string name="landing_egress">Egress</string>
+    <string name="landing_both">Put-in and egress</string>
+    <string name="landing_use">Type</string>
+    <string name="nav_portage">portage %s m</string>
     <string name="bridge_clearance">Clearance</string>
     <string name="bridge_width">Width</string>
     <string name="wind_from">Wind from %1$s</string>

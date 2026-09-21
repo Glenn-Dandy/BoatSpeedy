@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ein- und Ausstieg am Ufer, Fassung für die Karte: 48 dp für die Trefferfläche, das
+     Zeichen darin 26 dp wie bei den anderen Symbolen. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="44" android:viewportHeight="44">
+    <group android:translateX="10" android:translateY="10">
+        <path android:fillColor="#FFFFFF" android:pathData="M12,1 A11,11 0 1,1 11.99,1 Z" />
+        <path android:fillColor="#00796B" android:pathData="M12,3 A9,9 0 1,1 11.99,3 Z" />
+        <!-- Die Rampe hinunter ans Wasser, darunter die Welle. -->
+        <path android:fillColor="#FFFFFF" android:pathData="M7,14 L15,6 L17,8 L11,14 Z" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="1.6" android:fillColor="#00000000"
+            android:strokeLineCap="round"
+            android:pathData="M6,17.4 q1.5,-1.4 3,0 q1.5,1.4 3,0 q1.5,-1.4 3,0" />
+    </group>
+</vector>

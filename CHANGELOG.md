@@ -2,6 +2,33 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.4.3] - 2026-09-21
+
+### Neu
+- **Umtragen.** Im Kanu führt die Route ums Wehr herum: über die Umtragewege aus
+  OpenStreetMap oder, wo es keine gibt, von Anleger zu Anleger. Sie läuft am Ufer entlang
+  und quert weder Fluss noch Wehr. Grün gestrichelt, mit Meterangabe im Kasten.
+- **Ein- und Ausstiege am Ufer** (Slipanlagen, Kanu-Einstiege) ab Zoomstufe 13, antippbar.
+- **Wasserkraftanlagen** mit eigenem Symbol. Die Route fährt nicht mehr durch die
+  Turbinen; der Kanal durch die Anlage führt oft am Wehr vorbei und war der kürzeste Weg.
+
+### Geändert
+- **Ein Wehr sperrt die Route nicht mehr, es kostet.** Gibt es keinen Weg darum herum,
+  führt die Strecke hindurch und meldet das Wehr, statt vorher abzubrechen.
+- **Das Ziel hängt sich an den günstigsten Punkt in der Nähe**, nicht an den nächsten.
+- **Der Kasten zählt nur Wehre, die die Strecke kreuzt.** Was umtragen wird, steht nicht
+  mehr als Hindernis darin.
+- **Im Kanu kostet ein Kanal mehr als ein Fluss.** Mühlgräben und Seitenarme sind kürzer
+  als die Flussschleife daneben; im Kanu zählt der Fluss.
+
+### Behoben
+- **Wehre, die in OSM als Weg quer über den Fluss stehen, fehlten ganz.** In Deutschland
+  ist das fast jedes zweite. Kacheln auffrischen.
+- **Routen, die oberhalb eines Wehrs begannen, scheiterten.** Kahla nach Lübeck geht
+  wieder: 581 km, davon 646 m umtragen.
+- **Ein Wehr ohne gemeinsamen Punkt mit dem Fluss sperrte nichts.**
+- **Am Wehr wurde oft nicht umtragen**, obwohl Aus- und Einstieg eingetragen sind.
+
 ## [1.4.2] - 2026-09-19
 
 ### Neu

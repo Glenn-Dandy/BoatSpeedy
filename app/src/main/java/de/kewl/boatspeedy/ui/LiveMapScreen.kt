@@ -63,6 +63,7 @@ import java.util.Locale
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.data.Craft
 import de.kewl.boatspeedy.data.Settings
+import de.kewl.boatspeedy.nav.LandingKind
 import de.kewl.boatspeedy.nav.LatLon
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.kewl.boatspeedy.nav.MapTiles
@@ -220,6 +221,7 @@ fun LiveMapScreen(
                 water = r.water, obstacles = r.obstacles,
                 restrictedM = r.restrictedM, restricted = r.restricted,
                 upstreamM = r.upstreamM, downstreamM = r.downstreamM,
+                portageM = r.portageM, portage = r.portage,
                 plannedFrom = if (planStart != null) from else null,
             ),
         )
@@ -377,6 +379,9 @@ fun LiveMapScreen(
             // Gedeckelt: Am Elbe-Lübeck-Kanal stehen allein in einer Kachel 146 Brücken
             // mit Höhenangabe. Auf Zoomstufe 11 wäre der halbe Bildschirm voller Symbole.
             WaterRouter.obstaclesIn(dir, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
+                // Ein- und Ausstiege erst näher dran. Es sind viele, und sie betreffen
+                // nur den, der schon am Wehr steht, nicht den, der die Fahrt plant.
+                .filter { it.kind != ObstacleKind.LANDING || zoomLevel >= LANDING_MIN_ZOOM }
                 .take(MAX_OBSTACLES)
         }
     }
@@ -535,6 +540,7 @@ fun LiveMapScreen(
                 },
                 onObstacle = { obstacleInfo = it },
                 navBlockedPaths = if (weatherMode) emptyList() else navTarget?.restricted.orEmpty(),
+                navPortagePaths = if (weatherMode) emptyList() else navTarget?.portage.orEmpty(),
                 flowRivers = flowRivers,
                 courseDeg = course?.deg,
                 // In der Wetteransicht wird nicht gefolgt, also auch nicht weitergerechnet.
@@ -666,7 +672,12 @@ fun LiveMapScreen(
                 // jeder Einmündung zustande und wären nur Rauschen.
                 val aufKm = (t.upstreamM / 1000.0).takeIf { it >= 0.5 }
                 val abKm = (t.downstreamM / 1000.0).takeIf { it >= 0.5 }
-                if (locks > 0 || weirs > 0 || restrictedKm != null || aufKm != null || abKm != null) {
+                // Umtragen steht in Metern: Es sind selten mehr als ein paar hundert, und
+                // gerundete Kilometer würden daraus eine Null machen.
+                val umtragenM = t.portageM.takeIf { it >= 1.0 }?.roundToInt()
+                if (locks > 0 || weirs > 0 || restrictedKm != null || aufKm != null ||
+                    abKm != null || umtragenM != null
+                ) {
                     Surface(
                         modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 16.dp),
                         shape = RoundedCornerShape(16.dp),
@@ -700,6 +711,14 @@ fun LiveMapScreen(
                                         if (km < 10) String.format("%.1f", km) else km.roundToInt().toString(),
                                     ),
                                     color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                            // Umtragen ist kein Hindernis, sondern der Weg daran vorbei.
+                            umtragenM?.let { m ->
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_obstacle_portage,
+                                    text = stringResource(R.string.nav_portage, m.toString()),
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
                             // Gegen die Strömung braucht man länger und mehr Strom — die
@@ -948,6 +967,8 @@ fun LiveMapScreen(
                         when (o.kind) {
                             ObstacleKind.BRIDGE -> R.string.obstacle_bridge
                             ObstacleKind.WEIR, ObstacleKind.DAM -> R.string.obstacle_weir
+                            ObstacleKind.LANDING -> R.string.obstacle_landing
+                            ObstacleKind.POWER -> R.string.obstacle_power
                             else -> R.string.obstacle_lock
                         },
                     ),
@@ -955,6 +976,21 @@ fun LiveMapScreen(
             },
             text = {
                 Column {
+                    // Wozu die Stelle am Ufer taugt. Ohne das stünde dort nur ein Name
+                    // oder gar nichts, und das Symbol bliebe ein Rätsel.
+                    o.landingKind?.let {
+                        InfoZeile(
+                            stringResource(R.string.landing_use),
+                            stringResource(
+                                when (it) {
+                                    LandingKind.SLIPWAY -> R.string.landing_slipway
+                                    LandingKind.PUT_IN -> R.string.landing_put_in
+                                    LandingKind.EGRESS -> R.string.landing_egress
+                                    LandingKind.PUT_IN_EGRESS -> R.string.landing_both
+                                },
+                            ),
+                        )
+                    }
                     // Die Höhe steht ganz oben: Bei einer Brücke ist sie die Frage,
                     // wegen der man sie antippt.
                     o.clearanceHeightM?.let {
@@ -1117,6 +1153,9 @@ private const val SEAMARK_MIN_ZOOM = 13.0
  * Seezeichen: Es sind viel weniger, und wo eine Schleuse liegt, will man früher wissen.
  */
 private const val OBSTACLE_MIN_ZOOM = 11.0
+
+/** Ab hier stehen auch die Ein- und Ausstiege am Ufer auf der Karte. */
+private const val LANDING_MIN_ZOOM = 13.0
 
 /** Ab hier zeigen Winkel auf den Flüssen die Fließrichtung. */
 private const val FLOW_MIN_ZOOM = 14.0
