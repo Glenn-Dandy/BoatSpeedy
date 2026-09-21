@@ -1,0 +1,8 @@
+1.4.3
+* Umtragen: im Kanu ums Wehr herum, über Umtragewege oder von Anleger zu Anleger
+* Ein- und Ausstiege am Ufer auf der Karte, antippbar
+* Wasserkraftanlagen mit eigenem Symbol, die Route meidet die Turbinen
+* Wehre, die in OSM als Weg quer über den Fluss stehen, fehlten ganz
+* Schleusen, Wehre und Brückenhöhen ohne Route, Fließrichtung auf Flüssen
+* Schleusensymbol in der Kammermitte, bei Doppelschleusen je Kammer eines
+* Kacheln auffrischen, damit Wehre und Anleger ankommen

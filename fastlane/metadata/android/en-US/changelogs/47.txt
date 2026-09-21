@@ -1,0 +1,8 @@
+1.4.3
+* Portage: in a canoe around the weir, along portage paths or landing to landing
+* Put-ins, egress points and slipways on the map, tappable
+* Hydro power plants get a symbol, the route avoids the turbines
+* Weirs mapped as a way across the river were missing entirely
+* Locks, weirs and bridge clearances without a route, flow direction on rivers
+* Lock symbol in the middle of the chamber, one per chamber on double locks
+* Refresh the map tiles so weirs and landings arrive
