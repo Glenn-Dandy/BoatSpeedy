@@ -62,7 +62,6 @@
     <string name="nav_battery">Batterie</string>
     <string name="trips_empty">Noch keine Fahrten. Starte auf dem Dashboard eine Fahrt zum Aufzeichnen.</string>
     <string name="trip_points">Track-Punkte</string>
-    <string name="trip_point_title">Punkt</string>
     <string name="speed_label">Geschwindigkeit</string>
     <string name="group_tracks">Fahrten</string>
     <string name="cat_tracks_desc">Track-Farbe, Linienstärke, Pfeile, Auto-Pause</string>
@@ -83,18 +82,13 @@
     <string name="import_gpx">GPX importieren</string>
     <string name="import_ok">Fahrt importiert.</string>
     <string name="import_failed">GPX-Datei konnte nicht importiert werden.</string>
-    <string name="show_on_map">In Karte anzeigen</string>
 
     <!-- Einstellungs-Kategorien -->
-    <string name="group_speed">Geschwindigkeit</string>
     <string name="group_dashboard">Dashboard</string>
-    <string name="group_display">Anzeige</string>
-    <string name="group_language">Sprache</string>
     <string name="group_gps">GPS</string>
     <string name="appearance">Darstellung</string>
     <string name="cat_dashboard_desc">Einheit, Nachkommastellen, Glättung, Kacheln</string>
     <string name="cat_appearance_desc">Theme, Display anlassen</string>
-    <string name="cat_language_desc">English / Deutsch</string>
     <string name="language">Sprache</string>
     <string name="language_english">English</string>
     <string name="language_german">Deutsch</string>
@@ -115,8 +109,6 @@
 
     <!-- Batterie -->
     <string name="battery">Batterie</string>
-    <string name="connect">Verbinden</string>
-    <string name="disconnect">Trennen</string>
     <string name="bat_scanning">Suche Batterie …</string>
     <string name="bat_connecting">Verbinde …</string>
     <string name="bat_connected">Verbunden</string>
@@ -130,24 +122,16 @@
     <string name="bat_remaining">Rest</string>
     <string name="bat_temp">Temperatur</string>
     <string name="bat_cells">Zellen</string>
-    <string name="bat_manufacturer">Hersteller</string>
     <string name="bat_type">Typ</string>
-    <string name="bat_capacity">Größe</string>
     <string name="bat_est_range">Reichweite</string>
     <string name="bat_est_time">Restzeit</string>
-    <string name="bat_range_title">Reichweite bei aktueller Geschwindigkeit</string>
-    <string name="bat_range_hint">Braucht Entladestrom und Bootsgeschwindigkeit &gt; 0.</string>
-    <string name="bat_permission_needed">Für die Verbindung zur Batterie wird die Bluetooth-Berechtigung benötigt.</string>
     <string name="bms">BMS</string>
     <string name="bms_unknown">Typ?</string>
     <string name="bms_pick_hint">Der BMS-Typ konnte nicht erkannt werden. Bitte auswählen:</string>
     <string name="bms_experimental">%1$s ist experimentell und ungetestet.</string>
-    <string name="experimental">experimentell</string>
     <string name="scan">Scannen</string>
     <string name="rescan">Erneut scannen</string>
-    <string name="switch_battery">Batterie wechseln</string>
     <string name="no_devices">Keine Batterien gefunden.</string>
-    <string name="scan_hint">BMS wählen, dann scannen und die richtige Batterie antippen.</string>
     <string name="soc_short">SoC</string>
 
     <!-- Mehrere Batterien -->
@@ -225,7 +209,6 @@
     <string name="weather_channel">Wetterwarnung (DWD)</string>
     <string name="weather_notif_title">Wetterwarnung</string>
     <string name="weather_valid_until">gültig bis %s</string>
-    <string name="weather_show">Wetter anzeigen</string>
     <string name="weather_play">Abspielen/Pause</string>
     <string name="radar_now">jetzt</string>
     <string name="lightning_toggle">Blitze</string>
@@ -251,10 +234,6 @@
     <!-- Über -->
     <string name="about">Über</string>
     <string name="version">Version</string>
-    <string name="build_label">Build</string>
-    <string name="source_code">Quellcode (GitHub)</string>
-    <string name="open_on_github">Auf GitHub öffnen</string>
-    <string name="license_label">Lizenz</string>
     <string name="license_value">MIT</string>
     <string name="about_feedback">Feedback</string>
     <string name="about_data">Daten &amp; Karten</string>
@@ -394,10 +373,6 @@
     <string name="mapdata_delete">Löschen</string>
     <string name="mapdata_index_loading">Verzeichnis wird geladen…</string>
     <string name="mapdata_attribution">© OpenStreetMap-Mitwirkende (ODbL). Keine Seekarte.</string>
-    <string name="seamark_asking">Frage nach…</string>
-    <string name="seamark_title">Seezeichen</string>
-    <string name="seamark_none_title">Nichts gefunden</string>
-    <string name="seamark_none">An dieser Stelle ist kein Seezeichen verzeichnet. Näher herantippen oder weiter heranzoomen.</string>
     <string name="close">Schließen</string>
     <string name="mapdata_missing_title">Kartendaten fehlen</string>
     <string name="mapdata_stale_title">Neuere Kartendaten da</string>

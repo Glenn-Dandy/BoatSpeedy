@@ -36,7 +36,6 @@ object NavRepository {
     val planStart: StateFlow<LatLon?> = _planStart.asStateFlow()
 
     fun setPlanStart(at: LatLon) { _planStart.value = at }
-    fun clearPlanStart() { _planStart.value = null }
 
     /**
      * Unterhalb dieser Fahrt liefert das GPS keinen brauchbaren Kurs mehr, sondern

@@ -115,10 +115,6 @@ object MapTiles {
         return tilesFor(lat - dLat, lon - dLon, lat + dLat, lon + dLon)
     }
 
-    /** Grobe Abschätzung, wie viele Kacheln ein Umkreis umfasst — für die Anzeige. */
-    fun tileCountWithin(lat: Double, lon: Double, radiusKm: Double): Int =
-        tilesWithin(lat, lon, radiusKm).size
-
     /* ------------------------------ Ablage ------------------------------ */
 
     fun dir(filesDir: File): File = File(filesDir, "mapdata").apply { mkdirs() }
@@ -162,8 +158,6 @@ object MapTiles {
             val name = f.name.removeSuffix(".json.gz")
             parseName(name)?.let { StoredTile(it, f.length(), readGenerated(f)) }
         }?.sortedBy { it.id.name } ?: emptyList()
-
-    fun storedBytes(dir: File): Long = stored(dir).sumOf { it.bytes }
 
     fun delete(dir: File, id: TileId): Boolean = file(dir, id).delete()
 

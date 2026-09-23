@@ -257,12 +257,13 @@ sealed interface RouteResult {
  * Routet entlang der Wasserwege aus OpenStreetMap.
  *
  * Es gibt keinen fertigen Routendienst fürs Wasser — die üblichen kennen Straßen. Also
- * holen wir die Wasserwege des Gebiets von der Overpass-Schnittstelle (ODbL, dieselbe
- * Datenquelle wie die Karte), bauen daraus ein Wegenetz und suchen den kürzesten Weg.
+ * nehmen wir die Wasserwege aus den geladenen Kacheln (ODbL, dieselbe Datenquelle wie
+ * die Karte), bauen daraus ein Wegenetz und suchen den günstigsten Weg. Fehlen die
+ * Kacheln, fragt die App stattdessen die Overpass-Schnittstelle, und nur dann braucht
+ * sie Netz.
  *
- * Grenzen, die der Nutzer kennen muss und die die UI auch nennt: das braucht **Netz**,
- * die Daten sind unterschiedlich vollständig, und sie enthalten weder Tiefen noch
- * Durchfahrtshöhen. Die Route ist ein Vorschlag, kein Fahrwasser.
+ * Grenzen, die der Nutzer kennen muss: Die Daten sind unterschiedlich vollständig, und
+ * sie enthalten keine Tiefen. Die Route ist ein Vorschlag, kein Fahrwasser.
  */
 object WaterRouter {
 
@@ -1459,8 +1460,9 @@ object WaterRouter {
     }
 
     /**
-     * Punkte, an denen das Netz aufgetrennt wird: Wehre und Dämme sind nicht passierbar,
-     * ebenso ein Einfahrtsverbot. Schleusentore gehören **nicht** dazu — durch eine
+     * Punkte, die teuer sind: Wehre und Dämme, ebenso ein Einfahrtsverbot. Getrennt wird
+     * an ihnen nicht mehr, sie kosten einen Aufschlag, damit jede Schleuse, jeder Umweg
+     * und jede Umtragung gewinnt. Schleusentore gehören **nicht** dazu — durch eine
      * Schleuse kommt man, sie kostet nur Zeit.
      */
     private fun barrierNodes(elements: JSONArray?): Set<Node> = runCatching {

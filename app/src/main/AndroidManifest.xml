@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Präziser Standort für GPS-Geschwindigkeit & Satellitenstatus. -->
+    <!-- Präziser Standort für GPS-Geschwindigkeit & Satellitenstatus. Seit Android 12
+         gehört der grobe dazu: Androids Dialog bietet „Ungefähr" nur an, wenn beide
+         angefragt werden, und die App erkennt diese Wahl sonst nicht. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- Vordergrunddienst: misst während einer Fahrt weiter (Screen aus /
          App im Hintergrund). Keine ACCESS_BACKGROUND_LOCATION nötig, da der

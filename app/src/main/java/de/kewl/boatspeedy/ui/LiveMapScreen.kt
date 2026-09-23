@@ -658,9 +658,10 @@ fun LiveMapScreen(
 
             // Schleusen und Wehre stehen für sich, nicht neben den Kilometern: dort war
             // nur Platz für eine Zeile, und die zeigte das Wehr statt der Schleuse, durch
-            // die man tatsächlich fährt. Seit die Route an Wehren getrennt wird, kann ein
-            // Wehr gar nicht mehr auf ihr liegen – es steht daneben, meist neben der
-            // Schleuse. Deshalb zwei getrennte Angaben mit unterschiedlichem Gewicht.
+            // die man tatsächlich fährt. Ein Wehr steht nur darin, wenn die Strecke es
+            // kreuzt; wer umträgt oder durch die Schleuse fährt, sieht es auf der Karte,
+            // aber nicht als Hindernis. Deshalb zwei getrennte Angaben mit unterschiedlichem
+            // Gewicht.
             navTarget?.takeIf { !weatherMode && it.mode == NavMode.ROUTE }?.let { t ->
                 val locks = t.obstacles.count { it.kind == ObstacleKind.LOCK || it.kind == ObstacleKind.SLUICE }
                 val weirs = t.obstacles.count { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
@@ -708,7 +709,7 @@ fun LiveMapScreen(
                                     iconRes = R.drawable.ic_restricted,
                                     text = stringResource(
                                         R.string.nav_restricted,
-                                        if (km < 10) String.format("%.1f", km) else km.roundToInt().toString(),
+                                        if (km < 10) String.format(Locale.getDefault(), "%.1f", km) else km.roundToInt().toString(),
                                     ),
                                     color = MaterialTheme.colorScheme.error,
                                 )
@@ -724,7 +725,7 @@ fun LiveMapScreen(
                             // Gegen die Strömung braucht man länger und mehr Strom — die
                             // Zahl, die man vor dem Ablegen wissen will.
                             if (aufKm != null || abKm != null) {
-                                fun km(v: Double) = if (v < 10) String.format("%.1f", v) else v.roundToInt().toString()
+                                fun km(v: Double) = if (v < 10) String.format(Locale.getDefault(), "%.1f", v) else v.roundToInt().toString()
                                 val teile = listOfNotNull(
                                     aufKm?.let { stringResource(R.string.flow_up, km(it)) },
                                     abKm?.let { stringResource(R.string.flow_down, km(it)) },

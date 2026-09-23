@@ -117,7 +117,6 @@ data class Settings(
     val trackWidth: TrackWidth = TrackWidth.NORMAL,
     val trackArrows: Boolean = true,
     // Batterie
-    val batteryBms: BmsType = BmsType.JBD,
     val bankMode: BankMode = BankMode.SINGLE,
     val batteries: List<SavedBattery> = emptyList(),
     /** Ausgewählte Anzeige auf dem Dashboard: Adresse einer Batterie oder [COMBINED_SELECTION]. */

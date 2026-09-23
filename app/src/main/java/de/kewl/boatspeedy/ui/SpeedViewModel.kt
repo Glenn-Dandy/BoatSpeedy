@@ -491,7 +491,6 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun testAnchorSound() = AlarmPlayer.play(getApplication(), settings.value.anchorSound, loop = false)
     fun testSocSound() = AlarmPlayer.play(getApplication(), settings.value.socSound, loop = false)
-    fun setBms(v: BmsType) = viewModelScope.launch { settingsRepo.setBatteryBms(v) }
     fun setBankMode(v: BankMode) = viewModelScope.launch { settingsRepo.setBankMode(v) }
     fun setDashboardBattery(v: String) = viewModelScope.launch { settingsRepo.setDashboardBattery(v) }
 

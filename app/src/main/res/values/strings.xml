@@ -29,7 +29,6 @@
 
     <string name="show_sat_details">Satellite details</string>
 
-    <string name="no_fix">--</string>
     <string name="status_fix">Fix</string>
     <string name="status_no_fix">no fix</string>
     <string name="sat_label">Sat %1$d/%2$d</string>
@@ -65,7 +64,6 @@
     <string name="nav_battery">Battery</string>
     <string name="trips_empty">No trips yet. Start a trip on the dashboard to record one.</string>
     <string name="trip_points">Track points</string>
-    <string name="trip_point_title">Point</string>
     <string name="speed_label">Speed</string>
     <string name="group_tracks">Trips</string>
     <string name="cat_tracks_desc">Track colour, line width, arrows, auto-pause</string>
@@ -86,18 +84,13 @@
     <string name="import_gpx">Import GPX</string>
     <string name="import_ok">Trip imported.</string>
     <string name="import_failed">Could not import that GPX file.</string>
-    <string name="show_on_map">Show on map</string>
 
     <!-- Settings categories -->
-    <string name="group_speed">Speed</string>
     <string name="group_dashboard">Dashboard</string>
-    <string name="group_display">Display</string>
-    <string name="group_language">Language</string>
     <string name="group_gps">GPS</string>
     <string name="appearance">Appearance</string>
     <string name="cat_dashboard_desc">Units, decimals, smoothing, tiles</string>
     <string name="cat_appearance_desc">Theme, keep screen on</string>
-    <string name="cat_language_desc">English / Deutsch</string>
     <string name="language">Language</string>
     <string name="language_english">English</string>
     <string name="language_german">Deutsch</string>
@@ -118,8 +111,6 @@
 
     <!-- Battery -->
     <string name="battery">Battery</string>
-    <string name="connect">Connect</string>
-    <string name="disconnect">Disconnect</string>
     <string name="bat_scanning">Searching for battery …</string>
     <string name="bat_connecting">Connecting …</string>
     <string name="bat_connected">Connected</string>
@@ -133,24 +124,16 @@
     <string name="bat_remaining">Remaining</string>
     <string name="bat_temp">Temperature</string>
     <string name="bat_cells">Cells</string>
-    <string name="bat_manufacturer">Manufacturer</string>
     <string name="bat_type">Type</string>
-    <string name="bat_capacity">Capacity</string>
     <string name="bat_est_range">Est. range</string>
     <string name="bat_est_time">Est. time</string>
-    <string name="bat_range_title">Range at current speed</string>
-    <string name="bat_range_hint">Needs a discharge current and boat speed &gt; 0.</string>
-    <string name="bat_permission_needed">Bluetooth permission is required to connect to the battery.</string>
     <string name="bms">BMS</string>
     <string name="bms_unknown">Type?</string>
     <string name="bms_pick_hint">The BMS type could not be detected. Please pick it:</string>
     <string name="bms_experimental">%1$s is experimental and untested.</string>
-    <string name="experimental">experimental</string>
     <string name="scan">Scan</string>
     <string name="rescan">Scan again</string>
-    <string name="switch_battery">Switch battery</string>
     <string name="no_devices">No batteries found.</string>
-    <string name="scan_hint">Select your BMS, then scan and tap the right battery.</string>
     <string name="soc_short">SoC</string>
 
     <!-- Multi-battery management -->
@@ -228,7 +211,6 @@
     <string name="weather_channel">Weather warning (DWD)</string>
     <string name="weather_notif_title">Weather warning</string>
     <string name="weather_valid_until">valid until %s</string>
-    <string name="weather_show">Show weather</string>
     <string name="weather_play">Play/pause</string>
     <string name="radar_now">now</string>
     <string name="lightning_toggle">Lightning</string>
@@ -254,10 +236,6 @@
     <!-- About -->
     <string name="about">About</string>
     <string name="version">Version</string>
-    <string name="build_label">Build</string>
-    <string name="source_code">Source code (GitHub)</string>
-    <string name="open_on_github">Open on GitHub</string>
-    <string name="license_label">License</string>
     <string name="license_value">MIT</string>
     <string name="about_feedback">Feedback</string>
     <string name="about_data">Data &amp; maps</string>
@@ -397,10 +375,6 @@
     <string name="mapdata_delete">Delete</string>
     <string name="mapdata_index_loading">Loading the tile list…</string>
     <string name="mapdata_attribution">© OpenStreetMap contributors (ODbL). Not a nautical chart.</string>
-    <string name="seamark_asking">Asking…</string>
-    <string name="seamark_title">Seamark</string>
-    <string name="seamark_none_title">Nothing found</string>
-    <string name="seamark_none">No seamark is recorded here. Tap closer to the symbol, or zoom in further.</string>
     <string name="close">Close</string>
     <string name="mapdata_missing_title">Map data missing</string>
     <string name="mapdata_stale_title">Newer map data available</string>

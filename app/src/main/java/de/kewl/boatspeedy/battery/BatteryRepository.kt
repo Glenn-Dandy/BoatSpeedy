@@ -103,13 +103,5 @@ object BatteryRepository {
         _state.update { it.copy(links = it.links - address) }
     }
 
-    fun disconnectAll() {
-        desired.clear()
-        tokens.values.forEach { main.removeCallbacksAndMessages(it) }
-        connections.values.toList().forEach { it.close() }
-        connections.clear()
-        _state.update { it.copy(links = emptyMap()) }
-    }
-
     private fun tokenFor(address: String): Any = tokens.getOrPut(address) { Any() }
 }

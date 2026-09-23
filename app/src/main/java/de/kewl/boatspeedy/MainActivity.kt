@@ -2,7 +2,6 @@ package de.kewl.boatspeedy
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -157,9 +156,11 @@ private fun BoatSpeedyApp(
                 )
             }
 
+            // Genau und grob **zusammen**, wie Android es seit Version 12 verlangt.
+            // Gebraucht wird der genaue; der grobe allein heißt „Ungefähr" gewählt.
             val permissionLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission(),
-            ) { granted -> hasPermission = granted }
+                ActivityResultContracts.RequestMultiplePermissions(),
+            ) { result -> hasPermission = result[Manifest.permission.ACCESS_FINE_LOCATION] == true }
 
             // **Die Sperre steht vor dem Tacho, nicht vor der App.**
             //
@@ -199,8 +200,7 @@ private fun BoatSpeedyApp(
             // sie nicht. Der Vordergrunddienst läuft auch ohne sie, die Aufzeichnung ist
             // also nicht in Gefahr — es fehlt dann nur die Anzeige im Schirmrand.
             fun fragNachMeldungen() {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(
+                if (ContextCompat.checkSelfPermission(
                         context, Manifest.permission.POST_NOTIFICATIONS,
                     ) != PackageManager.PERMISSION_GRANTED
                 ) {
@@ -542,7 +542,12 @@ private fun BoatSpeedyApp(
                             nurGrob = grobErlaubt,
                             onOpenMenu = { openDrawer() },
                             onRequest = {
-                                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                permissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                                    ),
+                                )
                             },
                         )
                     } else {
