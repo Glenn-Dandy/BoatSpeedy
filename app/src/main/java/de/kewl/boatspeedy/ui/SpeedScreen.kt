@@ -1,6 +1,9 @@
 package de.kewl.boatspeedy.ui
 
 import android.os.SystemClock
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -204,13 +207,22 @@ fun DashboardScreen(
      * neuen Zug hinein und setzte ihn mittendrin zurück.
      */
     var rueckgleiten by remember { mutableStateOf<Job?>(null) }
+    // Mitscrollen am Rand: wo die Kacheln in der Liste liegen, wie hoch der sichtbare
+    // Ausschnitt ist, und ob der Finger gerade eine Kachel hält.
+    val scroll = rememberScrollState()
+    val lagen = remember { mutableStateMapOf<DashboardTile, Float>() }
+    var sichtHoehe by remember { mutableIntStateOf(0) }
+    var fingerHaelt by remember { mutableStateOf(false) }
+
     fun zugBeginn(tile: DashboardTile) {
         rueckgleiten?.cancel()
         rueckgleiten = null
         gezogen = tile
         zugY = 0f
+        fingerHaelt = true
     }
     fun zugEnde(sichern: Boolean) {
+        fingerHaelt = false
         if (sichern) speichern(reihenfolgeText(reihe))
         rueckgleiten = scope.launch {
             animate(zugY, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { v, _ -> zugY = v }
@@ -237,6 +249,36 @@ fun DashboardScreen(
                 reihe = verschoben(reihe, reihe.indexOf(tile), reihe.indexOf(nachbarin))
                 zugY += h
                 tasten.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+        }
+    }
+
+    // **Am Rand scrollt die Liste mit.** Eine Kachel von unten nach ganz oben zu ziehen,
+    // ging sonst nur in Etappen. Je näher der Finger am Rand, desto schneller; die Kachel
+    // bleibt dabei unter dem Finger und tauscht unterwegs wie gewohnt. Unten liegt der
+    // Rand über dem runden Häkchen.
+    val randOben = with(LocalDensity.current) { 72.dp.toPx() }
+    val randUnten = with(LocalDensity.current) { 170.dp.toPx() }
+    val griffMitte = with(LocalDensity.current) { 26.dp.toPx() }
+    val hoechstTempo = with(LocalDensity.current) { 14.dp.toPx() }
+    LaunchedEffect(fingerHaelt) {
+        while (fingerHaelt) {
+            withFrameNanos { }
+            val tile = gezogen ?: continue
+            val lage = lagen[tile] ?: continue
+            val finger = lage + zugY - scroll.value + griffMitte
+            val tempo = when {
+                finger < randOben -> -hoechstTempo * ((randOben - finger) / randOben).coerceIn(0f, 1f)
+                finger > sichtHoehe - randUnten ->
+                    hoechstTempo * ((finger - (sichtHoehe - randUnten)) / randUnten).coerceIn(0f, 1f)
+                else -> 0f
+            }
+            if (tempo != 0f) {
+                val bewegt = scroll.scrollBy(tempo)
+                if (bewegt != 0f) {
+                    zugY += bewegt
+                    tauschen(tile)
+                }
             }
         }
     }
@@ -280,7 +322,12 @@ fun DashboardScreen(
             }
 
             // --- Scrollbarer Rest ---
-            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .onGloballyPositioned { sichtHoehe = it.size.height },
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -289,7 +336,7 @@ fun DashboardScreen(
                             onFortschritt = { halten = it },
                             onAusgeloest = { bearbeiten = true },
                         )
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scroll)
                         .padding(horizontal = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -332,7 +379,10 @@ fun DashboardScreen(
                                     versteckt = versteckt,
                                     modifier = Modifier
                                         .gleitend(!istGezogen)
-                                        .onGloballyPositioned { hoehen[tile] = it.size.height }
+                                        .onGloballyPositioned {
+                                            hoehen[tile] = it.size.height
+                                            lagen[tile] = it.positionInParent().y
+                                        }
                                         .zIndex(if (istGezogen || (tile == DashboardTile.MAP && ziehtKarte)) 1f else 0f)
                                         .graphicsLayer {
                                             translationY = if (istGezogen) zugY else 0f
