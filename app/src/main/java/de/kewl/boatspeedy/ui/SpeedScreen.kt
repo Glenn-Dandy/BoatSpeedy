@@ -1,6 +1,8 @@
 package de.kewl.boatspeedy.ui
 
 import android.os.SystemClock
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableIntStateOf
@@ -34,7 +36,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DragHandle
@@ -213,6 +214,48 @@ fun DashboardScreen(
     val lagen = remember { mutableStateMapOf<DashboardTile, Float>() }
     var sichtHoehe by remember { mutableIntStateOf(0) }
     var fingerHaelt by remember { mutableStateOf(false) }
+    // Kartengröße ziehen, gerechnet in **Bildschirmkoordinaten**: So stört das Mitscrollen
+    // die Stufenrechnung nicht. Der Griff steht beim Ziehen fest in der Liste, wandert aber
+    // beim Scrollen über den Schirm; relativ zu ihm gerechnet, hielte die App das für
+    // weiteres Ziehen, und die Karte liefe von selbst durch bis zur größten Stufe.
+    var kartenZiel by remember { mutableStateOf<Int?>(null) }
+    var kartenFinger by remember { mutableFloatStateOf(0f) }
+    var kartenStartFinger by remember { mutableFloatStateOf(0f) }
+    var kartenVersatz by remember { mutableFloatStateOf(0f) }
+    var sichtOben by remember { mutableFloatStateOf(0f) }
+    val pxProDp = LocalDensity.current.density
+    val stufeSetzen by rememberUpdatedState(onMapSizeChange)
+
+    /** Oberkante der Karte auf dem Schirm. */
+    fun kartenOben() = sichtOben + (lagen[DashboardTile.MAP] ?: 0f) - scroll.value
+
+    /** Die Stufe, deren Unterkante dem Finger am nächsten liegt. */
+    fun kartenZielRechnen() {
+        val hoehePx = kartenFinger + kartenVersatz - kartenOben()
+        val neu = naechsteKartenStufe(hoehePx / pxProDp)
+        if (neu != kartenZiel) {
+            kartenZiel = neu
+            tasten.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
+    fun kartenBeginn(fingerY: Float) {
+        kartenFinger = fingerY
+        kartenStartFinger = fingerY
+        // Der Finger greift ein Stück über der Unterkante; dieser Abstand bleibt.
+        kartenVersatz = kartenOben() + kartenHoehe * pxProDp - fingerY
+        kartenZiel = naechsteKartenStufe(kartenHoehe)
+        ziehtKarte = true
+    }
+    fun kartenZiehen(fingerY: Float) {
+        kartenFinger = fingerY
+        kartenZielRechnen()
+    }
+    fun kartenEnde() {
+        val gewaehlt = kartenZiel
+        kartenZiel = null
+        ziehtKarte = false
+        gewaehlt?.let(stufeSetzen)
+    }
 
     fun zugBeginn(tile: DashboardTile) {
         rueckgleiten?.cancel()
@@ -261,24 +304,41 @@ fun DashboardScreen(
     val randUnten = with(LocalDensity.current) { 170.dp.toPx() }
     val griffMitte = with(LocalDensity.current) { 26.dp.toPx() }
     val hoechstTempo = with(LocalDensity.current) { 14.dp.toPx() }
-    LaunchedEffect(fingerHaelt) {
-        while (fingerHaelt) {
+    // Gescrollt wird nur **in Zugrichtung**: nach unten, wenn der Finger nach unten
+    // gezogen hat, nach oben, wenn nach oben. Sonst liefe die Liste schon los, sobald man
+    // eine Kachel oder den Kartengriff greift, der gerade unten am Rand steht.
+    val ruhe = with(LocalDensity.current) { 8.dp.toPx() }
+    LaunchedEffect(fingerHaelt, ziehtKarte) {
+        while (fingerHaelt || ziehtKarte) {
             withFrameNanos { }
-            val tile = gezogen ?: continue
-            val lage = lagen[tile] ?: continue
-            val finger = lage + zugY - scroll.value + griffMitte
+            val finger: Float
+            val zug: Float
+            if (fingerHaelt) {
+                val tile = gezogen ?: continue
+                val lage = lagen[tile] ?: continue
+                finger = lage + zugY - scroll.value + griffMitte
+                zug = zugY
+            } else {
+                finger = kartenFinger - sichtOben
+                zug = kartenFinger - kartenStartFinger
+            }
             val tempo = when {
-                finger < randOben -> -hoechstTempo * ((randOben - finger) / randOben).coerceIn(0f, 1f)
-                finger > sichtHoehe - randUnten ->
+                finger < randOben && zug < -ruhe ->
+                    -hoechstTempo * ((randOben - finger) / randOben).coerceIn(0f, 1f)
+                finger > sichtHoehe - randUnten && zug > ruhe ->
                     hoechstTempo * ((finger - (sichtHoehe - randUnten)) / randUnten).coerceIn(0f, 1f)
                 else -> 0f
             }
-            if (tempo != 0f) {
-                val bewegt = scroll.scrollBy(tempo)
-                if (bewegt != 0f) {
+            if (tempo == 0f) continue
+            val bewegt = scroll.scrollBy(tempo)
+            if (bewegt == 0f) continue
+            if (fingerHaelt) {
+                gezogen?.let { tile ->
                     zugY += bewegt
                     tauschen(tile)
                 }
+            } else {
+                kartenZielRechnen()
             }
         }
     }
@@ -326,7 +386,10 @@ fun DashboardScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .onGloballyPositioned { sichtHoehe = it.size.height },
+                    .onGloballyPositioned {
+                        sichtHoehe = it.size.height
+                        sichtOben = it.positionInRoot().y
+                    },
             ) {
                 Column(
                     modifier = Modifier
@@ -409,9 +472,10 @@ fun DashboardScreen(
                                     zusatz = if (tile == DashboardTile.MAP && !versteckt) {
                                         {
                                             KartenGroesse(
-                                                aktuell = kartenHoehe,
-                                                onZieht = { ziehtKarte = it },
-                                                onStufe = onMapSizeChange,
+                                                ziel = kartenZiel,
+                                                onStart = ::kartenBeginn,
+                                                onZiehen = ::kartenZiehen,
+                                                onEnde = ::kartenEnde,
                                             )
                                         }
                                     } else {
@@ -664,21 +728,16 @@ private fun Modifier.gleitend(aktiv: Boolean): Modifier = composed {
 /**
  * Der Größengriff der Karte, **gerastert**. Beim Ziehen bleibt der Griff stehen, und ein
  * Rahmen springt von Stufe zu Stufe, jede mit einem kurzen Tastenklick. Erst beim
- * Loslassen gleitet die Karte in die gewählte Stufe.
- *
- * Vorher wanderte der Griff mit, und die Geste merkte sich die Höhe vom ersten Mal: Jeder
- * weitere Zug begann von der falschen Höhe und endete meist auf der größten Stufe.
+ * Loslassen gleitet die Karte in die gewählte Stufe. Gerechnet wird im Dashboard, hier
+ * steht nur, was zu sehen ist.
  */
 @Composable
-private fun BoxScope.KartenGroesse(aktuell: Float, onZieht: (Boolean) -> Unit, onStufe: (Int) -> Unit) {
-    val hoehe by rememberUpdatedState(aktuell)
-    val melden by rememberUpdatedState(onZieht)
-    val festlegen by rememberUpdatedState(onStufe)
-    var ziel by remember { mutableStateOf<Int?>(null) }
-    var start by remember { mutableStateOf(0) }
-    var weg by remember { mutableFloatStateOf(0f) }
-    val dichte = LocalDensity.current
-    val tasten = LocalHapticFeedback.current
+private fun BoxScope.KartenGroesse(
+    ziel: Int?,
+    onStart: (Float) -> Unit,
+    onZiehen: (Float) -> Unit,
+    onEnde: () -> Unit,
+) {
     val farbe = MaterialTheme.colorScheme.primary
     ziel?.let { stufe ->
         Box(
@@ -693,26 +752,9 @@ private fun BoxScope.KartenGroesse(aktuell: Float, onZieht: (Boolean) -> Unit, o
     }
     GroessenGriff(
         modifier = Modifier.align(Alignment.BottomCenter),
-        onStart = {
-            start = naechsteKartenStufe(hoehe)
-            weg = 0f
-            ziel = start
-            melden(true)
-        },
-        onZiehen = { px ->
-            weg += with(dichte) { px.toDp().value }
-            val neu = naechsteKartenStufe(KARTEN_HOEHEN_DP[start] + weg)
-            if (neu != ziel) {
-                ziel = neu
-                tasten.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            }
-        },
-        onLoslassen = {
-            val gewaehlt = ziel ?: start
-            ziel = null
-            melden(false)
-            festlegen(gewaehlt)
-        },
+        onStart = onStart,
+        onZiehen = onZiehen,
+        onLoslassen = onEnde,
     )
 }
 
@@ -726,17 +768,21 @@ private fun GpsTile(gps: GpsState) {
     }
 }
 
-/** Der Griff unten an der Karte, mit dem sich ihre Höhe ziehen lässt. */
+/**
+ * Der Griff unten an der Karte. Er meldet die Fingerhöhe **auf dem Schirm**, nicht relativ
+ * zu sich selbst: Er wandert beim Mitscrollen, der Finger nicht.
+ */
 @Composable
 private fun GroessenGriff(
     modifier: Modifier,
-    onStart: () -> Unit,
+    onStart: (Float) -> Unit,
     onZiehen: (Float) -> Unit,
     onLoslassen: () -> Unit,
 ) {
     val beginnen by rememberUpdatedState(onStart)
     val ziehen by rememberUpdatedState(onZiehen)
     val loslassen by rememberUpdatedState(onLoslassen)
+    var lage by remember { mutableStateOf<LayoutCoordinates?>(null) }
     Icon(
         Icons.Filled.UnfoldMore,
         contentDescription = stringResource(R.string.dashboard_edit_resize),
@@ -746,16 +792,22 @@ private fun GroessenGriff(
             .size(width = 72.dp, height = 36.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.primary)
+            .onGloballyPositioned { lage = it }
             .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragStart = { beginnen() },
-                    onDragEnd = { loslassen() },
-                    onDragCancel = { loslassen() },
-                    onVerticalDrag = { change, weg ->
-                        change.consume()
-                        ziehen(weg)
-                    },
-                )
+                awaitEachGesture {
+                    val runter = awaitFirstDown()
+                    runter.consume()
+                    val start = lage ?: return@awaitEachGesture
+                    beginnen(start.localToRoot(runter.position).y)
+                    while (true) {
+                        val ereignis = awaitPointerEvent()
+                        val c = ereignis.changes.firstOrNull { it.id == runter.id } ?: break
+                        if (!c.pressed) break
+                        c.consume()
+                        lage?.let { ziehen(it.localToRoot(c.position).y) }
+                    }
+                    loslassen()
+                }
             }
             .padding(4.dp),
     )
