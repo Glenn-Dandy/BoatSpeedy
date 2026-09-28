@@ -51,10 +51,20 @@ Saale tragen 44 km am Stück dieses Merkmal, gemeint gegen Motoren. Solche Absch
 kosten bei der Wegsuche das Dreifache, damit der freie Weg gewinnt, wo es einen gibt, und
 werden rot gezeichnet, wo es keinen gibt.
 
-**Auf dem Weg.** Schleusen und Wehre stehen mit Anzahl unten links und als Symbol auf der
-Karte. Eine Schleuse antippen zeigt Öffnungszeiten, Telefon, Funkkanal und Kammermaß, so
-wie OpenStreetMap sie führt. Seezeichen sind ebenfalls antippbar, Geschwindigkeitsschilder
-zeigen ihren Wert.
+**Auf dem Weg.** Schleusen, Wehre und Brücken mit Durchfahrtshöhe stehen ab Zoomstufe 11
+auf der Karte, auch ohne Route. Eine Schleuse antippen zeigt Öffnungszeiten, Telefon,
+Funkkanal und Kammermaß, so wie OpenStreetMap sie führt; das Symbol sitzt in der Mitte der
+Kammer, bei Doppelschleusen je Kammer eines. Ein- und Ausstiege und Slipanlagen folgen ab
+Zoomstufe 13, Wasserkraftanlagen haben ein eigenes Symbol. Seezeichen sind antippbar,
+Geschwindigkeitsschilder zeigen ihren Wert. Winkel auf den Flüssen zeigen die
+Fließrichtung, unten links steht, wie viel der Route flussauf und flussab geht.
+
+**Wehre und Umtragen.** Ein Wehr sperrt die Route nicht, es kostet: Jede Schleuse und jede
+Umtragung gewinnt dagegen, und wo es nichts gibt, führt die Strecke hindurch und sagt es.
+Im Kanu geht die Route ums Wehr herum, über die Umtragewege aus OpenStreetMap oder von
+Anleger zu Anleger, grün gestrichelt und mit Metern unten links. Durch Wasserkraftanlagen
+führt sie nie, und im Kanu zieht sie den Fluss dem Mühlgraben vor. Gezählt werden nur
+Wehre, die die Strecke wirklich kreuzt.
 
 **Karte.** Norden oben oder Fahrtrichtung oben, umschaltbar in der Titelzeile. Marker und
 Karte gleiten wie bei einem Navigationsgerät: Aus Fahrt und Kurs wird fortlaufend
@@ -104,25 +114,28 @@ Entwickelt und geprüft an einer EcoWorthy LiFePO4 100 Ah mit JBD-BMS.
 | JBD, Redodo/LiTime/Power Queen | ✅ an Hardware geprüft |
 | Coulometer mit Hall-Sensor | ✅ an Hardware geprüft |
 | Routing, Kacheln, Schleusen | ✅ im Feld geprüft (Saale, Rhein, Main) |
+| Umtragen, Wasserkraftanlagen | ✅ geprüft an der Saale |
 | Daly-BMS | ⚠️ experimentell, UUIDs aus Doku, ungetestet |
 | JK/Jikong-BMS | ⚠️ experimentell, v. a. JK02-Offsets, ungetestet |
 | Reihe und Parallel mehrerer Akkus | ⚠️ ungetestet an echtem Aufbau |
 
-Die Routenqualität hängt an OpenStreetMap. Tiefen und Durchfahrtshöhen stehen dort nicht;
-die Route ist ein Vorschlag, kein Fahrwasser.
+Die Routenqualität hängt an OpenStreetMap. Tiefen stehen dort nicht, Durchfahrtshöhen nur
+an manchen Brücken; die Route ist ein Vorschlag, kein Fahrwasser.
 
 ## Offen
 
 - [ ] Reihe und Parallel an echtem Mehr-Akku-Aufbau prüfen
 - [ ] Daly und JK an Hardware kalibrieren, die eingebaute BLE-Diagnose liefert den Bericht
-- [ ] F-Droid: Aufnahme läuft ([MR 44527](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44527))
-- [ ] Schleusen auch ohne gesetzte Route auf der Karte zeigen
 
 Vollständig in [`TODO.md`](TODO.md), Änderungen in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Installieren
 
-Die App ist nicht im Play Store, die signierte APK wird direkt installiert.
+Am einfachsten über [F-Droid](https://f-droid.org/packages/de.kewl.boatspeedy/), dort kommen
+auch die Aktualisierungen. F-Droid liefert dieselbe signierte APK wie GitHub, beide lassen
+sich übereinander installieren.
+
+Oder direkt von GitHub:
 
 1. [Neuestes Release](https://github.com/Glenn-Dandy/BoatSpeedy/releases/latest) öffnen,
    `BoatSpeedy-…-release.apk` unter **Assets** laden.
@@ -142,7 +155,7 @@ Braucht JDK 17 und das Android SDK.
 ```bash
 ./gradlew assembleDebug      # Debug-APK
 ./gradlew assembleRelease    # signierte Release-APK, braucht keystore.properties
-./gradlew test               # 122 Unit-Tests
+./gradlew test               # 184 Unit-Tests
 ```
 
 Ergebnis in `app/build/outputs/apk/`. Die Bauten sind reproduzierbar: kein `vcsInfo`,
@@ -167,7 +180,7 @@ keine `dependenciesInfo`.
 
 | | |
 |---|---|
-| `ACCESS_FINE_LOCATION` | GPS für Tempo und Satelliten |
+| `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` | GPS für Tempo und Satelliten; seit Android 12 werden beide zusammen angefragt |
 | `FOREGROUND_SERVICE`, `…_LOCATION` | Messen während der Fahrt |
 | `POST_NOTIFICATIONS` | Fahrt, Anker, Wetter, Laden (ab Android 13) |
 | `INTERNET`, `ACCESS_NETWORK_STATE` | Kartenkacheln, Wetter, Kartendaten, Update-Prüfung |
@@ -224,9 +237,20 @@ For a canoe a bare `boat=no` is a hint rather than a stop: on the upper Saale 44
 it in one stretch, aimed at engines. Such sections cost triple when routes are compared,
 so a free way wins where one exists, and they are drawn in red where none does.
 
-**Along the way.** Locks and weirs are counted at the bottom left and marked on the map.
-Tapping a lock shows opening hours, phone number, VHF channel and chamber size as
-OpenStreetMap records them. Seamarks are tappable too, and speed signs show their number.
+**Along the way.** Locks, weirs and bridges with a clearance height appear on the map from
+zoom 11, with no route set. Tapping a lock shows opening hours, phone number, VHF channel
+and chamber size as OpenStreetMap records them; the symbol sits in the middle of the
+chamber, one per chamber on double locks. Put-ins, egress points and slipways follow from
+zoom 13, hydro power plants have their own symbol. Seamarks are tappable, speed signs show
+their number. Chevrons on rivers show the flow, and the box at the bottom left says how
+much of the route runs upstream and downstream.
+
+**Weirs and portage.** A weir does not block the route, it costs: every lock and every
+portage wins against it, and where there is nothing, the route goes through and says so.
+In a canoe the route goes around the weir, along the portage paths from OpenStreetMap or
+from landing to landing, green dashed and with the metres at the bottom left. It never runs
+through a hydro power plant, and in a canoe it prefers the river to the mill race. Only
+weirs the route actually crosses are counted.
 
 **Map.** North up or course up, switched from the title bar. Marker and map glide the way
 a navigation device does: speed and heading are used to compute where the boat is now
@@ -275,25 +299,28 @@ Developed and verified against an EcoWorthy LiFePO4 100 Ah with a JBD BMS.
 | JBD, Redodo/LiTime/Power Queen | ✅ verified on hardware |
 | Coulometer with Hall sensor | ✅ verified on hardware |
 | Routing, tiles, locks | ✅ field-tested (Saale, Rhine, Main) |
+| Portage, hydro power plants | ✅ tested on the Saale |
 | Daly BMS | ⚠️ experimental, UUIDs from docs, untested |
 | JK/Jikong BMS | ⚠️ experimental, JK02 offsets above all, untested |
 | Series and parallel packs | ⚠️ untested on a real setup |
 
-Route quality depends on OpenStreetMap. Depths and clearances are not in it; a route is a
-suggestion, not a fairway.
+Route quality depends on OpenStreetMap. Depths are not in it, clearances only at some
+bridges; a route is a suggestion, not a fairway.
 
 ### Open
 
 - [ ] Verify series and parallel on a real multi-pack setup
 - [ ] Calibrate Daly and JK against hardware, the built-in BLE diagnostic produces the report
-- [ ] F-Droid: submission in progress ([MR 44527](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/44527))
-- [ ] Show locks on the map without a route set
 
 Full list in [`TODO.md`](TODO.md), changes in [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Install
 
-The app is not on the Play Store, so the signed APK is installed directly.
+Easiest through [F-Droid](https://f-droid.org/packages/de.kewl.boatspeedy/), which also
+brings the updates. F-Droid ships the same signed APK as GitHub, so either can be
+installed over the other.
+
+Or straight from GitHub:
 
 1. Open the [latest release](https://github.com/Glenn-Dandy/BoatSpeedy/releases/latest)
    and download `BoatSpeedy-…-release.apk` under **Assets**.
@@ -311,7 +338,7 @@ Needs JDK 17 and the Android SDK.
 ```bash
 ./gradlew assembleDebug      # debug APK
 ./gradlew assembleRelease    # signed release APK, needs keystore.properties
-./gradlew test               # 122 unit tests
+./gradlew test               # 184 unit tests
 ```
 
 Output in `app/build/outputs/apk/`. Builds are reproducible: no `vcsInfo`, no
