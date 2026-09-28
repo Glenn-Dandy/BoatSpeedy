@@ -1,10 +1,44 @@
 package de.kewl.boatspeedy.ui
 
+import android.os.SystemClock
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -90,7 +124,63 @@ fun DashboardScreen(
     onStopTrip: () -> Unit,
     onOpenMenu: () -> Unit,
     onOpenMap: () -> Unit,
+    onHideTile: (DashboardTile) -> Unit = {},
+    onOrderChange: (String) -> Unit = {},
+    onMapSizeChange: (Int) -> Unit = {},
 ) {
+    // **Anordnen.** Drei Sekunden ruhig halten öffnet es, nur „Fertig" schließt es. In
+    // einem schaukelnden Boot passiert ein kurzer langer Druck schnell aus Versehen;
+    // jedes Wischen bricht das Halten deshalb ab.
+    var bearbeiten by remember { mutableStateOf(false) }
+    var halten by remember { mutableStateOf<Pair<Offset, Float>?>(null) }
+    val gespeichert = remember(settings.dashboardOrder) { reihenfolgeAus(settings.dashboardOrder) }
+    var reihe by remember(gespeichert) { mutableStateOf(gespeichert) }
+    fun sichtbar(t: DashboardTile) = when (t) {
+        DashboardTile.RANGE -> settings.showRangeTile
+        DashboardTile.BATTERY -> settings.showBatteryTile
+        DashboardTile.MAP -> settings.showMapTile
+        DashboardTile.TRIP -> settings.showTripTile
+    }
+    val hoehen = remember { mutableStateMapOf<DashboardTile, Int>() }
+    // Die Kartenhöhe beim Ziehen, stufenlos; beim Loslassen rastet sie ein.
+    val stufenHoehe = KARTEN_HOEHEN_DP[settings.mapTileSize.coerceIn(KARTEN_HOEHEN_DP.indices)].toFloat()
+    var kartenHoehe by remember(stufenHoehe) { mutableFloatStateOf(stufenHoehe) }
+    val dichte = LocalDensity.current
+    var gezogen by remember { mutableStateOf<DashboardTile?>(null) }
+    var zugY by remember { mutableFloatStateOf(0f) }
+    val abstandPx = with(LocalDensity.current) { 12.dp.toPx() }
+    val wackeln = if (bearbeiten) {
+        rememberInfiniteTransition(label = "wackeln").animateFloat(
+            initialValue = -0.6f,
+            targetValue = 0.6f,
+            animationSpec = infiniteRepeatable(tween(140), RepeatMode.Reverse),
+            label = "wackeln",
+        ).value
+    } else {
+        0f
+    }
+
+    /** Zieht die Kachel über die Mitte ihrer Nachbarin, tauschen beide den Platz. */
+    fun tauschen(tile: DashboardTile) {
+        val sicht = reihe.filter(::sichtbar)
+        val i = sicht.indexOf(tile)
+        if (zugY > 0 && i < sicht.lastIndex) {
+            val nachbarin = sicht[i + 1]
+            val h = (hoehen[nachbarin] ?: 0) + abstandPx
+            if (zugY > h / 2) {
+                reihe = verschoben(reihe, reihe.indexOf(tile), reihe.indexOf(nachbarin))
+                zugY -= h
+            }
+        } else if (zugY < 0 && i > 0) {
+            val nachbarin = sicht[i - 1]
+            val h = (hoehen[nachbarin] ?: 0) + abstandPx
+            if (-zugY > h / 2) {
+                reihe = verschoben(reihe, reihe.indexOf(tile), reihe.indexOf(nachbarin))
+                zugY += h
+            }
+        }
+    }
+
     Scaffold { innerPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
 
@@ -130,62 +220,353 @@ fun DashboardScreen(
             }
 
             // --- Scrollbarer Rest ---
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Spacer(Modifier.height(16.dp))
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .stillesHalten(
+                            aktiv = !bearbeiten,
+                            onFortschritt = { halten = it },
+                            onAusgeloest = { bearbeiten = true },
+                        )
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Spacer(Modifier.height(16.dp))
 
-                // Zielzeile – erscheint nur, wenn ein Ziel gesetzt ist, und sitzt damit
-                // direkt unter der großen Zahl, wo beim Fahren ohnehin hingeschaut wird.
-                NavRow(
-                    lat = gps.latitude,
-                    lon = gps.longitude,
-                    tripDistanceM = tripStats.distanceM,
-                    tripChargeAh = tripStats.chargeAh,
-                )
+                    if (bearbeiten) {
+                        Text(
+                            stringResource(R.string.dashboard_edit_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
+                    }
 
-                if (weatherWarnings.isNotEmpty()) {
-                    WeatherBanner(weatherWarnings)
-                    Spacer(Modifier.height(12.dp))
-                }
-
-                if (settings.showRangeTile) {
-                    if (charge.charging) ChargeTile(charge) else RangeTile(range)
-                    Spacer(Modifier.height(12.dp))
-                }
-                if (settings.showBatteryTile) {
-                    BatterySelectorRow(batteryOptions, selectedBattery, onSelectBattery)
-                    BatteryTile(batteryData, settings.lowSocPercent)
-                    Spacer(Modifier.height(12.dp))
-                }
-                if (settings.showMapTile) {
-                    MapMiniTile(livePoints, gps.latitude, gps.longitude, gps.speedMs, settings.mapOrientation, onOpenMap)
-                    Spacer(Modifier.height(12.dp))
-                }
-
-                if (tracking || tripStats.hasData) {
-                    StatsPanel(stats = tripStats, settings = settings, showConsumption = batteryData != null)
-                    Spacer(Modifier.height(12.dp))
-                }
-                // Auto-Pause-Status als kompakter Chip – antippen schaltet um
-                // (links: aktueller Zustand, rechts: was das Antippen bewirkt).
-                if (tracking && (settings.autoPauseOn || autoPauseOverride)) {
-                    AutoPauseChip(
-                        paused = tripPaused,
-                        onToggle = { onAutoPauseOverride(!autoPauseOverride) },
+                    // Zielzeile und Wetterwarnung stehen fest oben: Sie erscheinen nur, wenn
+                    // sie gebraucht werden, und dann gehören sie direkt unter die große Zahl.
+                    NavRow(
+                        lat = gps.latitude,
+                        lon = gps.longitude,
+                        tripDistanceM = tripStats.distanceM,
+                        tripChargeAh = tripStats.chargeAh,
                     )
-                    Spacer(Modifier.height(12.dp))
+
+                    if (weatherWarnings.isNotEmpty()) {
+                        WeatherBanner(weatherWarnings)
+                        Spacer(Modifier.height(12.dp))
+                    }
+
+                    for (tile in reihe.filter(::sichtbar)) {
+                        key(tile) {
+                            val istGezogen = gezogen == tile
+                            BearbeitbareKachel(
+                                bearbeiten = bearbeiten,
+                                modifier = Modifier
+                                    .onGloballyPositioned { hoehen[tile] = it.size.height }
+                                    .zIndex(if (istGezogen) 1f else 0f)
+                                    .graphicsLayer {
+                                        translationY = if (istGezogen) zugY else 0f
+                                        rotationZ = if (istGezogen) 0f else wackeln
+                                        val g = if (istGezogen) 1.03f else 1f
+                                        scaleX = g
+                                        scaleY = g
+                                    },
+                                griff = Modifier.pointerInput(bearbeiten) {
+                                    if (!bearbeiten) return@pointerInput
+                                    detectDragGestures(
+                                        onDragStart = {
+                                            gezogen = tile
+                                            zugY = 0f
+                                        },
+                                        onDrag = { change, weg ->
+                                            change.consume()
+                                            zugY += weg.y
+                                            tauschen(tile)
+                                        },
+                                        onDragEnd = {
+                                            gezogen = null
+                                            zugY = 0f
+                                            onOrderChange(reihenfolgeText(reihe))
+                                        },
+                                        onDragCancel = {
+                                            gezogen = null
+                                            zugY = 0f
+                                        },
+                                    )
+                                },
+                                onAusblenden = { onHideTile(tile) },
+                                // Nur die Karte lässt sich in der Größe ziehen, am Griff unten.
+                                zusatz = if (tile == DashboardTile.MAP) {
+                                    {
+                                        GroessenGriff(
+                                            modifier = Modifier.align(Alignment.BottomCenter),
+                                            onZiehen = { weg ->
+                                                val dp = with(dichte) { weg.toDp().value }
+                                                kartenHoehe = (kartenHoehe + dp).coerceIn(
+                                                    KARTEN_HOEHEN_DP.first() - 20f,
+                                                    KARTEN_HOEHEN_DP.last() + 20f,
+                                                )
+                                            },
+                                            onLoslassen = {
+                                                val neu = naechsteKartenStufe(kartenHoehe)
+                                                kartenHoehe = KARTEN_HOEHEN_DP[neu].toFloat()
+                                                onMapSizeChange(neu)
+                                            },
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
+                            ) {
+                                when (tile) {
+                                    DashboardTile.RANGE ->
+                                        if (charge.charging) ChargeTile(charge) else RangeTile(range)
+                                    DashboardTile.BATTERY -> Column {
+                                        BatterySelectorRow(batteryOptions, selectedBattery, onSelectBattery)
+                                        BatteryTile(batteryData, settings.lowSocPercent)
+                                    }
+                                    DashboardTile.MAP -> MapMiniTile(
+                                        livePoints, gps.latitude, gps.longitude, gps.speedMs,
+                                        settings.mapOrientation, onOpenMap,
+                                        hoeheDp = kartenHoehe,
+                                        bearbeiten = bearbeiten,
+                                    )
+                                    DashboardTile.TRIP -> TripTile(
+                                        tracking = tracking,
+                                        stats = tripStats,
+                                        settings = settings,
+                                        showConsumption = batteryData != null,
+                                        paused = tripPaused,
+                                        autoPauseShown = tracking && (settings.autoPauseOn || autoPauseOverride),
+                                        onAutoPauseToggle = { onAutoPauseOverride(!autoPauseOverride) },
+                                        onStart = onStartTrip,
+                                        onStop = onStopTrip,
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                        }
+                    }
+
+                    // Ohne Fahrt-Kachel bleibt der Knopf: Eine Fahrt muss sich immer starten
+                    // lassen, auch wenn jemand die Kachel ausgeblendet hat.
+                    if (!settings.showTripTile) {
+                        if (tracking && (settings.autoPauseOn || autoPauseOverride)) {
+                            AutoPauseChip(
+                                paused = tripPaused,
+                                onToggle = { onAutoPauseOverride(!autoPauseOverride) },
+                            )
+                            Spacer(Modifier.height(12.dp))
+                        }
+                        TripButton(tracking = tracking, onStart = onStartTrip, onStop = onStopTrip)
+                        Spacer(Modifier.height(16.dp))
+                    }
+                    StatusRow(gps = gps, showSatDetails = settings.showSatDetails)
+                    Spacer(Modifier.height(if (bearbeiten) 112.dp else 16.dp))
                 }
-                TripButton(tracking = tracking, onStart = onStartTrip, onStop = onStopTrip)
-                Spacer(Modifier.height(16.dp))
-                StatusRow(gps = gps, showSatDetails = settings.showSatDetails)
-                Spacer(Modifier.height(16.dp))
+
+                halten?.let { (wo, anteil) -> HalteRing(wo, anteil) }
+
+                if (bearbeiten) {
+                    FloatingActionButton(
+                        onClick = { bearbeiten = false },
+                        shape = CircleShape,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 24.dp)
+                            .size(72.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = stringResource(R.string.dashboard_edit_done),
+                            modifier = Modifier.size(36.dp),
+                        )
+                    }
+                }
             }
+        }
+    }
+}
+
+/** Bis zum Ausblenden des Rings vergeht so viel Zeit: Kurze Tipper sollen ihn nicht zeigen. */
+private const val RING_AB_MS = 400L
+
+/** So lange muss der Finger ruhig liegen, bis das Anordnen beginnt. */
+private const val HALTEN_MS = 3_000L
+
+/**
+ * Erkennt ruhiges Halten: [HALTEN_MS] lang ein Finger, der sich nicht über die Tipp-Toleranz
+ * hinaus bewegt. Wischen, Scrollen, ein zweiter Finger oder Loslassen brechen ab.
+ *
+ * Die Ereignisse werden nur **mitgelesen**, nicht verbraucht: Tippen und Scrollen gehen
+ * wie gewohnt weiter. Erst wenn das Halten auslöst, gehört das Loslassen dem Anordnen;
+ * sonst löste es zusätzlich einen Klick auf Knopf oder Karte aus.
+ */
+private fun Modifier.stillesHalten(
+    aktiv: Boolean,
+    onFortschritt: (Pair<Offset, Float>?) -> Unit,
+    onAusgeloest: () -> Unit,
+): Modifier = pointerInput(aktiv) {
+    if (!aktiv) return@pointerInput
+    awaitEachGesture {
+        val runter = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        val start = runter.position
+        val beginn = SystemClock.uptimeMillis()
+        val toleranz = viewConfiguration.touchSlop
+        var ausgeloest = false
+        while (true) {
+            val ereignis = withTimeoutOrNull(50) { awaitPointerEvent(PointerEventPass.Initial) }
+            if (ereignis != null) {
+                if (ereignis.changes.size > 1) break
+                val c = ereignis.changes.firstOrNull { it.id == runter.id } ?: break
+                if (!c.pressed || (c.position - start).getDistance() > toleranz) break
+            }
+            val vergangen = SystemClock.uptimeMillis() - beginn
+            if (vergangen >= RING_AB_MS) {
+                onFortschritt(start to ((vergangen - RING_AB_MS).toFloat() / (HALTEN_MS - RING_AB_MS)).coerceIn(0f, 1f))
+            }
+            if (vergangen >= HALTEN_MS) {
+                ausgeloest = true
+                break
+            }
+        }
+        onFortschritt(null)
+        if (ausgeloest) {
+            onAusgeloest()
+            do {
+                val e = awaitPointerEvent(PointerEventPass.Initial)
+                e.changes.forEach { it.consume() }
+            } while (e.changes.any { it.pressed })
+        }
+    }
+}
+
+/** Der Ring unter dem Finger, der sich beim ruhigen Halten füllt. */
+@Composable
+private fun HalteRing(wo: Offset, anteil: Float) {
+    val halb = with(LocalDensity.current) { 32.dp.toPx() }
+    CircularProgressIndicator(
+        progress = { anteil },
+        strokeWidth = 5.dp,
+        modifier = Modifier
+            .offset { IntOffset((wo.x - halb).roundToInt(), (wo.y - halb * 2.2f).roundToInt()) }
+            .size(64.dp),
+    )
+}
+
+/**
+ * Eine Kachel im Anordnen: Griff oben links zum Verschieben, Knopf oben rechts zum
+ * Ausblenden. Der Inhalt nimmt dabei keine Tipper an, damit beim Anordnen keine Fahrt
+ * startet und die Karte nicht aufgeht; Scrollen geht weiter.
+ */
+@Composable
+private fun BearbeitbareKachel(
+    bearbeiten: Boolean,
+    modifier: Modifier,
+    griff: Modifier,
+    onAusblenden: () -> Unit,
+    zusatz: (@Composable BoxScope.() -> Unit)? = null,
+    inhalt: @Composable () -> Unit,
+) {
+    Box(modifier = modifier.fillMaxWidth()) {
+        inhalt()
+        if (bearbeiten) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .pointerInput(Unit) { detectTapGestures { } },
+            )
+            Icon(
+                Icons.Filled.DragHandle,
+                contentDescription = stringResource(R.string.dashboard_edit_move),
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(6.dp)
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .then(griff)
+                    .padding(8.dp),
+            )
+            Icon(
+                Icons.Filled.VisibilityOff,
+                contentDescription = stringResource(R.string.dashboard_edit_hide),
+                tint = MaterialTheme.colorScheme.onError,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.error)
+                    .clickable(onClick = onAusblenden)
+                    .padding(9.dp),
+            )
+            // Über der Sperrschicht, sonst käme kein Ziehen bei ihm an.
+            zusatz?.invoke(this)
+        }
+    }
+}
+
+/** Der Griff unten an der Karte, mit dem sich ihre Höhe ziehen lässt. */
+@Composable
+private fun GroessenGriff(modifier: Modifier, onZiehen: (Float) -> Unit, onLoslassen: () -> Unit) {
+    Icon(
+        Icons.Filled.UnfoldMore,
+        contentDescription = stringResource(R.string.dashboard_edit_resize),
+        tint = MaterialTheme.colorScheme.onPrimary,
+        modifier = modifier
+            .padding(6.dp)
+            .size(width = 72.dp, height = 36.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary)
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = onLoslassen,
+                    onDragCancel = onLoslassen,
+                    onVerticalDrag = { change, weg ->
+                        change.consume()
+                        onZiehen(weg)
+                    },
+                )
+            }
+            .padding(4.dp),
+    )
+}
+
+/** Die Fahrt als Kachel, wie Batterie und Reichweite: Knopf, Zahlen und Auto-Pause. */
+@Composable
+private fun TripTile(
+    tracking: Boolean,
+    stats: TripStats,
+    settings: Settings,
+    showConsumption: Boolean,
+    paused: Boolean,
+    autoPauseShown: Boolean,
+    onAutoPauseToggle: () -> Unit,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                stringResource(R.string.tile_trip),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (tracking || stats.hasData) {
+                StatsPanel(stats = stats, settings = settings, showConsumption = showConsumption)
+            }
+            if (autoPauseShown) AutoPauseChip(paused = paused, onToggle = onAutoPauseToggle)
+            TripButton(tracking = tracking, onStart = onStart, onStop = onStop)
         }
     }
 }
@@ -198,9 +579,11 @@ private fun MapMiniTile(
     speedMs: Float?,
     orientation: de.kewl.boatspeedy.data.MapOrientation,
     onOpenMap: () -> Unit,
+    hoeheDp: Float = KARTEN_HOEHEN_DP[1].toFloat(),
+    bearbeiten: Boolean = false,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
-        Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(hoeheDp.dp)) {
             // Der Weg zum Ziel gehört auch auf die kleine Kachel – sonst müsste man für
             // einen Blick darauf jedes Mal die große Karte öffnen.
             val navTarget by de.kewl.boatspeedy.nav.NavRepository.target.collectAsStateWithLifecycle()
@@ -219,7 +602,7 @@ private fun MapMiniTile(
             )
             // Nicht-interaktive Vorschau: Overlay fängt den Tap (→ große Karte),
             // vertikales Ziehen wandert an das Dashboard-Scrollen weiter.
-            Box(modifier = Modifier.matchParentSize().clickable(onClick = onOpenMap))
+            Box(modifier = Modifier.matchParentSize().clickable(enabled = !bearbeiten, onClick = onOpenMap))
         }
     }
 }
@@ -406,8 +789,8 @@ private fun StatsPanel(stats: TripStats, settings: Settings, showConsumption: Bo
 @Composable
 private fun StatItem(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
-        Text(value, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+        Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+        Text(value, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 

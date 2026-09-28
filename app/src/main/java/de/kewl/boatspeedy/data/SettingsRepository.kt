@@ -32,6 +32,9 @@ class SettingsRepository(private val context: Context) {
         val SHOW_BATTERY_TILE = booleanPreferencesKey("show_battery_tile")
         val SHOW_RANGE_TILE = booleanPreferencesKey("show_range_tile")
         val SHOW_MAP_TILE = booleanPreferencesKey("show_map_tile")
+        val SHOW_TRIP_TILE = booleanPreferencesKey("show_trip_tile")
+        val DASHBOARD_ORDER = stringPreferencesKey("dashboard_order")
+        val MAP_TILE_SIZE = intPreferencesKey("map_tile_size")
         val TRACK_COLOR = stringPreferencesKey("track_color")
         val TRACK_WIDTH = stringPreferencesKey("track_width")
         val TRACK_ARROWS = booleanPreferencesKey("track_arrows")
@@ -74,6 +77,9 @@ class SettingsRepository(private val context: Context) {
             showBatteryTile = p[Keys.SHOW_BATTERY_TILE] ?: true,
             showRangeTile = p[Keys.SHOW_RANGE_TILE] ?: true,
             showMapTile = p[Keys.SHOW_MAP_TILE] ?: true,
+            showTripTile = p[Keys.SHOW_TRIP_TILE] ?: true,
+            dashboardOrder = p[Keys.DASHBOARD_ORDER] ?: "",
+            mapTileSize = p[Keys.MAP_TILE_SIZE] ?: 1,
             trackColor = p[Keys.TRACK_COLOR]?.let { enumOrNull<TrackColor>(it) } ?: TrackColor.BLUE,
             trackWidth = p[Keys.TRACK_WIDTH]?.let { enumOrNull<TrackWidth>(it) } ?: TrackWidth.NORMAL,
             trackArrows = p[Keys.TRACK_ARROWS] ?: true,
@@ -117,6 +123,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setShowBatteryTile(value: Boolean) = edit { it[Keys.SHOW_BATTERY_TILE] = value }
     suspend fun setShowRangeTile(value: Boolean) = edit { it[Keys.SHOW_RANGE_TILE] = value }
     suspend fun setShowMapTile(value: Boolean) = edit { it[Keys.SHOW_MAP_TILE] = value }
+    suspend fun setShowTripTile(value: Boolean) = edit { it[Keys.SHOW_TRIP_TILE] = value }
+    suspend fun setDashboardOrder(value: String) = edit { it[Keys.DASHBOARD_ORDER] = value }
+    suspend fun setMapTileSize(value: Int) = edit { it[Keys.MAP_TILE_SIZE] = value }
     suspend fun setTrackColor(value: TrackColor) = edit { it[Keys.TRACK_COLOR] = value.name }
     suspend fun setTrackWidth(value: TrackWidth) = edit { it[Keys.TRACK_WIDTH] = value.name }
     suspend fun setTrackArrows(value: Boolean) = edit { it[Keys.TRACK_ARROWS] = value }

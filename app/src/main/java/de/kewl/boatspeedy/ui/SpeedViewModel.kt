@@ -431,6 +431,9 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowBatteryTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowBatteryTile(v) }
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }
     fun setShowMapTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowMapTile(v) }
+    fun setShowTripTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowTripTile(v) }
+    fun setDashboardOrder(v: String) = viewModelScope.launch { settingsRepo.setDashboardOrder(v) }
+    fun setMapTileSize(v: Int) = viewModelScope.launch { settingsRepo.setMapTileSize(v) }
     fun setTrackColor(v: de.kewl.boatspeedy.data.TrackColor) = viewModelScope.launch { settingsRepo.setTrackColor(v) }
     fun setTrackWidth(v: de.kewl.boatspeedy.data.TrackWidth) = viewModelScope.launch { settingsRepo.setTrackWidth(v) }
     fun setTrackArrows(v: Boolean) = viewModelScope.launch { settingsRepo.setTrackArrows(v) }

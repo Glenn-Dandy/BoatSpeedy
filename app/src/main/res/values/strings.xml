@@ -97,8 +97,15 @@
     <string name="tile_battery">Battery</string>
     <string name="tile_range">Range &amp; time</string>
     <string name="tile_map">Map</string>
+    <string name="tile_trip">Trip</string>
+    <string name="dashboard_edit_hint">Drag the handle to move, the eye hides a tile. Show it again under Settings, Dashboard.</string>
+    <string name="dashboard_edit_done">Done</string>
+    <string name="dashboard_edit_move">Move</string>
+    <string name="dashboard_edit_hide">Hide</string>
+    <string name="dashboard_edit_resize">Drag to resize</string>
+    <string name="dashboard_edit_how">To arrange, hold a tile on the dashboard still for three seconds.</string>
     <string name="cat_gps_desc">Satellites, accuracy, course, signal</string>
-    <string name="live_map">Live map</string>
+    <string name="live_map">Navigation</string>
     <string name="gps_live_title">Live GPS</string>
     <string name="gps_satellites">Satellites</string>
     <string name="accuracy_label_short">Accuracy</string>

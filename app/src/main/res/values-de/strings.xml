@@ -95,8 +95,15 @@
     <string name="tile_battery">Batterie</string>
     <string name="tile_range">Reichweite &amp; Zeit</string>
     <string name="tile_map">Karte</string>
+    <string name="tile_trip">Fahrt</string>
+    <string name="dashboard_edit_hint">Am Griff ziehen zum Verschieben, das Auge blendet aus. Wieder einblenden unter Einstellungen, Dashboard.</string>
+    <string name="dashboard_edit_done">Fertig</string>
+    <string name="dashboard_edit_move">Verschieben</string>
+    <string name="dashboard_edit_hide">Ausblenden</string>
+    <string name="dashboard_edit_resize">Größe ziehen</string>
+    <string name="dashboard_edit_how">Zum Anordnen eine Kachel auf dem Dashboard drei Sekunden ruhig halten.</string>
     <string name="cat_gps_desc">Satelliten, Genauigkeit, Kurs, Signal</string>
-    <string name="live_map">Live-Karte</string>
+    <string name="live_map">Navigation</string>
     <string name="gps_live_title">GPS live</string>
     <string name="gps_satellites">Satelliten</string>
     <string name="accuracy_label_short">Genauigkeit</string>

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
@@ -317,6 +318,7 @@ private fun BoatSpeedyApp(
                         )
                         HorizontalDivider()
                         DrawerItem(R.string.nav_speed, Icons.Filled.Speed, screen == Screen.SPEED) { goTo(Screen.SPEED) }
+                        DrawerItem(R.string.live_map, Icons.Filled.Map, screen == Screen.LIVE_MAP) { goTo(Screen.LIVE_MAP) }
                         DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen.name.startsWith("TRIP")) { goTo(Screen.TRIPS) }
                         DrawerItem(R.string.nav_battery, Icons.Filled.BatteryFull, screen == Screen.BATTERY) { goTo(Screen.BATTERY) }
                         DrawerItem(R.string.nav_anchor, Icons.Filled.Anchor, screen == Screen.ANCHOR) { goTo(Screen.ANCHOR) }
@@ -358,6 +360,7 @@ private fun BoatSpeedyApp(
                         onShowBatteryTile = vm::setShowBatteryTile,
                         onShowRangeTile = vm::setShowRangeTile,
                         onShowMapTile = vm::setShowMapTile,
+                        onShowTripTile = vm::setShowTripTile,
                         onShowSatDetails = vm::setShowSatDetails,
                         onBack = { screen = Screen.SETTINGS },
                     )
@@ -581,6 +584,16 @@ private fun BoatSpeedyApp(
                             onStopTrip = vm::stopTrip,
                             onOpenMenu = { openDrawer() },
                             onOpenMap = { screen = Screen.LIVE_MAP },
+                            onHideTile = { tile ->
+                                when (tile) {
+                                    de.kewl.boatspeedy.ui.DashboardTile.RANGE -> vm.setShowRangeTile(false)
+                                    de.kewl.boatspeedy.ui.DashboardTile.BATTERY -> vm.setShowBatteryTile(false)
+                                    de.kewl.boatspeedy.ui.DashboardTile.MAP -> vm.setShowMapTile(false)
+                                    de.kewl.boatspeedy.ui.DashboardTile.TRIP -> vm.setShowTripTile(false)
+                                }
+                            },
+                            onOrderChange = vm::setDashboardOrder,
+                            onMapSizeChange = vm::setMapTileSize,
                         )
                     }
                 }

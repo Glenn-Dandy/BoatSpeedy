@@ -176,6 +176,7 @@ fun DashboardSettingsScreen(
     onShowBatteryTile: (Boolean) -> Unit,
     onShowRangeTile: (Boolean) -> Unit,
     onShowMapTile: (Boolean) -> Unit,
+    onShowTripTile: (Boolean) -> Unit,
     onShowSatDetails: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -227,6 +228,13 @@ fun DashboardSettingsScreen(
         SwitchRow(stringResource(R.string.tile_battery), settings.showBatteryTile, onShowBatteryTile)
         SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
         SwitchRow(stringResource(R.string.tile_map), settings.showMapTile, onShowMapTile)
+        SwitchRow(stringResource(R.string.tile_trip), settings.showTripTile, onShowTripTile)
+        Text(
+            stringResource(R.string.dashboard_edit_how),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(vertical = 4.dp),
+        )
         SwitchRow(stringResource(R.string.show_sat_details), settings.showSatDetails, onShowSatDetails)
 
     }
