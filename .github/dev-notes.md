@@ -5,6 +5,10 @@
   Rechner 6,5 statt 11,9 Sekunden, auf dem Handy entsprechend.
 
 **Behoben**
+- Der Track hörte nach 10.000 Punkten mitten in der Fahrt auf, Zeit und Strecke liefen
+  weiter. Jetzt wird bei Erreichen der Grenze ausgedünnt, der Track bleibt vollständig.
+- Jede Position wurde doppelt aufgezeichnet, sobald sich Batterie oder Satelliten meldeten.
+  Das halbiert Punkte und Dateigröße und verdoppelt die Zeit bis zum Ausdünnen.
 - Nach Export und Import einer Fahrt fehlten Energie und Effizienz. Der Export schrieb die
   Energie nicht mit; ältere Exporte bringen sie deshalb auch künftig nicht zurück.
 - Der Standortdialog fragt genauen und groben Standort zusammen an, wie Android es seit
@@ -17,6 +21,10 @@
   seconds on a desktop, and the phone gains accordingly.
 
 **Fixed**
+- The track stopped after 10,000 points in the middle of a trip while time and distance
+  went on. Now it gets thinned out at the limit and stays complete.
+- Every position was recorded twice whenever the battery or the satellites reported.
+  This halves points and file size and doubles the time before thinning starts.
 - After exporting and importing a trip, energy and efficiency were missing. The export
   did not write the energy, so older exports still cannot bring it back.
 - The location dialog asks for precise and approximate location together, as Android

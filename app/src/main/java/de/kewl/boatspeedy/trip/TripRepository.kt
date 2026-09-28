@@ -53,7 +53,15 @@ object TripRepository {
     private var lastLon: Double? = null
 
     // Track-Aufzeichnung.
-    private val points = ArrayList<TrackPoint>()
+    private val points = TrackBuffer(MAX_POINTS)
+
+    /**
+     * Zeit des zuletzt verarbeiteten Fixes. Der Dienst meldet sich bei jeder Änderung von
+     * GPS, Batterie oder Einstellungen, und jedes Mal kam dieselbe Position erneut an: In
+     * einer Aufzeichnung vom 27.09. war jeder zweite Punkt eine exakte Wiederholung, und
+     * die Grenze der Punkte war nach anderthalb statt nach drei Stunden erreicht.
+     */
+    private var lastFixNanos: Long? = null
     private var tripStartEpoch = 0L
     private var tripStartRealtime = 0L
     private var lastSoc = -1
@@ -82,7 +90,8 @@ object TripRepository {
     @Volatile private var lastSpeedMs: Float = 0f
     /** zuletzt gemessener Strom – für sofortige Neubewertung beim Umschalten. */
     @Volatile private var lastAmps: Float = 0f
-    private const val MAX_POINTS = 10_000      // Obergrenze der Track-Punkte
+    /** Obergrenze der Track-Punkte; darüber wird ausgedünnt, siehe [TrackBuffer]. */
+    private const val MAX_POINTS = 20_000
     private const val MIN_SAVE_DISTANCE_M = 10.0
     private const val MIN_SAVE_DURATION_MS = 10_000L
 
@@ -95,6 +104,7 @@ object TripRepository {
         lastLat = null
         lastLon = null
         points.clear()
+        lastFixNanos = null
         _livePoints.value = emptyList()
         _autoPauseOverride.value = false
         lastSpeedMs = 0f
@@ -155,8 +165,12 @@ object TripRepository {
         if (accOk) lastSpeedMs = speed ?: 0f
         if (speed != null && accOk && speed > maxSpeedMs) maxSpeedMs = speed
 
+        // Nur ein neuer Fix zählt; eine Wiederholung derselben Position ist keiner.
+        val neuerFix = gps.fixNanos == null || gps.fixNanos != lastFixNanos
+        if (neuerFix) lastFixNanos = gps.fixNanos
+
         // Distanz nur zählen, wenn nicht pausiert.
-        if (running && speed != null) {
+        if (running && speed != null && neuerFix) {
             val acc = gps.accuracyM ?: Float.MAX_VALUE
             val lat = gps.latitude
             val lon = gps.longitude
@@ -171,19 +185,17 @@ object TripRepository {
                 }
                 lastLat = lat
                 lastLon = lon
-                if (points.size < MAX_POINTS) {
-                    points.add(
-                        TrackPoint(
-                            lat = lat,
-                            lon = lon,
-                            tMs = SystemClock.elapsedRealtime() - tripStartRealtime,
-                            speedMs = speed ?: 0f,
-                            soc = lastSoc,
-                            chargeAh = chargeAh,
-                        ),
-                    )
-                    _livePoints.value = points.toList()
-                }
+                val aufgenommen = points.add(
+                    TrackPoint(
+                        lat = lat,
+                        lon = lon,
+                        tMs = SystemClock.elapsedRealtime() - tripStartRealtime,
+                        speedMs = speed,
+                        soc = lastSoc,
+                        chargeAh = chargeAh,
+                    ),
+                )
+                if (aufgenommen) _livePoints.value = points.toList()
             }
         }
         evaluateAutoPause(SystemClock.elapsedRealtime())

@@ -36,6 +36,7 @@ class LocationProvider(private val context: Context) {
         val longitude: Double?,
         val bearingDeg: Float?,
         val altitudeM: Double?,
+        val fixNanos: Long,
     )
 
     private data class GnssSample(
@@ -52,6 +53,7 @@ class LocationProvider(private val context: Context) {
         longitude = longitude,
         bearingDeg = if (hasBearing()) bearing else null,
         altitudeM = if (hasAltitude()) altitude else null,
+        fixNanos = elapsedRealtimeNanos,
     )
 
     @SuppressLint("MissingPermission")
@@ -122,6 +124,7 @@ class LocationProvider(private val context: Context) {
             altitudeM = loc.altitudeM,
             cn0DbHz = gnss.cn0DbHz,
             constellations = gnss.constellations,
+            fixNanos = loc.fixNanos,
         )
     }
 
