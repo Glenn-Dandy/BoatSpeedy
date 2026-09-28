@@ -1,11 +1,11 @@
 # BoatSpeedy
 
 **GPS-Bootstacho und Navigation für kleine Boote.** Mit Motor, mit Paddel, mit Riemen.
-Routen entlang der Wasserwege, gerechnet auch ohne Netz. Mit Bluetooth-BMS oder
+Routen entlang der Wasserwege, im Kanu auch ums Wehr herum. Mit Bluetooth-BMS oder
 Coulometer am Akku kommen Live-Werte und Reichweite dazu.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
-![Version](https://img.shields.io/badge/version-1.4.0-blue)
+![Version](https://img.shields.io/badge/version-1.4.3-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
 ![targetSdk](https://img.shields.io/badge/targetSdk-35-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -31,11 +31,12 @@ Langer Druck auf die Karte setzt ein Ziel. Zur Wahl stehen Luftlinie oder **Rout
 der Wasserwege**, jeweils mit Entfernung und geschätztem Verbrauch in Amperestunden. Ein
 Kurspfeil zeigt, wie weit zu drehen ist.
 
-**Ohne Netz.** Die Wasserwege liegen als Kacheln auf dem Gerät, ein Grad breit und hoch.
-Ganz Europa sind 1373 Kacheln und 170 MB; ein Umkreis von 150 km rund 20 Kacheln und
-3,4 MB. Einmal geladen rechnet das Handy allein, bis 600 km Zielentfernung. Ohne Kacheln
-geht es über die Overpass-Schnittstelle, dann mit Netz und bis 60 km. Fehlende und
-veraltete Kacheln bietet die App vor einer Route an.
+**Kartendaten.** Die Wasserwege liegen als Kacheln auf dem Gerät, ein Grad breit und hoch.
+Ganz Europa sind 1376 Kacheln und 174 MB; ein Umkreis von 150 km rund 20 Kacheln und
+3,4 MB. Daraus rechnet das Handy die Route selbst, bis 600 km Zielentfernung. Ohne Kacheln
+geht es über die Overpass-Schnittstelle, bis 60 km. Fehlende und veraltete Kacheln bietet
+die App vor einer Route an. Die Karte darunter kommt von OpenStreetMap und braucht Netz.
+Der Kartenserver lässt sich unter Navigation, Kartendaten wechseln.
 
 Erzeugt werden die Kacheln aus OpenStreetMap über Geofabrik, siehe
 [boatspeedy-mapdata](https://github.com/Glenn-Dandy/boatspeedy-mapdata).
@@ -189,7 +190,7 @@ MIT, siehe [LICENSE](LICENSE).
 🇬🇧 **English** · [🇩🇪 Deutsch](#boatspeedy)
 
 **GPS boat speedometer and navigation for small boats.** Under motor, paddle or oars.
-Routes along the waterways, computed without a connection. A Bluetooth BMS or a
+Routes along the waterways, around the weir by canoe. A Bluetooth BMS or a
 coulometer on the pack adds live values and range.
 
 ### What it is for
@@ -204,11 +205,12 @@ A long press on the map sets a destination, as a straight line or a **route alon
 waterways**, each with distance and estimated amp hours. A course arrow shows how far to
 turn.
 
-**Without a connection.** The waterways sit on the device as tiles, one degree wide and
-tall. All of Europe is 1373 tiles and 170 MB; a 150 km radius about 20 tiles and 3.4 MB.
-Once loaded the phone computes on its own, up to 600 km. Without tiles it uses the
-Overpass API, which needs a connection and stops at 60 km. Missing and outdated tiles are
-offered before a route is computed.
+**Map data.** The waterways sit on the device as tiles, one degree wide and tall. All of
+Europe is 1376 tiles and 174 MB; a 150 km radius about 20 tiles and 3.4 MB. The phone
+computes the route from them itself, up to 600 km. Without tiles it uses the Overpass API,
+up to 60 km. Missing and outdated tiles are offered before a route is computed. The map
+underneath comes from OpenStreetMap and needs a connection. The map server can be changed
+under Navigation, Map data.
 
 The tiles are built from OpenStreetMap via Geofabrik, see
 [boatspeedy-mapdata](https://github.com/Glenn-Dandy/boatspeedy-mapdata).

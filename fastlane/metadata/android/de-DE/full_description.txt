@@ -2,7 +2,7 @@ GPS-Bootstacho und Navigation für kleine Boote. Mit Motor, mit Paddel, mit Riem
 
 Navigation
 * Ziel auf der Karte setzen: Luftlinie oder Route entlang der Wasserwege, mit Entfernung und geschätztem Verbrauch
-* Kartendaten aufs Gerät laden, danach Routing ohne Netz bis 600 km
+* Wasserwege als Kacheln aufs Gerät laden, Routen bis 600 km, Kartenserver wählbar
 * Fahrzeug Motorboot oder Kanu entscheidet, welche Verbote gelten
 * Schleusen und Wehre auf der Route, antippbar mit Zeiten, Telefon und Kammermaß
 * Seezeichen antippbar, Geschwindigkeitsschilder zeigen ihren Wert
