@@ -1,6 +1,10 @@
 package de.kewl.boatspeedy.ui
 
 import android.os.SystemClock
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.Job
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -152,13 +156,23 @@ fun DashboardScreen(
     var bearbeiten by remember { mutableStateOf(false) }
     var halten by remember { mutableStateOf<Pair<Offset, Float>?>(null) }
     val gespeichert = remember(settings.dashboardOrder) { reihenfolgeAus(settings.dashboardOrder) }
-    var reihe by remember(gespeichert) { mutableStateOf(gespeichert) }
+    // **Ein Zustand, der bleibt.** Die Ziehgeste wird einmal angelegt und behält, was sie
+    // beim Anlegen gesehen hat. Wurde die Reihenfolge nach dem Speichern als neues Objekt
+    // angelegt, schrieb die Geste weiter ins alte, und ab dem dritten Verschieben tauschte
+    // nichts mehr. Jetzt gibt es nur diesen einen Zustand, und das Gespeicherte wird nur
+    // übernommen, solange nicht gezogen wird.
+    var reihe by remember { mutableStateOf(gespeichert) }
+    var gezogen by remember { mutableStateOf<DashboardTile?>(null) }
+    LaunchedEffect(gespeichert) { if (gezogen == null) reihe = gespeichert }
+    val aktuelleSettings by rememberUpdatedState(settings)
+    val speichern by rememberUpdatedState(onOrderChange)
+    val tasten = LocalHapticFeedback.current
     fun sichtbar(t: DashboardTile) = when (t) {
-        DashboardTile.RANGE -> settings.showRangeTile
-        DashboardTile.BATTERY -> settings.showBatteryTile
-        DashboardTile.MAP -> settings.showMapTile
-        DashboardTile.TRIP -> settings.showTripTile
-        DashboardTile.GPS -> settings.showSatDetails
+        DashboardTile.RANGE -> aktuelleSettings.showRangeTile
+        DashboardTile.BATTERY -> aktuelleSettings.showBatteryTile
+        DashboardTile.MAP -> aktuelleSettings.showMapTile
+        DashboardTile.TRIP -> aktuelleSettings.showTripTile
+        DashboardTile.GPS -> aktuelleSettings.showSatDetails
     }
     val hoehen = remember { mutableStateMapOf<DashboardTile, Int>() }
     // Die Karte gleitet in ihre Stufe. Beim Ziehen folgt nur ein leichter Rahmen dem
@@ -166,7 +180,6 @@ fun DashboardScreen(
     val stufenHoehe = KARTEN_HOEHEN_DP[settings.mapTileSize.coerceIn(KARTEN_HOEHEN_DP.indices)].toFloat()
     val kartenHoehe by animateFloatAsState(stufenHoehe, tween(260), label = "karte")
     var ziehtKarte by remember { mutableStateOf(false) }
-    var gezogen by remember { mutableStateOf<DashboardTile?>(null) }
     var zugY by remember { mutableFloatStateOf(0f) }
     val abstandPx = with(LocalDensity.current) { 12.dp.toPx() }
     val scope = rememberCoroutineScope()
@@ -185,10 +198,21 @@ fun DashboardScreen(
         }
     }
 
-    /** Die gezogene Kachel gleitet in ihren Platz zurück, statt zu springen. */
-    fun zugEnde(speichern: Boolean) {
-        if (speichern) onOrderChange(reihenfolgeText(reihe))
-        scope.launch {
+    /**
+     * Die gezogene Kachel gleitet in ihren Platz zurück, statt zu springen. Beginnt vorher
+     * schon der nächste Zug, wird das Zurückgleiten abgebrochen; sonst schrieb es in den
+     * neuen Zug hinein und setzte ihn mittendrin zurück.
+     */
+    var rueckgleiten by remember { mutableStateOf<Job?>(null) }
+    fun zugBeginn(tile: DashboardTile) {
+        rueckgleiten?.cancel()
+        rueckgleiten = null
+        gezogen = tile
+        zugY = 0f
+    }
+    fun zugEnde(sichern: Boolean) {
+        if (sichern) speichern(reihenfolgeText(reihe))
+        rueckgleiten = scope.launch {
             animate(zugY, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { v, _ -> zugY = v }
             gezogen = null
         }
@@ -204,6 +228,7 @@ fun DashboardScreen(
             if (zugY > h / 2) {
                 reihe = verschoben(reihe, reihe.indexOf(tile), reihe.indexOf(nachbarin))
                 zugY -= h
+                tasten.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             }
         } else if (zugY < 0 && i > 0) {
             val nachbarin = sicht[i - 1]
@@ -211,6 +236,7 @@ fun DashboardScreen(
             if (-zugY > h / 2) {
                 reihe = verschoben(reihe, reihe.indexOf(tile), reihe.indexOf(nachbarin))
                 zugY += h
+                tasten.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             }
         }
     }
@@ -318,17 +344,14 @@ fun DashboardScreen(
                                     griff = Modifier.pointerInput(bearbeiten, versteckt) {
                                         if (!bearbeiten || versteckt) return@pointerInput
                                         detectDragGestures(
-                                            onDragStart = {
-                                                gezogen = tile
-                                                zugY = 0f
-                                            },
+                                            onDragStart = { zugBeginn(tile) },
                                             onDrag = { change, weg ->
                                                 change.consume()
                                                 zugY += weg.y
                                                 tauschen(tile)
                                             },
-                                            onDragEnd = { zugEnde(speichern = true) },
-                                            onDragCancel = { zugEnde(speichern = false) },
+                                            onDragEnd = { zugEnde(sichern = true) },
+                                            onDragCancel = { zugEnde(sichern = false) },
                                         )
                                     },
                                     onAusblenden = { onHideTile(tile) },
@@ -589,50 +612,58 @@ private fun Modifier.gleitend(aktiv: Boolean): Modifier = composed {
 }
 
 /**
- * Der Größengriff der Karte. Beim Ziehen folgt ihm nur ein leichter Rahmen; die Karte
- * selbst ändert sich erst beim Loslassen und gleitet dann in die nächste Stufe.
+ * Der Größengriff der Karte, **gerastert**. Beim Ziehen bleibt der Griff stehen, und ein
+ * Rahmen springt von Stufe zu Stufe, jede mit einem kurzen Tastenklick. Erst beim
+ * Loslassen gleitet die Karte in die gewählte Stufe.
+ *
+ * Vorher wanderte der Griff mit, und die Geste merkte sich die Höhe vom ersten Mal: Jeder
+ * weitere Zug begann von der falschen Höhe und endete meist auf der größten Stufe.
  */
 @Composable
 private fun BoxScope.KartenGroesse(aktuell: Float, onZieht: (Boolean) -> Unit, onStufe: (Int) -> Unit) {
-    var vorschau by remember { mutableStateOf<Float?>(null) }
+    val hoehe by rememberUpdatedState(aktuell)
+    val melden by rememberUpdatedState(onZieht)
+    val festlegen by rememberUpdatedState(onStufe)
+    var ziel by remember { mutableStateOf<Int?>(null) }
+    var start by remember { mutableStateOf(0) }
+    var weg by remember { mutableFloatStateOf(0f) }
     val dichte = LocalDensity.current
+    val tasten = LocalHapticFeedback.current
     val farbe = MaterialTheme.colorScheme.primary
-    Box(
-        modifier = Modifier
-            .align(Alignment.TopStart)
-            .fillMaxWidth()
-            .wrapContentHeight(align = Alignment.Top, unbounded = true)
-            .requiredHeight((vorschau ?: aktuell).dp),
-    ) {
-        if (vorschau != null) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(farbe.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
-                    .border(2.dp, farbe, RoundedCornerShape(12.dp)),
-            )
-        }
-        GroessenGriff(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            onStart = {
-                vorschau = aktuell
-                onZieht(true)
-            },
-            onZiehen = { weg ->
-                val dp = with(dichte) { weg.toDp().value }
-                vorschau = ((vorschau ?: aktuell) + dp).coerceIn(
-                    KARTEN_HOEHEN_DP.first() - 20f,
-                    KARTEN_HOEHEN_DP.last() + 20f,
-                )
-            },
-            onLoslassen = {
-                val neu = naechsteKartenStufe(vorschau ?: aktuell)
-                vorschau = null
-                onZieht(false)
-                onStufe(neu)
-            },
+    ziel?.let { stufe ->
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .fillMaxWidth()
+                .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                .requiredHeight(KARTEN_HOEHEN_DP[stufe].dp)
+                .background(farbe.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                .border(2.dp, farbe, RoundedCornerShape(12.dp)),
         )
     }
+    GroessenGriff(
+        modifier = Modifier.align(Alignment.BottomCenter),
+        onStart = {
+            start = naechsteKartenStufe(hoehe)
+            weg = 0f
+            ziel = start
+            melden(true)
+        },
+        onZiehen = { px ->
+            weg += with(dichte) { px.toDp().value }
+            val neu = naechsteKartenStufe(KARTEN_HOEHEN_DP[start] + weg)
+            if (neu != ziel) {
+                ziel = neu
+                tasten.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+        },
+        onLoslassen = {
+            val gewaehlt = ziel ?: start
+            ziel = null
+            melden(false)
+            festlegen(gewaehlt)
+        },
+    )
 }
 
 /** Fix, Satelliten und Genauigkeit als Kachel. */
@@ -653,6 +684,9 @@ private fun GroessenGriff(
     onZiehen: (Float) -> Unit,
     onLoslassen: () -> Unit,
 ) {
+    val beginnen by rememberUpdatedState(onStart)
+    val ziehen by rememberUpdatedState(onZiehen)
+    val loslassen by rememberUpdatedState(onLoslassen)
     Icon(
         Icons.Filled.UnfoldMore,
         contentDescription = stringResource(R.string.dashboard_edit_resize),
@@ -664,12 +698,12 @@ private fun GroessenGriff(
             .background(MaterialTheme.colorScheme.primary)
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
-                    onDragStart = { onStart() },
-                    onDragEnd = onLoslassen,
-                    onDragCancel = onLoslassen,
+                    onDragStart = { beginnen() },
+                    onDragEnd = { loslassen() },
+                    onDragCancel = { loslassen() },
                     onVerticalDrag = { change, weg ->
                         change.consume()
-                        onZiehen(weg)
+                        ziehen(weg)
                     },
                 )
             }
