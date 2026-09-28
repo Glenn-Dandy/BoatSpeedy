@@ -27,7 +27,7 @@
     <string name="range_smoothing">Range smoothing</string>
     <string name="low_soc_warn">Low-charge warning</string>
 
-    <string name="show_sat_details">Satellite details</string>
+    <string name="show_sat_details">GPS &amp; satellites</string>
 
     <string name="status_fix">Fix</string>
     <string name="status_no_fix">no fix</string>
@@ -98,12 +98,14 @@
     <string name="tile_range">Range &amp; time</string>
     <string name="tile_map">Map</string>
     <string name="tile_trip">Trip</string>
-    <string name="dashboard_edit_hint">Drag the handle to move, the eye hides a tile. Show it again under Settings, Dashboard.</string>
     <string name="dashboard_edit_done">Done</string>
     <string name="dashboard_edit_move">Move</string>
     <string name="dashboard_edit_hide">Hide</string>
+    <string name="dashboard_edit_show">Show</string>
+    <string name="dashboard_hidden">Hidden</string>
     <string name="dashboard_edit_resize">Drag to resize</string>
     <string name="dashboard_edit_how">To arrange, hold a tile on the dashboard still for three seconds.</string>
+    <string name="dashboard_reset">Reset arrangement</string>
     <string name="cat_gps_desc">Satellites, accuracy, course, signal</string>
     <string name="live_map">Navigation</string>
     <string name="gps_live_title">Live GPS</string>

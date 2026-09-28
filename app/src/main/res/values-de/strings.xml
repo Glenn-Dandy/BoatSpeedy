@@ -25,7 +25,7 @@
     <string name="range_smoothing">Reichweiten-Glättung</string>
     <string name="low_soc_warn">Warnung bei niedrigem Ladestand</string>
 
-    <string name="show_sat_details">Satelliten-Details</string>
+    <string name="show_sat_details">GPS &amp; Satelliten</string>
 
     <string name="status_fix">Fix</string>
     <string name="status_no_fix">kein Fix</string>
@@ -96,12 +96,14 @@
     <string name="tile_range">Reichweite &amp; Zeit</string>
     <string name="tile_map">Karte</string>
     <string name="tile_trip">Fahrt</string>
-    <string name="dashboard_edit_hint">Am Griff ziehen zum Verschieben, das Auge blendet aus. Wieder einblenden unter Einstellungen, Dashboard.</string>
     <string name="dashboard_edit_done">Fertig</string>
     <string name="dashboard_edit_move">Verschieben</string>
     <string name="dashboard_edit_hide">Ausblenden</string>
+    <string name="dashboard_edit_show">Einblenden</string>
+    <string name="dashboard_hidden">Ausgeblendet</string>
     <string name="dashboard_edit_resize">Größe ziehen</string>
     <string name="dashboard_edit_how">Zum Anordnen eine Kachel auf dem Dashboard drei Sekunden ruhig halten.</string>
+    <string name="dashboard_reset">Anordnung zurücksetzen</string>
     <string name="cat_gps_desc">Satelliten, Genauigkeit, Kurs, Signal</string>
     <string name="live_map">Navigation</string>
     <string name="gps_live_title">GPS live</string>

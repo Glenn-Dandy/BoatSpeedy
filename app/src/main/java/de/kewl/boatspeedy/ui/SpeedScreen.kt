@@ -1,10 +1,27 @@
 package de.kewl.boatspeedy.ui
 
 import android.os.SystemClock
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector2D
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.composed
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.unit.round
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -125,6 +142,7 @@ fun DashboardScreen(
     onOpenMenu: () -> Unit,
     onOpenMap: () -> Unit,
     onHideTile: (DashboardTile) -> Unit = {},
+    onShowTile: (DashboardTile) -> Unit = {},
     onOrderChange: (String) -> Unit = {},
     onMapSizeChange: (Int) -> Unit = {},
 ) {
@@ -140,24 +158,40 @@ fun DashboardScreen(
         DashboardTile.BATTERY -> settings.showBatteryTile
         DashboardTile.MAP -> settings.showMapTile
         DashboardTile.TRIP -> settings.showTripTile
+        DashboardTile.GPS -> settings.showSatDetails
     }
     val hoehen = remember { mutableStateMapOf<DashboardTile, Int>() }
-    // Die Kartenhöhe beim Ziehen, stufenlos; beim Loslassen rastet sie ein.
+    // Die Karte gleitet in ihre Stufe. Beim Ziehen folgt nur ein leichter Rahmen dem
+    // Finger; die echte Karte bei jedem Zucken neu aufzubauen, ruckelte.
     val stufenHoehe = KARTEN_HOEHEN_DP[settings.mapTileSize.coerceIn(KARTEN_HOEHEN_DP.indices)].toFloat()
-    var kartenHoehe by remember(stufenHoehe) { mutableFloatStateOf(stufenHoehe) }
-    val dichte = LocalDensity.current
+    val kartenHoehe by animateFloatAsState(stufenHoehe, tween(260), label = "karte")
+    var ziehtKarte by remember { mutableStateOf(false) }
     var gezogen by remember { mutableStateOf<DashboardTile?>(null) }
     var zugY by remember { mutableFloatStateOf(0f) }
     val abstandPx = with(LocalDensity.current) { 12.dp.toPx() }
-    val wackeln = if (bearbeiten) {
-        rememberInfiniteTransition(label = "wackeln").animateFloat(
-            initialValue = -0.6f,
-            targetValue = 0.6f,
-            animationSpec = infiniteRepeatable(tween(140), RepeatMode.Reverse),
-            label = "wackeln",
-        ).value
-    } else {
-        0f
+    val scope = rememberCoroutineScope()
+    // Sanftes Wackeln, drei Sekunden lang, dann Ruhe: Es zeigt, dass man jetzt anordnet,
+    // und soll dabei nicht nerven.
+    val wackeln = remember { Animatable(0f) }
+    LaunchedEffect(bearbeiten) {
+        if (bearbeiten) {
+            repeat(5) {
+                wackeln.animateTo(0.35f, tween(300, easing = FastOutSlowInEasing))
+                wackeln.animateTo(-0.35f, tween(300, easing = FastOutSlowInEasing))
+            }
+            wackeln.animateTo(0f, tween(250))
+        } else {
+            wackeln.snapTo(0f)
+        }
+    }
+
+    /** Die gezogene Kachel gleitet in ihren Platz zurück, statt zu springen. */
+    fun zugEnde(speichern: Boolean) {
+        if (speichern) onOrderChange(reihenfolgeText(reihe))
+        scope.launch {
+            animate(zugY, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { v, _ -> zugY = v }
+            gezogen = null
+        }
     }
 
     /** Zieht die Kachel über die Mitte ihrer Nachbarin, tauschen beide den Platz. */
@@ -235,16 +269,6 @@ fun DashboardScreen(
                 ) {
                     Spacer(Modifier.height(16.dp))
 
-                    if (bearbeiten) {
-                        Text(
-                            stringResource(R.string.dashboard_edit_hint),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(bottom = 12.dp),
-                        )
-                    }
-
                     // Zielzeile und Wetterwarnung stehen fest oben: Sie erscheinen nur, wenn
                     // sie gebraucht werden, und dann gehören sie direkt unter die große Zahl.
                     NavRow(
@@ -259,95 +283,97 @@ fun DashboardScreen(
                         Spacer(Modifier.height(12.dp))
                     }
 
-                    for (tile in reihe.filter(::sichtbar)) {
-                        key(tile) {
-                            val istGezogen = gezogen == tile
-                            BearbeitbareKachel(
-                                bearbeiten = bearbeiten,
-                                modifier = Modifier
-                                    .onGloballyPositioned { hoehen[tile] = it.size.height }
-                                    .zIndex(if (istGezogen) 1f else 0f)
-                                    .graphicsLayer {
-                                        translationY = if (istGezogen) zugY else 0f
-                                        rotationZ = if (istGezogen) 0f else wackeln
-                                        val g = if (istGezogen) 1.03f else 1f
-                                        scaleX = g
-                                        scaleY = g
-                                    },
-                                griff = Modifier.pointerInput(bearbeiten) {
-                                    if (!bearbeiten) return@pointerInput
-                                    detectDragGestures(
-                                        onDragStart = {
-                                            gezogen = tile
-                                            zugY = 0f
+                    // Eine Liste für sichtbare und ausgeblendete Kacheln, damit eine Kachel
+                    // beim Ausblenden als dieselbe unter die Linie gleitet, statt dort neu
+                    // zu entstehen. Die Linie und alles darunter gibt es nur beim Anordnen.
+                    val sichtbare = reihe.filter(::sichtbar)
+                    val versteckte = if (bearbeiten) reihe.filterNot(::sichtbar) else emptyList()
+                    val anzeige: List<Any> = sichtbare +
+                        (if (versteckte.isNotEmpty()) listOf(LINIE) + versteckte else emptyList())
+
+                    for (eintrag in anzeige) {
+                        key(eintrag) {
+                            // Ohne Rücksprung aus key(): Den übersetzt der Compose-Compiler
+                            // zu Code, den das Dexing nicht annimmt.
+                            if (eintrag == LINIE) {
+                                AusgeblendetLinie(Modifier.gleitend(true))
+                            } else {
+                                val tile = eintrag as DashboardTile
+                                val versteckt = tile in versteckte
+                                val istGezogen = gezogen == tile
+                                KachelRahmen(
+                                    bearbeiten = bearbeiten,
+                                    versteckt = versteckt,
+                                    modifier = Modifier
+                                        .gleitend(!istGezogen)
+                                        .onGloballyPositioned { hoehen[tile] = it.size.height }
+                                        .zIndex(if (istGezogen || (tile == DashboardTile.MAP && ziehtKarte)) 1f else 0f)
+                                        .graphicsLayer {
+                                            translationY = if (istGezogen) zugY else 0f
+                                            rotationZ = if (istGezogen || versteckt) 0f else wackeln.value
+                                            val g = if (istGezogen) 1.03f else 1f
+                                            scaleX = g
+                                            scaleY = g
                                         },
-                                        onDrag = { change, weg ->
-                                            change.consume()
-                                            zugY += weg.y
-                                            tauschen(tile)
-                                        },
-                                        onDragEnd = {
-                                            gezogen = null
-                                            zugY = 0f
-                                            onOrderChange(reihenfolgeText(reihe))
-                                        },
-                                        onDragCancel = {
-                                            gezogen = null
-                                            zugY = 0f
-                                        },
-                                    )
-                                },
-                                onAusblenden = { onHideTile(tile) },
-                                // Nur die Karte lässt sich in der Größe ziehen, am Griff unten.
-                                zusatz = if (tile == DashboardTile.MAP) {
-                                    {
-                                        GroessenGriff(
-                                            modifier = Modifier.align(Alignment.BottomCenter),
-                                            onZiehen = { weg ->
-                                                val dp = with(dichte) { weg.toDp().value }
-                                                kartenHoehe = (kartenHoehe + dp).coerceIn(
-                                                    KARTEN_HOEHEN_DP.first() - 20f,
-                                                    KARTEN_HOEHEN_DP.last() + 20f,
-                                                )
+                                    griff = Modifier.pointerInput(bearbeiten, versteckt) {
+                                        if (!bearbeiten || versteckt) return@pointerInput
+                                        detectDragGestures(
+                                            onDragStart = {
+                                                gezogen = tile
+                                                zugY = 0f
                                             },
-                                            onLoslassen = {
-                                                val neu = naechsteKartenStufe(kartenHoehe)
-                                                kartenHoehe = KARTEN_HOEHEN_DP[neu].toFloat()
-                                                onMapSizeChange(neu)
+                                            onDrag = { change, weg ->
+                                                change.consume()
+                                                zugY += weg.y
+                                                tauschen(tile)
                                             },
+                                            onDragEnd = { zugEnde(speichern = true) },
+                                            onDragCancel = { zugEnde(speichern = false) },
                                         )
+                                    },
+                                    onAusblenden = { onHideTile(tile) },
+                                    onEinblenden = { onShowTile(tile) },
+                                    zusatz = if (tile == DashboardTile.MAP && !versteckt) {
+                                        {
+                                            KartenGroesse(
+                                                aktuell = kartenHoehe,
+                                                onZieht = { ziehtKarte = it },
+                                                onStufe = onMapSizeChange,
+                                            )
+                                        }
+                                    } else {
+                                        null
+                                    },
+                                ) {
+                                    when (tile) {
+                                        DashboardTile.RANGE ->
+                                            if (charge.charging) ChargeTile(charge) else RangeTile(range)
+                                        DashboardTile.BATTERY -> Column {
+                                            BatterySelectorRow(batteryOptions, selectedBattery, onSelectBattery)
+                                            BatteryTile(batteryData, settings.lowSocPercent)
+                                        }
+                                        DashboardTile.MAP -> MapMiniTile(
+                                            livePoints, gps.latitude, gps.longitude, gps.speedMs,
+                                            settings.mapOrientation, onOpenMap,
+                                            hoeheDp = kartenHoehe,
+                                            bearbeiten = bearbeiten,
+                                        )
+                                        DashboardTile.TRIP -> TripTile(
+                                            tracking = tracking,
+                                            stats = tripStats,
+                                            settings = settings,
+                                            showConsumption = batteryData != null,
+                                            paused = tripPaused,
+                                            autoPauseShown = tracking && (settings.autoPauseOn || autoPauseOverride),
+                                            onAutoPauseToggle = { onAutoPauseOverride(!autoPauseOverride) },
+                                            onStart = onStartTrip,
+                                            onStop = onStopTrip,
+                                        )
+                                        DashboardTile.GPS -> GpsTile(gps)
                                     }
-                                } else {
-                                    null
-                                },
-                            ) {
-                                when (tile) {
-                                    DashboardTile.RANGE ->
-                                        if (charge.charging) ChargeTile(charge) else RangeTile(range)
-                                    DashboardTile.BATTERY -> Column {
-                                        BatterySelectorRow(batteryOptions, selectedBattery, onSelectBattery)
-                                        BatteryTile(batteryData, settings.lowSocPercent)
-                                    }
-                                    DashboardTile.MAP -> MapMiniTile(
-                                        livePoints, gps.latitude, gps.longitude, gps.speedMs,
-                                        settings.mapOrientation, onOpenMap,
-                                        hoeheDp = kartenHoehe,
-                                        bearbeiten = bearbeiten,
-                                    )
-                                    DashboardTile.TRIP -> TripTile(
-                                        tracking = tracking,
-                                        stats = tripStats,
-                                        settings = settings,
-                                        showConsumption = batteryData != null,
-                                        paused = tripPaused,
-                                        autoPauseShown = tracking && (settings.autoPauseOn || autoPauseOverride),
-                                        onAutoPauseToggle = { onAutoPauseOverride(!autoPauseOverride) },
-                                        onStart = onStartTrip,
-                                        onStop = onStopTrip,
-                                    )
                                 }
+                                Spacer(Modifier.height(12.dp))
                             }
-                            Spacer(Modifier.height(12.dp))
                         }
                     }
 
@@ -364,7 +390,6 @@ fun DashboardScreen(
                         TripButton(tracking = tracking, onStart = onStartTrip, onStop = onStopTrip)
                         Spacer(Modifier.height(16.dp))
                     }
-                    StatusRow(gps = gps, showSatDetails = settings.showSatDetails)
                     Spacer(Modifier.height(if (bearbeiten) 112.dp else 16.dp))
                 }
 
@@ -458,52 +483,64 @@ private fun HalteRing(wo: Offset, anteil: Float) {
     )
 }
 
+/** Platzhalter für die Linie zwischen sichtbaren und ausgeblendeten Kacheln. */
+private const val LINIE = "linie"
+
 /**
- * Eine Kachel im Anordnen: Griff oben links zum Verschieben, Knopf oben rechts zum
- * Ausblenden. Der Inhalt nimmt dabei keine Tipper an, damit beim Anordnen keine Fahrt
- * startet und die Karte nicht aufgeht; Scrollen geht weiter.
+ * Eine Kachel, im Anordnen mit Griff oben links und Auge oben rechts. Ausgeblendet ist sie
+ * grau, ohne Griff, und ihr Auge holt sie zurück. Der Inhalt nimmt beim Anordnen keine
+ * Tipper an, damit keine Fahrt startet und die Karte nicht aufgeht; Scrollen geht weiter.
  */
 @Composable
-private fun BearbeitbareKachel(
+private fun KachelRahmen(
     bearbeiten: Boolean,
+    versteckt: Boolean,
     modifier: Modifier,
     griff: Modifier,
     onAusblenden: () -> Unit,
+    onEinblenden: () -> Unit,
     zusatz: (@Composable BoxScope.() -> Unit)? = null,
     inhalt: @Composable () -> Unit,
 ) {
+    val deckkraft by animateFloatAsState(if (versteckt) 0.4f else 1f, tween(300), label = "grau")
     Box(modifier = modifier.fillMaxWidth()) {
-        inhalt()
+        Box(modifier = Modifier.graphicsLayer { alpha = deckkraft }) { inhalt() }
         if (bearbeiten) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .pointerInput(Unit) { detectTapGestures { } },
             )
+            if (!versteckt) {
+                Icon(
+                    Icons.Filled.DragHandle,
+                    contentDescription = stringResource(R.string.dashboard_edit_move),
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .then(griff)
+                        .padding(8.dp),
+                )
+            }
             Icon(
-                Icons.Filled.DragHandle,
-                contentDescription = stringResource(R.string.dashboard_edit_move),
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(6.dp)
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .then(griff)
-                    .padding(8.dp),
-            )
-            Icon(
-                Icons.Filled.VisibilityOff,
-                contentDescription = stringResource(R.string.dashboard_edit_hide),
-                tint = MaterialTheme.colorScheme.onError,
+                if (versteckt) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                contentDescription = stringResource(
+                    if (versteckt) R.string.dashboard_edit_show else R.string.dashboard_edit_hide,
+                ),
+                tint = if (versteckt) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(6.dp)
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.error)
-                    .clickable(onClick = onAusblenden)
+                    .background(
+                        if (versteckt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    )
+                    .clickable(onClick = if (versteckt) onEinblenden else onAusblenden)
                     .padding(9.dp),
             )
             // Über der Sperrschicht, sonst käme kein Ziehen bei ihm an.
@@ -512,9 +549,110 @@ private fun BearbeitbareKachel(
     }
 }
 
+/** Die Linie, unter der die ausgeblendeten Kacheln stehen. */
+@Composable
+private fun AusgeblendetLinie(modifier: Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(top = 4.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f))
+        Text(
+            stringResource(R.string.dashboard_hidden),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(horizontal = 10.dp),
+        )
+        HorizontalDivider(modifier = Modifier.weight(1f))
+    }
+}
+
+/**
+ * Ändert sich der Platz, gleitet der Inhalt hin, statt zu springen: beim Tauschen zweier
+ * Kacheln und beim Ausblenden, wenn eine unter die Linie rutscht. [aktiv] aus heißt, die
+ * Bewegung übernimmt jemand anders, etwa der Finger beim Verschieben.
+ */
+private fun Modifier.gleitend(aktiv: Boolean): Modifier = composed {
+    val scope = rememberCoroutineScope()
+    var ziel by remember { mutableStateOf<IntOffset?>(null) }
+    val lage = remember { mutableStateOf<Animatable<IntOffset, AnimationVector2D>?>(null) }
+    this
+        .onPlaced { ziel = it.positionInParent().round() }
+        .offset {
+            val z = ziel ?: return@offset IntOffset.Zero
+            val a = lage.value ?: Animatable(z, IntOffset.VectorConverter).also { lage.value = it }
+            if (a.targetValue != z) {
+                scope.launch { a.animateTo(z, spring(stiffness = Spring.StiffnessMediumLow)) }
+            }
+            if (aktiv) a.value - z else IntOffset.Zero
+        }
+}
+
+/**
+ * Der Größengriff der Karte. Beim Ziehen folgt ihm nur ein leichter Rahmen; die Karte
+ * selbst ändert sich erst beim Loslassen und gleitet dann in die nächste Stufe.
+ */
+@Composable
+private fun BoxScope.KartenGroesse(aktuell: Float, onZieht: (Boolean) -> Unit, onStufe: (Int) -> Unit) {
+    var vorschau by remember { mutableStateOf<Float?>(null) }
+    val dichte = LocalDensity.current
+    val farbe = MaterialTheme.colorScheme.primary
+    Box(
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .fillMaxWidth()
+            .wrapContentHeight(align = Alignment.Top, unbounded = true)
+            .requiredHeight((vorschau ?: aktuell).dp),
+    ) {
+        if (vorschau != null) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(farbe.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                    .border(2.dp, farbe, RoundedCornerShape(12.dp)),
+            )
+        }
+        GroessenGriff(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            onStart = {
+                vorschau = aktuell
+                onZieht(true)
+            },
+            onZiehen = { weg ->
+                val dp = with(dichte) { weg.toDp().value }
+                vorschau = ((vorschau ?: aktuell) + dp).coerceIn(
+                    KARTEN_HOEHEN_DP.first() - 20f,
+                    KARTEN_HOEHEN_DP.last() + 20f,
+                )
+            },
+            onLoslassen = {
+                val neu = naechsteKartenStufe(vorschau ?: aktuell)
+                vorschau = null
+                onZieht(false)
+                onStufe(neu)
+            },
+        )
+    }
+}
+
+/** Fix, Satelliten und Genauigkeit als Kachel. */
+@Composable
+private fun GpsTile(gps: GpsState) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+            StatusRow(gps = gps, showSatDetails = true)
+        }
+    }
+}
+
 /** Der Griff unten an der Karte, mit dem sich ihre Höhe ziehen lässt. */
 @Composable
-private fun GroessenGriff(modifier: Modifier, onZiehen: (Float) -> Unit, onLoslassen: () -> Unit) {
+private fun GroessenGriff(
+    modifier: Modifier,
+    onStart: () -> Unit,
+    onZiehen: (Float) -> Unit,
+    onLoslassen: () -> Unit,
+) {
     Icon(
         Icons.Filled.UnfoldMore,
         contentDescription = stringResource(R.string.dashboard_edit_resize),
@@ -526,6 +664,7 @@ private fun GroessenGriff(modifier: Modifier, onZiehen: (Float) -> Unit, onLosla
             .background(MaterialTheme.colorScheme.primary)
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
+                    onDragStart = { onStart() },
                     onDragEnd = onLoslassen,
                     onDragCancel = onLoslassen,
                     onVerticalDrag = { change, weg ->
@@ -875,18 +1014,18 @@ private fun StatusRow(gps: GpsState, showSatDetails: Boolean) {
         Spacer(Modifier.width(8.dp))
         Text(
             text = if (gps.hasFix) stringResource(R.string.status_fix) else stringResource(R.string.status_no_fix),
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
         Spacer(Modifier.width(16.dp))
         Text(
             text = stringResource(R.string.sat_label, gps.satellitesUsed, gps.satellitesVisible),
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
         gps.accuracyM?.let { acc ->
             Spacer(Modifier.width(16.dp))
             Text(
                 text = stringResource(R.string.accuracy_label, acc.toInt()),
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
             )
         }
     }

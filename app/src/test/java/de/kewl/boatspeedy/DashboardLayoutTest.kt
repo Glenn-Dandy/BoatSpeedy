@@ -1,6 +1,7 @@
 package de.kewl.boatspeedy
 
 import de.kewl.boatspeedy.ui.DashboardTile.BATTERY
+import de.kewl.boatspeedy.ui.DashboardTile.GPS
 import de.kewl.boatspeedy.ui.DashboardTile.MAP
 import de.kewl.boatspeedy.ui.DashboardTile.RANGE
 import de.kewl.boatspeedy.ui.DashboardTile.TRIP
@@ -21,26 +22,28 @@ class DashboardLayoutTest {
 
     @Test
     fun `gespeicherte Reihenfolge kommt zurueck`() {
-        val r = listOf(TRIP, MAP, RANGE, BATTERY)
+        val r = listOf(TRIP, GPS, MAP, RANGE, BATTERY)
         assertEquals(r, reihenfolgeAus(reihenfolgeText(r)))
     }
 
     /** Eine Kachel, die beim Speichern noch nicht existierte, darf nicht fehlen. */
     @Test
     fun `eine neue Kachel wird an ihrer Stelle ergaenzt`() {
-        assertEquals(listOf(MAP, RANGE, BATTERY, TRIP), reihenfolgeAus("map,range,battery"))
+        assertEquals(listOf(MAP, RANGE, BATTERY, TRIP, GPS), reihenfolgeAus("map,range,battery"))
+        // Wer vor der GPS-Kachel angeordnet hat, findet sie unten, wo die Zeile vorher stand.
+        assertEquals(listOf(TRIP, MAP, RANGE, BATTERY, GPS), reihenfolgeAus("trip,map,range,battery"))
     }
 
     @Test
     fun `Unsinn und Doppeltes werden uebergangen`() {
-        assertEquals(listOf(MAP, RANGE, BATTERY, TRIP), reihenfolgeAus("map,foo,map, range ,battery"))
+        assertEquals(listOf(MAP, RANGE, BATTERY, TRIP, GPS), reihenfolgeAus("map,foo,map, range ,battery"))
     }
 
     @Test
     fun `verschieben nach oben und unten`() {
         val r = STANDARD_REIHENFOLGE
-        assertEquals(listOf(TRIP, RANGE, BATTERY, MAP), verschoben(r, 3, 0))
-        assertEquals(listOf(BATTERY, MAP, RANGE, TRIP), verschoben(r, 0, 2))
+        assertEquals(listOf(TRIP, RANGE, BATTERY, MAP, GPS), verschoben(r, 3, 0))
+        assertEquals(listOf(BATTERY, MAP, RANGE, TRIP, GPS), verschoben(r, 0, 2))
         assertEquals(r, verschoben(r, 1, 7))
     }
 

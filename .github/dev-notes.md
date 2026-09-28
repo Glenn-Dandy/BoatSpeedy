@@ -2,8 +2,10 @@
 
 **Neu**
 - Dashboard anordnen: eine Kachel drei Sekunden ruhig halten, dann verschieben, ausblenden
-  und die Karte in der Größe ziehen. Das runde Häkchen unten beendet es.
-- Die Fahrt ist eine eigene Kachel wie Batterie und Reichweite.
+  und die Karte in der Größe ziehen. Ausgeblendetes steht grau unter einer Linie und lässt
+  sich dort zurückholen. Das runde Häkchen unten beendet es.
+- Fahrt und GPS sind eigene Kacheln wie Batterie und Reichweite.
+- Anordnung zurücksetzen unter Einstellungen, Dashboard.
 - Navigation im Hauptmenü, direkt unter Dashboard; die Live-Karte heißt jetzt so.
 - Kartenserver wählbar unter Navigation, Kartendaten. Standard bleibt der
   BoatSpeedy-Server; übernommen wird eine Adresse nur, wenn dort eine index.json liegt.
@@ -27,8 +29,10 @@
 
 **New**
 - Arrange the dashboard: hold a tile still for three seconds, then move it, hide it and
-  resize the map. The round tick at the bottom finishes.
-- The trip is a tile of its own, like battery and range.
+  resize the map. Hidden tiles sit greyed out below a line and can be brought back there.
+  The round tick at the bottom finishes.
+- Trip and GPS are tiles of their own, like battery and range.
+- Reset the arrangement under Settings, Dashboard.
 - Navigation in the main menu, right under Dashboard; that is the live map's new name.
 - Choose the map server under Navigation, Map data. The BoatSpeedy server stays the
   default; an address is only accepted if an index.json is found there.

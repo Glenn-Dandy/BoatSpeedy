@@ -9,6 +9,7 @@ enum class DashboardTile(val key: String) {
     BATTERY("battery"),
     MAP("map"),
     TRIP("trip"),
+    GPS("gps"),
 }
 
 /** Reihenfolge ab Werk, so wie die Kacheln vor dem Anordnen standen. */
@@ -17,6 +18,7 @@ val STANDARD_REIHENFOLGE = listOf(
     DashboardTile.BATTERY,
     DashboardTile.MAP,
     DashboardTile.TRIP,
+    DashboardTile.GPS,
 )
 
 /**

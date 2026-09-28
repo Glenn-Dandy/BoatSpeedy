@@ -434,6 +434,22 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowTripTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowTripTile(v) }
     fun setDashboardOrder(v: String) = viewModelScope.launch { settingsRepo.setDashboardOrder(v) }
     fun setMapTileSize(v: Int) = viewModelScope.launch { settingsRepo.setMapTileSize(v) }
+
+    /** Eine Dashboard-Kachel ein- oder ausblenden. Die GPS-Kachel hängt am Schalter für Satelliten-Details. */
+    fun setTileVisible(tile: DashboardTile, sichtbar: Boolean) = when (tile) {
+        DashboardTile.RANGE -> setShowRangeTile(sichtbar)
+        DashboardTile.BATTERY -> setShowBatteryTile(sichtbar)
+        DashboardTile.MAP -> setShowMapTile(sichtbar)
+        DashboardTile.TRIP -> setShowTripTile(sichtbar)
+        DashboardTile.GPS -> setShowSatDetails(sichtbar)
+    }
+
+    /** Anordnung ab Werk: alle Kacheln sichtbar, Standardreihenfolge, Karte in mittlerer Größe. */
+    fun resetDashboardLayout() = viewModelScope.launch {
+        DashboardTile.entries.forEach { setTileVisible(it, true) }
+        settingsRepo.setDashboardOrder("")
+        settingsRepo.setMapTileSize(1)
+    }
     fun setTrackColor(v: de.kewl.boatspeedy.data.TrackColor) = viewModelScope.launch { settingsRepo.setTrackColor(v) }
     fun setTrackWidth(v: de.kewl.boatspeedy.data.TrackWidth) = viewModelScope.launch { settingsRepo.setTrackWidth(v) }
     fun setTrackArrows(v: Boolean) = viewModelScope.launch { settingsRepo.setTrackArrows(v) }

@@ -361,6 +361,7 @@ private fun BoatSpeedyApp(
                         onShowRangeTile = vm::setShowRangeTile,
                         onShowMapTile = vm::setShowMapTile,
                         onShowTripTile = vm::setShowTripTile,
+                        onResetLayout = { vm.resetDashboardLayout() },
                         onShowSatDetails = vm::setShowSatDetails,
                         onBack = { screen = Screen.SETTINGS },
                     )
@@ -584,14 +585,8 @@ private fun BoatSpeedyApp(
                             onStopTrip = vm::stopTrip,
                             onOpenMenu = { openDrawer() },
                             onOpenMap = { screen = Screen.LIVE_MAP },
-                            onHideTile = { tile ->
-                                when (tile) {
-                                    de.kewl.boatspeedy.ui.DashboardTile.RANGE -> vm.setShowRangeTile(false)
-                                    de.kewl.boatspeedy.ui.DashboardTile.BATTERY -> vm.setShowBatteryTile(false)
-                                    de.kewl.boatspeedy.ui.DashboardTile.MAP -> vm.setShowMapTile(false)
-                                    de.kewl.boatspeedy.ui.DashboardTile.TRIP -> vm.setShowTripTile(false)
-                                }
-                            },
+                            onHideTile = { vm.setTileVisible(it, false) },
+                            onShowTile = { vm.setTileVisible(it, true) },
                             onOrderChange = vm::setDashboardOrder,
                             onMapSizeChange = vm::setMapTileSize,
                         )
