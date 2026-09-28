@@ -116,6 +116,8 @@ data class Settings(
     val trackColor: TrackColor = TrackColor.BLUE,
     val trackWidth: TrackWidth = TrackWidth.NORMAL,
     val trackArrows: Boolean = true,
+    /** Server der Kartendaten; leer = der Standardserver [de.kewl.boatspeedy.nav.MapTiles.DEFAULT_BASE]. */
+    val mapServer: String = "",
     // Batterie
     val bankMode: BankMode = BankMode.SINGLE,
     val batteries: List<SavedBattery> = emptyList(),

@@ -415,6 +415,8 @@ private fun BoatSpeedyApp(
                     Screen.SETTINGS_MAPDATA -> MapDataScreen(
                         lat = gps.latitude,
                         lon = gps.longitude,
+                        server = settings.mapServer,
+                        onServerChange = vm::setMapServer,
                         onBack = { screen = Screen.SETTINGS_NAV },
                     )
 

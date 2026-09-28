@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -31,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.kewl.boatspeedy.R
@@ -49,6 +52,9 @@ import kotlinx.coroutines.withContext
 fun MapDataScreen(
     lat: Double?,
     lon: Double?,
+    /** Eingestellter Kartenserver; leer = Standard. */
+    server: String,
+    onServerChange: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -62,8 +68,10 @@ fun MapDataScreen(
     var total by remember { mutableIntStateOf(0) }
     var failed by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        index = withContext(Dispatchers.IO) { MapTiles.fetchIndex() }
+    // Neu laden, sobald der Server wechselt: Das Verzeichnis gehört zum Server.
+    LaunchedEffect(server) {
+        index = null
+        index = withContext(Dispatchers.IO) { MapTiles.fetchIndex(MapTiles.serverAdresse(server)) }
     }
 
     val wanted = if (lat != null && lon != null) {
@@ -236,6 +244,10 @@ fun MapDataScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+        ServerAbschnitt(server = server, onServerChange = onServerChange)
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
         Text(
             stringResource(R.string.mapdata_attribution),
             fontSize = 12.sp,
@@ -257,4 +269,107 @@ fun MapDataScreen(
             }
         }
     }
+}
+
+/**
+ * Der Kartenserver. Standard ist unserer; wer die Kacheln mit boatspeedy-mapdata selbst
+ * erzeugt, trägt hier seinen eigenen ein.
+ *
+ * **Übernommen wird nur, was sich lesen lässt.** Eine falsche Adresse würde sonst still
+ * gespeichert, und beim nächsten Routing käme keine Kachel, ohne dass man wüsste, warum.
+ */
+@Composable
+private fun ServerAbschnitt(server: String, onServerChange: (String) -> Unit) {
+    val scope = rememberCoroutineScope()
+    val aktuell = MapTiles.serverAdresse(server)
+    var eingabe by remember(aktuell) { mutableStateOf(aktuell) }
+    var pruefe by remember { mutableStateOf(false) }
+    var meldung by remember { mutableStateOf<String?>(null) }
+    var fehler by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    Text(stringResource(R.string.mapdata_server), style = MaterialTheme.typography.titleMedium)
+    Text(
+        if (MapTiles.istStandard(aktuell)) {
+            stringResource(R.string.mapdata_server_default)
+        } else {
+            stringResource(R.string.mapdata_server_custom)
+        },
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+    )
+    OutlinedTextField(
+        value = eingabe,
+        onValueChange = {
+            eingabe = it
+            meldung = null
+        },
+        label = { Text(stringResource(R.string.mapdata_server_label)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Button(
+            onClick = {
+                val adresse = MapTiles.serverAdresse(eingabe)
+                pruefe = true
+                meldung = null
+                scope.launch {
+                    val idx = withContext(Dispatchers.IO) { MapTiles.fetchIndex(adresse) }
+                    pruefe = false
+                    if (idx == null) {
+                        fehler = true
+                        meldung = context.getString(R.string.mapdata_server_failed)
+                    } else {
+                        fehler = false
+                        onServerChange(if (MapTiles.istStandard(adresse)) "" else adresse)
+                        meldung = context.getString(
+                            R.string.mapdata_server_ok,
+                            idx.tiles.size,
+                            idx.generated.take(10),
+                        )
+                    }
+                }
+            },
+            enabled = !pruefe,
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(
+                if (pruefe) {
+                    stringResource(R.string.mapdata_server_checking)
+                } else {
+                    stringResource(R.string.mapdata_server_apply)
+                },
+            )
+        }
+        TextButton(
+            onClick = {
+                eingabe = MapTiles.DEFAULT_BASE
+                fehler = false
+                meldung = null
+                onServerChange("")
+            },
+            enabled = !pruefe && !MapTiles.istStandard(aktuell),
+        ) { Text(stringResource(R.string.mapdata_server_reset)) }
+    }
+    meldung?.let {
+        Text(
+            it,
+            color = if (fehler) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+    Text(
+        stringResource(R.string.mapdata_server_hint),
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        modifier = Modifier.padding(top = 8.dp),
+    )
 }

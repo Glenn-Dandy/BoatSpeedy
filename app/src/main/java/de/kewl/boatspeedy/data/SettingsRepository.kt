@@ -35,6 +35,7 @@ class SettingsRepository(private val context: Context) {
         val TRACK_COLOR = stringPreferencesKey("track_color")
         val TRACK_WIDTH = stringPreferencesKey("track_width")
         val TRACK_ARROWS = booleanPreferencesKey("track_arrows")
+        val MAP_SERVER = stringPreferencesKey("map_server")
         val BANK_MODE = stringPreferencesKey("bank_mode")
         val BATTERIES = stringPreferencesKey("batteries") // JSON-Array
         val DASH_BATTERY = stringPreferencesKey("dashboard_battery")
@@ -76,6 +77,7 @@ class SettingsRepository(private val context: Context) {
             trackColor = p[Keys.TRACK_COLOR]?.let { enumOrNull<TrackColor>(it) } ?: TrackColor.BLUE,
             trackWidth = p[Keys.TRACK_WIDTH]?.let { enumOrNull<TrackWidth>(it) } ?: TrackWidth.NORMAL,
             trackArrows = p[Keys.TRACK_ARROWS] ?: true,
+            mapServer = p[Keys.MAP_SERVER] ?: "",
             bankMode = p[Keys.BANK_MODE]?.let { enumOrNull<BankMode>(it) } ?: BankMode.SINGLE,
             batteries = p[Keys.BATTERIES]?.let { decodeBatteries(it) } ?: emptyList(),
             dashboardBattery = p[Keys.DASH_BATTERY] ?: COMBINED_SELECTION,
@@ -118,6 +120,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTrackColor(value: TrackColor) = edit { it[Keys.TRACK_COLOR] = value.name }
     suspend fun setTrackWidth(value: TrackWidth) = edit { it[Keys.TRACK_WIDTH] = value.name }
     suspend fun setTrackArrows(value: Boolean) = edit { it[Keys.TRACK_ARROWS] = value }
+    suspend fun setMapServer(value: String) = edit { it[Keys.MAP_SERVER] = value }
     suspend fun setBankMode(value: BankMode) = edit { it[Keys.BANK_MODE] = value.name }
     suspend fun setDashboardBattery(value: String) = edit { it[Keys.DASH_BATTERY] = value }
     suspend fun setBatteries(value: List<SavedBattery>) = edit { it[Keys.BATTERIES] = encodeBatteries(value) }

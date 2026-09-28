@@ -373,6 +373,16 @@
     <string name="mapdata_delete">Löschen</string>
     <string name="mapdata_index_loading">Verzeichnis wird geladen…</string>
     <string name="mapdata_attribution">© OpenStreetMap-Mitwirkende (ODbL). Keine Seekarte.</string>
+    <string name="mapdata_server">Kartenserver</string>
+    <string name="mapdata_server_default">Standard: BoatSpeedy-Server</string>
+    <string name="mapdata_server_custom">Eigener Server</string>
+    <string name="mapdata_server_hint">Die Kacheln lassen sich mit boatspeedy-mapdata selbst erzeugen und von einem eigenen Server laden. Übernommen wird eine Adresse nur, wenn dort eine index.json liegt.</string>
+    <string name="mapdata_server_label">Adresse</string>
+    <string name="mapdata_server_apply">Prüfen und übernehmen</string>
+    <string name="mapdata_server_reset">Standard</string>
+    <string name="mapdata_server_checking">Wird geprüft…</string>
+    <string name="mapdata_server_ok">Übernommen: %1$d Kacheln, Stand %2$s</string>
+    <string name="mapdata_server_failed">Unter dieser Adresse liegt keine lesbare index.json. Nichts geändert.</string>
     <string name="close">Schließen</string>
     <string name="mapdata_missing_title">Kartendaten fehlen</string>
     <string name="mapdata_stale_title">Neuere Kartendaten da</string>

@@ -150,6 +150,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             settings.collect {
                 TripRepository.autoPauseAmps = if (it.autoPauseOn) it.autoPauseAmps else 0f
                 TripRepository.autoPauseSpeedMs = it.autoPauseSpeedMs
+                // Der Kartenserver gilt für jeden Download, egal von welchem Bildschirm.
+                de.kewl.boatspeedy.nav.MapTiles.base = it.mapServer
             }
         }
         // SoC-Alarm-Ton bei fallender Flanke unter die Schwelle.
@@ -432,6 +434,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setTrackColor(v: de.kewl.boatspeedy.data.TrackColor) = viewModelScope.launch { settingsRepo.setTrackColor(v) }
     fun setTrackWidth(v: de.kewl.boatspeedy.data.TrackWidth) = viewModelScope.launch { settingsRepo.setTrackWidth(v) }
     fun setTrackArrows(v: Boolean) = viewModelScope.launch { settingsRepo.setTrackArrows(v) }
+    fun setMapServer(v: String) = viewModelScope.launch { settingsRepo.setMapServer(v) }
     fun setAutoPauseAmps(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseAmps(v) }
     fun setAutoPauseOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAutoPauseOn(v) }
     fun setAutoPauseSpeedMs(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseSpeedMs(v) }

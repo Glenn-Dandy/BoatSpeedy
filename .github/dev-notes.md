@@ -1,5 +1,9 @@
 ## Seit 1.4.3
 
+**Neu**
+- Kartenserver wählbar unter Navigation, Kartendaten. Standard bleibt der
+  BoatSpeedy-Server; übernommen wird eine Adresse nur, wenn dort eine index.json liegt.
+
 **Geändert**
 - Die Routenberechnung ist etwa doppelt so schnell. Kahla nach Lübeck braucht auf dem
   Rechner 6,5 statt 11,9 Sekunden, auf dem Handy entsprechend.
@@ -16,6 +20,10 @@
   Version 12 verlangt. „Ungefähr" wird damit richtig erkannt.
 
 ## Since 1.4.3
+
+**New**
+- Choose the map server under Navigation, Map data. The BoatSpeedy server stays the
+  default; an address is only accepted if an index.json is found there.
 
 **Changed**
 - Route calculation is about twice as fast. Kahla to Lübeck takes 6.5 instead of 11.9

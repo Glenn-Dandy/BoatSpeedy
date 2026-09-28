@@ -375,6 +375,16 @@
     <string name="mapdata_delete">Delete</string>
     <string name="mapdata_index_loading">Loading the tile list…</string>
     <string name="mapdata_attribution">© OpenStreetMap contributors (ODbL). Not a nautical chart.</string>
+    <string name="mapdata_server">Map server</string>
+    <string name="mapdata_server_default">Default: BoatSpeedy server</string>
+    <string name="mapdata_server_custom">Own server</string>
+    <string name="mapdata_server_hint">The tiles can be built with boatspeedy-mapdata and loaded from your own server. An address is only accepted if an index.json is found there.</string>
+    <string name="mapdata_server_label">Address</string>
+    <string name="mapdata_server_apply">Check and apply</string>
+    <string name="mapdata_server_reset">Default</string>
+    <string name="mapdata_server_checking">Checking…</string>
+    <string name="mapdata_server_ok">Applied: %1$d tiles, as of %2$s</string>
+    <string name="mapdata_server_failed">No readable index.json at this address. Nothing changed.</string>
     <string name="close">Close</string>
     <string name="mapdata_missing_title">Map data missing</string>
     <string name="mapdata_stale_title">Newer map data available</string>
