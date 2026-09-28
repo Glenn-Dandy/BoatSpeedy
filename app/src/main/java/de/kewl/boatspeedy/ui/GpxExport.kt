@@ -60,7 +60,8 @@ object GpxExport {
                     " · Pause " + hms(pause) +
                     " · Gesamt " + hms(trip.totalMs) +
                     String.format(Locale.US, " · %.2f km", trip.distanceM / 1000.0) +
-                    String.format(Locale.US, " · %.1f Ah", trip.chargeAh),
+                    String.format(Locale.US, " · %.1f Ah", trip.chargeAh) +
+                    (if (trip.energyWh > 0f) String.format(Locale.US, " · %.0f Wh", trip.energyWh) else ""),
             ))
             sb.append("</desc>\n")
             sb.append("    <extensions>")
@@ -69,6 +70,9 @@ object GpxExport {
             sb.append("<boatspeedy:totalTimeS>").append(trip.totalMs / 1000).append("</boatspeedy:totalTimeS>")
             sb.append("<boatspeedy:distanceM>").append(String.format(Locale.US, "%.1f", trip.distanceM)).append("</boatspeedy:distanceM>")
             sb.append("<boatspeedy:chargeAh>").append(fmt3(trip.chargeAh)).append("</boatspeedy:chargeAh>")
+            // Die Energie fehlte hier. Nach dem Import stand der Verbrauch in Ah wieder da,
+            // Energie und Effizienz (Wh/km) aber nicht: Die gibt es nur aus diesem Wert.
+            sb.append("<boatspeedy:energyWh>").append(fmt3(trip.energyWh)).append("</boatspeedy:energyWh>")
             sb.append("</extensions>\n")
             sb.append("    <trkseg>\n")
             for (p in trip.points) {

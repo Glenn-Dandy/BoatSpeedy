@@ -5,6 +5,8 @@
   Rechner 6,5 statt 11,9 Sekunden, auf dem Handy entsprechend.
 
 **Behoben**
+- Nach Export und Import einer Fahrt fehlten Energie und Effizienz. Der Export schrieb die
+  Energie nicht mit; ältere Exporte bringen sie deshalb auch künftig nicht zurück.
 - Der Standortdialog fragt genauen und groben Standort zusammen an, wie Android es seit
   Version 12 verlangt. „Ungefähr" wird damit richtig erkannt.
 
@@ -15,5 +17,7 @@
   seconds on a desktop, and the phone gains accordingly.
 
 **Fixed**
+- After exporting and importing a trip, energy and efficiency were missing. The export
+  did not write the energy, so older exports still cannot bring it back.
 - The location dialog asks for precise and approximate location together, as Android
   requires since version 12. "Approximate" is now recognised properly.

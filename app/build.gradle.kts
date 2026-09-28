@@ -139,4 +139,7 @@ dependencies {
     // schlicht keine Wasserwege — die Routenrechnung war so gar nicht prüfbar. Mit der
     // echten Bibliothek auf dem Testpfad läuft derselbe Code wie auf dem Gerät.
     testImplementation(libs.json)
+    // Dasselbe für den XML-Leser: Android liefert XmlPullParser nur als Attrappe. kxml2 ist
+    // der Leser, den Android selbst verwendet, und macht den GPX-Import prüfbar.
+    testImplementation(libs.kxml2)
 }
