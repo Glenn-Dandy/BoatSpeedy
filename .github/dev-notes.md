@@ -6,7 +6,8 @@
 
 **Behoben**
 - Der Track hörte nach 10.000 Punkten mitten in der Fahrt auf, Zeit und Strecke liefen
-  weiter. Jetzt wird bei Erreichen der Grenze ausgedünnt, der Track bleibt vollständig.
+  weiter. Die Grenze liegt jetzt bei 50.000 Punkten, knapp 14 Stunden am Stück; darüber
+  wird ausgedünnt statt aufgehört.
 - Jede Position wurde doppelt aufgezeichnet, sobald sich Batterie oder Satelliten meldeten.
   Das halbiert Punkte und Dateigröße und verdoppelt die Zeit bis zum Ausdünnen.
 - Nach Export und Import einer Fahrt fehlten Energie und Effizienz. Der Export schrieb die
@@ -22,7 +23,8 @@
 
 **Fixed**
 - The track stopped after 10,000 points in the middle of a trip while time and distance
-  went on. Now it gets thinned out at the limit and stays complete.
+  went on. The limit is now 50,000 points, almost 14 hours in one go; beyond that the
+  track gets thinned out instead of stopping.
 - Every position was recorded twice whenever the battery or the satellites reported.
   This halves points and file size and doubles the time before thinning starts.
 - After exporting and importing a trip, energy and efficiency were missing. The export

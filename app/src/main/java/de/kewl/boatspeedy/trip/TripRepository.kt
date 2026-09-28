@@ -90,8 +90,11 @@ object TripRepository {
     @Volatile private var lastSpeedMs: Float = 0f
     /** zuletzt gemessener Strom – für sofortige Neubewertung beim Umschalten. */
     @Volatile private var lastAmps: Float = 0f
-    /** Obergrenze der Track-Punkte; darüber wird ausgedünnt, siehe [TrackBuffer]. */
-    private const val MAX_POINTS = 20_000
+    /**
+     * Obergrenze der Track-Punkte; darüber wird ausgedünnt, siehe [TrackBuffer]. Bei einem
+     * Fix je Sekunde reicht das für knapp 14 Stunden am Stück in voller Auflösung.
+     */
+    private const val MAX_POINTS = 50_000
     private const val MIN_SAVE_DISTANCE_M = 10.0
     private const val MIN_SAVE_DURATION_MS = 10_000L
 
