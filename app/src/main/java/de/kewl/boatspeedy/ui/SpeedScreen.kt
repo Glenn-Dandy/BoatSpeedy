@@ -514,19 +514,6 @@ fun DashboardScreen(
                         }
                     }
 
-                    // Ohne Fahrt-Kachel bleibt der Knopf: Eine Fahrt muss sich immer starten
-                    // lassen, auch wenn jemand die Kachel ausgeblendet hat.
-                    if (!settings.showTripTile) {
-                        if (tracking && (settings.autoPauseOn || autoPauseOverride)) {
-                            AutoPauseChip(
-                                paused = tripPaused,
-                                onToggle = { onAutoPauseOverride(!autoPauseOverride) },
-                            )
-                            Spacer(Modifier.height(12.dp))
-                        }
-                        TripButton(tracking = tracking, onStart = onStartTrip, onStop = onStopTrip)
-                        Spacer(Modifier.height(16.dp))
-                    }
                     Spacer(Modifier.height(if (bearbeiten) 112.dp else 16.dp))
                 }
 
