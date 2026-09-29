@@ -90,11 +90,19 @@ object TripRepository {
     @Volatile private var lastSpeedMs: Float = 0f
     /** zuletzt gemessener Strom – für sofortige Neubewertung beim Umschalten. */
     @Volatile private var lastAmps: Float = 0f
+
+    /** Letzte Bank-Werte für den Track und wann sie kamen (elapsedRealtime, 0 = nie). */
+    @Volatile private var trackAmps: Float = Float.NaN
+    @Volatile private var trackWatts: Float = Float.NaN
+    @Volatile private var trackSampleTs = 0L
     /**
      * Obergrenze der Track-Punkte; darüber wird ausgedünnt, siehe [TrackBuffer]. Bei einem
      * Fix je Sekunde reicht das für knapp 14 Stunden am Stück in voller Auflösung.
      */
     private const val MAX_POINTS = 50_000
+
+    /** So alt darf ein Bank-Wert sein, um noch in den Track zu kommen. */
+    private const val BANK_FRISCH_MS = 30_000L
     private const val MIN_SAVE_DISTANCE_M = 10.0
     private const val MIN_SAVE_DURATION_MS = 10_000L
 
@@ -112,6 +120,9 @@ object TripRepository {
         _autoPauseOverride.value = false
         lastSpeedMs = 0f
         lastAmps = 0f
+        trackAmps = Float.NaN
+        trackWatts = Float.NaN
+        trackSampleTs = 0L
         lastSoc = -1
         tripStartEpoch = System.currentTimeMillis()
         tripStartRealtime = SystemClock.elapsedRealtime()
@@ -196,6 +207,10 @@ object TripRepository {
                         speedMs = speed,
                         soc = lastSoc,
                         chargeAh = chargeAh,
+                        // Nur frische Werte: Reißt die Verbindung zur Batterie ab, steht
+                        // sonst minutenlang der letzte Strom im Track.
+                        currentA = if (bankFrisch()) trackAmps else Float.NaN,
+                        powerW = if (bankFrisch()) trackWatts else Float.NaN,
                     ),
                 )
                 if (aufgenommen) _livePoints.value = points.toList()
@@ -214,6 +229,9 @@ object TripRepository {
         if (!_tracking.value) return
         val now = SystemClock.elapsedRealtime()
         lastAmps = amps
+        trackAmps = kotlin.math.abs(amps)
+        trackWatts = kotlin.math.abs(watts)
+        trackSampleTs = now
         evaluateAutoPause(now)
 
         if (running) {
@@ -228,6 +246,10 @@ object TripRepository {
         }
         emit()
     }
+
+    /** Ob der letzte Bank-Wert jünger als [BANK_FRISCH_MS] ist. */
+    private fun bankFrisch(): Boolean =
+        trackSampleTs != 0L && SystemClock.elapsedRealtime() - trackSampleTs <= BANK_FRISCH_MS
 
     /**
      * Schlaue Auto-Pause: pausiert nur, wenn wenig Strom fließt UND das Boot steht.

@@ -64,6 +64,8 @@ object GpxImport {
         val speedMs: Float? = null,
         val soc: Int? = null,
         val chargeAh: Float? = null,
+        val currentA: Float? = null,
+        val powerW: Float? = null,
     )
 
     private fun parse(input: java.io.InputStream, parser: XmlPullParser): Parsed {
@@ -76,6 +78,8 @@ object GpxImport {
         var speed: Float? = null
         var soc: Int? = null
         var chargeAh: Float? = null
+        var currentA: Float? = null
+        var powerW: Float? = null
         var cur: String? = null // aktuell offenes Text-Element
         var movingS: Long? = null
         var pauseS: Long? = null
@@ -98,7 +102,7 @@ object GpxImport {
                         inPunkt = true
                         lat = parser.getAttributeValue(null, "lat")?.toDoubleOrNull()
                         lon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull()
-                        time = null; speed = null; soc = null; chargeAh = null
+                        time = null; speed = null; soc = null; chargeAh = null; currentA = null; powerW = null
                     }
                     cur = n
                 }
@@ -109,6 +113,8 @@ object GpxImport {
                         "speed", "boatspeedy:speed" -> if (speed == null) speed = t.trim().toFloatOrNull()
                         "boatspeedy:soc" -> soc = t.trim().toIntOrNull()
                         "boatspeedy:chargeah" -> chargeAh = t.trim().toFloatOrNull()
+                        "boatspeedy:currenta" -> currentA = t.trim().toFloatOrNull()
+                        "boatspeedy:powerw" -> powerW = t.trim().toFloatOrNull()
                         // Fahrt-Zeiten aus <trk><extensions> (eigene BoatSpeedy-GPX).
                         "boatspeedy:movingtimes" -> movingS = t.trim().toLongOrNull()
                         "boatspeedy:pausetimes" -> pauseS = t.trim().toLongOrNull()
@@ -127,7 +133,7 @@ object GpxImport {
                     if (n == "trkpt" || n == "rtept" || n == "wpt") {
                         inPunkt = false
                         val la = lat; val lo = lon
-                        if (la != null && lo != null) out.add(Raw(la, lo, time, speed, soc, chargeAh))
+                        if (la != null && lo != null) out.add(Raw(la, lo, time, speed, soc, chargeAh, currentA, powerW))
                         lat = null; lon = null
                     }
                     cur = null
@@ -199,6 +205,8 @@ object GpxImport {
                     speedMs = speed,
                     soc = r.soc ?: -1,
                     chargeAh = r.chargeAh ?: 0f,
+                    currentA = r.currentA ?: Float.NaN,
+                    powerW = r.powerW ?: Float.NaN,
                 ),
             )
             prev = r

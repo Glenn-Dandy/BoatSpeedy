@@ -379,8 +379,12 @@ object WaterRouter {
      * in OSM zahlreich, hängen kaum zusammen und taugen für kein Boot — im Testgebiet
      * blähten sie das Netz von 220 auf 2633 Wege auf, ohne eine einzige Fahrtstrecke
      * hinzuzufügen.
+     *
+     * `flowline` ist der Weg durch einen See, `link` die kurze Verbindung zu Anleger oder
+     * Hafen. An der Müritz steht die Havel durch die Seen nur als `flowline`; ohne sie brach
+     * jede Route am Ende des Junkerkanals ab.
      */
-    private val WATERWAYS = "river|canal|fairway"
+    private val WATERWAYS = "river|canal|fairway|flowline|link"
 
     /**
      * Bäche standen hier eine Zeit lang zusätzlich für das Kanu. Sie sind es nicht wert:
@@ -1179,7 +1183,7 @@ object WaterRouter {
         }
     }
 
-    private val NAVIGABLE = setOf("river", "canal", "fairway")
+    private val NAVIGABLE = setOf("river", "canal", "fairway", "flowline", "link")
 
     /** Hindernisse aus derselben Antwort lesen; Wege werden auf ihren Mittelpunkt reduziert. */
     private fun parseObstacles(elements: JSONArray?): List<Obstacle> = runCatching {

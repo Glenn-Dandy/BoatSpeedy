@@ -241,7 +241,7 @@ private fun BoatSpeedyApp(
             // Von außen geöffnete GPX-Datei importieren und zu den Fahrten wechseln.
             LaunchedEffect(pendingGpx) {
                 val uri = pendingGpx ?: return@LaunchedEffect
-                vm.importGpx(uri) { ok ->
+                vm.importGpx(uri, onRoutes = { tripsTab = 1 }) { ok ->
                     android.widget.Toast.makeText(
                         context,
                         context.getString(if (ok) R.string.import_ok else R.string.import_failed),
@@ -458,7 +458,7 @@ private fun BoatSpeedyApp(
                             }
                         },
                         onImport = { uri ->
-                            vm.importGpx(uri) { ok ->
+                            vm.importGpx(uri, onRoutes = { tripsTab = 1 }) { ok ->
                                 android.widget.Toast.makeText(
                                     context,
                                     context.getString(if (ok) R.string.import_ok else R.string.import_failed),
@@ -471,6 +471,7 @@ private fun BoatSpeedyApp(
                         onOpenRoute = { r -> selectedRouteId = r.id; screen = Screen.ROUTE_DETAIL },
                         tab = tripsTab,
                         onTab = { tripsTab = it },
+                        onDeleteRoutes = vm::deleteRoutes,
                     )
 
                     Screen.TRIP_DETAIL -> {

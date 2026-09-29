@@ -5,6 +5,7 @@ import de.kewl.boatspeedy.trip.SavedTrip
 import de.kewl.boatspeedy.trip.TrackPoint
 import de.kewl.boatspeedy.ui.GpxExport
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.kxml2.io.KXmlParser
@@ -30,7 +31,7 @@ class GpxRoundTripTest {
         chargeAh = 31.25f,
         points = listOf(
             TrackPoint(50.8000, 11.5800, 0L, 3.0f, 95, 0f),
-            TrackPoint(50.8100, 11.5850, 1_800_000L, 3.5f, 90, 15.5f),
+            TrackPoint(50.8100, 11.5850, 1_800_000L, 3.5f, 90, 15.5f, currentA = 31.4f, powerW = 402.5f),
             TrackPoint(50.8200, 11.5900, 4_200_000L, 3.2f, 84, 31.25f),
         ),
     )
@@ -39,6 +40,15 @@ class GpxRoundTripTest {
         val gpx = GpxExport.buildGpx(listOf(trip))
         return GpxImport.fromGpx(gpx.byteInputStream(), KXmlParser())
             ?: error("Import lieferte keine Fahrt")
+    }
+
+    /** Strom und Leistung je Punkt, nur wo eine Batterie dabei war. */
+    @Test
+    fun `Strom und Leistung kommen je Punkt zurueck`() {
+        val p = zurueck(fahrt).points
+        assertEquals(31.4f, p[1].currentA, 0.01f)
+        assertEquals(402.5f, p[1].powerW, 0.01f)
+        assertTrue(p[0].currentA.isNaN() && p[0].powerW.isNaN())
     }
 
     @Test

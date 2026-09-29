@@ -22,9 +22,15 @@ import androidx.compose.material.icons.filled.Kayaking
 import androidx.compose.material.icons.filled.DirectionsBoat
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -111,7 +117,13 @@ fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onConfirm:
 
 /** Die Liste der gespeicherten Routen, im zweiten Reiter der Fahrten. */
 @Composable
-fun RouteList(routes: List<SavedRoute>, onOpen: (SavedRoute) -> Unit, modifier: Modifier = Modifier) {
+fun RouteList(
+    routes: List<SavedRoute>,
+    selection: Set<Long>,
+    onToggle: (Long) -> Unit,
+    onOpen: (SavedRoute) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     if (routes.isEmpty()) {
         Column(
             modifier = modifier.fillMaxSize().padding(24.dp),
@@ -132,10 +144,11 @@ fun RouteList(routes: List<SavedRoute>, onOpen: (SavedRoute) -> Unit, modifier: 
         routes.forEach { r ->
             Card(modifier = Modifier.fillMaxWidth().clickable { onOpen(r) }) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Checkbox(checked = r.id in selection, onCheckedChange = { onToggle(r.id) })
+                    Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
                         NameUndDatum(r.name, r.createdAt)
                         Text(
                             formatDistance(r.distanceM),
@@ -188,6 +201,7 @@ fun RouteDetailScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var rename by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var rechnet by remember { mutableStateOf(false) }
@@ -203,6 +217,14 @@ fun RouteDetailScreen(
                 actions = {
                     IconButton(onClick = { rename = true }) {
                         Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.rename))
+                    }
+                    IconButton(onClick = {
+                        scope.launch {
+                            val uris = withContext(Dispatchers.IO) { GpxExport.writeRoutes(context, listOf(route)) }
+                            GpxExport.share(context, uris, context.getString(R.string.export))
+                        }
+                    }) {
+                        Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.export))
                     }
                     IconButton(onClick = { confirmDelete = true }) {
                         Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.remove))

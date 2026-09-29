@@ -443,7 +443,24 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Eine GPX-Datei importieren; ruft [onDone] mit true/false (Erfolg) auf dem Main-Thread. */
-    fun importGpx(uri: android.net.Uri, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+    fun importGpx(uri: android.net.Uri, onRoutes: () -> Unit = {}, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        // Eine Datei mit Route (ohne Track) wird zur Route, alles andere zur Fahrt.
+        val routen = withContext(Dispatchers.IO) {
+            runCatching {
+                getApplication<Application>().contentResolver.openInputStream(uri)?.use {
+                    de.kewl.boatspeedy.nav.RouteGpx.parse(
+                        it, android.util.Xml.newPullParser(), settings.value.craft, System.currentTimeMillis(),
+                    )
+                }
+            }.getOrNull().orEmpty()
+        }
+        if (routen.isNotEmpty()) {
+            routen.forEach { routeStore.save(it) }
+            _routes.value = routeStore.list()
+            onRoutes()
+            onDone(true)
+            return@launch
+        }
         val trip = de.kewl.boatspeedy.trip.GpxImport.import(getApplication(), uri, tripStore)
         if (trip != null) _trips.value = tripStore.list()
         onDone(trip != null)

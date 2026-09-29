@@ -99,6 +99,18 @@ class CraftAccessTest {
         )
     }
 
+    /**
+     * Durch einen See steht die Fahrlinie als `waterway=flowline`. An der Müritz ist das die
+     * Havel vom Junkerkanal bis Mirow; ohne sie endete das Wasser am Kanal, und der Rest
+     * war Luftlinie.
+     */
+    @Test
+    fun `durch den See als flowline geht es weiter`() {
+        val r = fahre(Craft.CANOE, frei, weg(""""waterway":"flowline","canoe":"yes"""", naht.lon, ost.lon))
+        val ok = r as RouteResult.Ok
+        assertEquals("das Wasser muss bis ans Ziel reichen", ost.lon, ok.water.last().lon, 1e-4)
+    }
+
     @Test
     fun `ohne Sperre gibt es auch keinen roten Zug`() {
         val r = fahre(Craft.CANOE, frei, weg(""""waterway":"river"""", naht.lon, ost.lon))

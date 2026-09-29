@@ -432,4 +432,5 @@
     <string name="route_recalc">Recalculate</string>
     <string name="route_recalculated">Route recalculated</string>
     <string name="route_delete_confirm">Delete this route?</string>
+    <string name="routes_delete_confirm">Delete %1$d routes for good? This cannot be undone.</string>
 </resources>

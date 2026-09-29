@@ -11,6 +11,10 @@ data class TrackPoint(
     val speedMs: Float = 0f,
     val soc: Int = -1,
     val chargeAh: Float = 0f,
+    /** Strom in A an dieser Stelle, als Betrag; NaN = ohne Batterie aufgezeichnet. */
+    val currentA: Float = Float.NaN,
+    /** Leistung in W an dieser Stelle, als Betrag; NaN = ohne Batterie aufgezeichnet. */
+    val powerW: Float = Float.NaN,
 )
 
 /** Eine gespeicherte, abgeschlossene Fahrt inkl. optionalem Track. */

@@ -430,4 +430,5 @@
     <string name="route_recalc">Neu berechnen</string>
     <string name="route_recalculated">Route neu berechnet</string>
     <string name="route_delete_confirm">Diese Route löschen?</string>
+    <string name="routes_delete_confirm">%1$d Routen endgültig löschen? Das lässt sich nicht rückgängig machen.</string>
 </resources>

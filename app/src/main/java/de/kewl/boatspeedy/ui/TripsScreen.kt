@@ -85,6 +85,7 @@ fun TripsScreen(
     /** 0 = Fahrten, 1 = Routen. Außen gehalten, damit „zurück" im richtigen Reiter landet. */
     tab: Int = 0,
     onTab: (Int) -> Unit = {},
+    onDeleteRoutes: (Set<Long>) -> Unit = {},
 ) {
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var confirmMerge by remember { mutableStateOf(false) }
@@ -107,6 +108,22 @@ fun TripsScreen(
                         }
                     },
                     actions = {
+                        if (tab == 1) {
+                            // Routen: teilen und löschen, zusammenführen gibt es nicht.
+                            IconButton(onClick = {
+                                val chosen = routes.filter { it.id in selection }
+                                scope.launch {
+                                    val uris = withContext(Dispatchers.IO) { GpxExport.writeRoutes(context, chosen) }
+                                    GpxExport.share(context, uris, context.getString(R.string.export))
+                                }
+                            }) {
+                                Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.export))
+                            }
+                            IconButton(onClick = { confirmDelete = true }) {
+                                Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.remove))
+                            }
+                            return@TopAppBar
+                        }
                         // Mehrere Fahrten zu einer zusammenführen.
                         if (selection.size >= 2) {
                             IconButton(onClick = { confirmMerge = true }) {
@@ -174,15 +191,27 @@ fun TripsScreen(
                     },
                 )
                 TabRow(selectedTabIndex = tab) {
-                    Tab(selected = tab == 0, onClick = { onTab(0) }, text = { Text(stringResource(R.string.nav_trips)) })
-                    Tab(selected = tab == 1, onClick = { onTab(1) }, text = { Text(stringResource(R.string.routes)) })
+                    Tab(selected = tab == 0, onClick = { selection = emptySet(); onTab(0) }, text = { Text(stringResource(R.string.nav_trips)) })
+                    Tab(selected = tab == 1, onClick = { selection = emptySet(); onTab(1) }, text = { Text(stringResource(R.string.routes)) })
                 }
                 }
             }
         },
     ) { innerPadding ->
         if (tab == 1) {
-            RouteList(routes, onOpenRoute, Modifier.padding(innerPadding))
+            RouteList(
+                routes = routes,
+                selection = selection,
+                onToggle = { id -> selection = if (id in selection) selection - id else selection + id },
+                onOpen = { r ->
+                    if (selecting) {
+                        selection = if (r.id in selection) selection - r.id else selection + r.id
+                    } else {
+                        onOpenRoute(r)
+                    }
+                },
+                modifier = Modifier.padding(innerPadding),
+            )
             return@Scaffold
         }
         if (trips.isEmpty()) {
@@ -246,10 +275,15 @@ fun TripsScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(stringResource(R.string.remove)) },
-            text = { Text(stringResource(R.string.delete_confirm, count)) },
+            text = {
+                Text(
+                    if (tab == 1) stringResource(R.string.routes_delete_confirm, count)
+                    else stringResource(R.string.delete_confirm, count),
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
-                    onDelete(selection)
+                    if (tab == 1) onDeleteRoutes(selection) else onDelete(selection)
                     selection = emptySet()
                     confirmDelete = false
                 }) { Text(stringResource(R.string.delete_do)) }
