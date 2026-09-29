@@ -411,4 +411,6 @@
     <string name="map_north_up">Norden oben</string>
     <string name="map_course_up">Fahrtrichtung</string>
     <string name="map_orientation_hint">Bei Fahrtrichtung dreht sich die Karte mit dem Kurs; ein Nordpfeil zeigt dann, wo Norden liegt. Gilt auch für die kleine Karte auf dem Dashboard.</string>
+    <string name="boat_marker">Fahrzeug als Positionssymbol</string>
+    <string name="boat_marker_hint">Die Karte zeigt Motorboot oder Kanu, je nach gewähltem Fahrzeug. Aus: der Pfeil.</string>
 </resources>

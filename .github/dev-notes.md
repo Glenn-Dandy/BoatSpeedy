@@ -6,6 +6,8 @@
   sich dort zurückholen. Das runde Häkchen unten beendet es.
 - Fahrt und GPS sind eigene Kacheln wie Batterie und Reichweite.
 - Anordnung zurücksetzen unter Einstellungen, Dashboard.
+- Auf der Karte zeigt ein Motorboot oder ein Kanu die eigene Position, je nach gewähltem
+  Fahrzeug. Unter Einstellungen, Navigation lässt sich wieder der Pfeil wählen.
 - Navigation im Hauptmenü, direkt unter Dashboard; die Live-Karte heißt jetzt so.
 - Kartenserver wählbar unter Navigation, Kartendaten. Standard bleibt der
   BoatSpeedy-Server; übernommen wird eine Adresse nur, wenn dort eine index.json liegt.
@@ -36,6 +38,8 @@
   The round tick at the bottom finishes.
 - Trip and GPS are tiles of their own, like battery and range.
 - Reset the arrangement under Settings, Dashboard.
+- A motorboat or a canoe marks your position on the map, depending on the chosen craft.
+  Settings, Navigation switches back to the arrow.
 - Navigation in the main menu, right under Dashboard; that is the live map's new name.
 - Choose the map server under Navigation, Map data. The BoatSpeedy server stays the
   default; an address is only accepted if an index.json is found there.

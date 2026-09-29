@@ -517,6 +517,7 @@ fun LiveMapScreen(
                 currentLat = currentLat,
                 currentLon = currentLon,
                 interactive = true,
+                positionIcon = positionsSymbol(settings),
                 follow = follow && !weatherMode,
                 onUserPan = { follow = false },
                 bubbleText = bubble,

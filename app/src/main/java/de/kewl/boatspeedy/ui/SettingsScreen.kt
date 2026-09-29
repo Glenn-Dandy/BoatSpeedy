@@ -423,6 +423,7 @@ fun NavigationSettingsScreen(
     onCraft: (Craft) -> Unit,
     onSeamarks: (Boolean) -> Unit,
     onMapOrientation: (MapOrientation) -> Unit,
+    onBoatMarker: (Boolean) -> Unit,
     onMapData: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -454,6 +455,8 @@ fun NavigationSettingsScreen(
             onSelect = onMapOrientation,
         )
         HintText(stringResource(R.string.map_orientation_hint))
+        SwitchRow(stringResource(R.string.boat_marker), settings.boatMarker, onBoatMarker)
+        HintText(stringResource(R.string.boat_marker_hint))
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
         SwitchRow(stringResource(R.string.nav_seamarks), settings.seamarks, onSeamarks)
         HintText(stringResource(R.string.nav_seamarks_hint))

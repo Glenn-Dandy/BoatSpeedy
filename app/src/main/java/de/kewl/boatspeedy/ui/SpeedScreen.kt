@@ -494,6 +494,7 @@ fun DashboardScreen(
                                             settings.mapOrientation, onOpenMap,
                                             hoeheDp = kartenHoehe,
                                             bearbeiten = bearbeiten,
+                                            positionIcon = positionsSymbol(settings),
                                         )
                                         DashboardTile.TRIP -> TripTile(
                                             tracking = tracking,
@@ -843,6 +844,7 @@ private fun MapMiniTile(
     onOpenMap: () -> Unit,
     hoeheDp: Float = KARTEN_HOEHEN_DP[1].toFloat(),
     bearbeiten: Boolean = false,
+    positionIcon: Int = R.drawable.ic_nav_arrow,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Box(modifier = Modifier.fillMaxWidth().height(hoeheDp.dp)) {
@@ -860,6 +862,7 @@ private fun MapMiniTile(
                 courseDeg = mapCourse?.deg,
                 speedMs = speedMs,
                 orientation = orientation,
+                positionIcon = positionIcon,
                 modifier = Modifier.matchParentSize(),
             )
             // Nicht-interaktive Vorschau: Overlay fängt den Tap (→ große Karte),

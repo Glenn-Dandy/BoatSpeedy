@@ -177,4 +177,6 @@ data class Settings(
     val seamarks: Boolean = true,
     /** Norden oben, oder die Karte in Fahrtrichtung drehen. */
     val mapOrientation: MapOrientation = MapOrientation.NORTH,
+    /** Positionssymbol als Motorboot oder Kanu nach [craft]; aus = der Pfeil. */
+    val boatMarker: Boolean = true,
 )

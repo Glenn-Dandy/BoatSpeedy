@@ -413,4 +413,6 @@
     <string name="map_north_up">North up</string>
     <string name="map_course_up">Course up</string>
     <string name="map_orientation_hint">Course up turns the map with your heading; a north arrow then shows where north is. Applies to the small map on the dashboard too.</string>
+    <string name="boat_marker">Craft as position marker</string>
+    <string name="boat_marker_hint">The map shows a motorboat or a canoe, depending on the chosen craft. Off: the arrow.</string>
 </resources>

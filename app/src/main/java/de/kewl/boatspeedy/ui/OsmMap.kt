@@ -70,6 +70,8 @@ fun OsmMap(
     currentLon: Double?,
     interactive: Boolean,
     modifier: Modifier = Modifier,
+    /** Das Positionssymbol, siehe [positionsSymbol]. */
+    positionIcon: Int = R.drawable.ic_nav_arrow,
     zoom: Double = 16.0,
     follow: Boolean = true,
     onUserPan: () -> Unit = {},
@@ -188,8 +190,13 @@ fun OsmMap(
     val marker = remember(mapView) {
         Marker(mapView).apply {
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-            icon = ContextCompat.getDrawable(context, R.drawable.ic_nav_arrow)
+            icon = ContextCompat.getDrawable(context, positionIcon)
         }
+    }
+    // Wechselt Fahrzeug oder Einstellung, wechselt das Symbol gleich mit.
+    LaunchedEffect(positionIcon) {
+        marker.icon = ContextCompat.getDrawable(context, positionIcon)
+        mapView.invalidate()
     }
     // Zwei Linien, weil zwei verschiedene Dinge gemeint sind: gestrichelt, wo man selbst
     // navigiert (Anfahrt und Auslauf), durchgezogen entlang des Fahrwassers.
@@ -1071,4 +1078,15 @@ fun CraftButton(
             )
         }
     }
+}
+
+/**
+ * Das Positionssymbol: Motorboot oder Kanu je nach Fahrzeug, oder der Pfeil, wenn es
+ * abgeschaltet ist. Das Fahrzeug auf der Karte zeigt auf einen Blick, in welchem Modus
+ * die Route gerechnet wird.
+ */
+fun positionsSymbol(settings: de.kewl.boatspeedy.data.Settings): Int = when {
+    !settings.boatMarker -> R.drawable.ic_nav_arrow
+    settings.craft == de.kewl.boatspeedy.data.Craft.CANOE -> R.drawable.ic_nav_canoe
+    else -> R.drawable.ic_nav_motorboat
 }
