@@ -102,7 +102,64 @@ data class NavTarget(
      * sie verwirft — man plant sie ja im Voraus.
      */
     val plannedFrom: LatLon? = null,
+    /** Mit welchem Fahrzeug gerechnet wurde, wenn bekannt. */
+    val craft: de.kewl.boatspeedy.data.Craft? = null,
+    /**
+     * Startpunkt einer gespeicherten Route oder Fahrt, solange man noch nicht dort ist.
+     * Bis dahin führt eine Luftlinie vom Boot hin; danach wird der Strecke gefolgt.
+     */
+    val anfahrt: LatLon? = null,
+    /**
+     * Gesetzt heißt: Diese Strecke wird **nachgefahren**, und der Wert ist der Punkt, bis
+     * zu dem man ihr schon gefolgt ist. Gesucht wird nur vorwärts von dort; sonst hieße es
+     * bei einer Fahrt hin und zurück schon am Start „angekommen", denn dort endet sie auch.
+     */
+    val folge: Int? = null,
 )
+
+/** Wie weit man einer nachgefahrenen Strecke gefolgt ist. */
+data class Folgestand(val index: Int, val restM: Double, val angekommen: Boolean)
+
+/** So weit voraus wird der eigene Platz auf der Strecke gesucht. */
+private const val FOLGE_SUCHWEITE_M = 1_500.0
+
+/**
+ * Wo auf der nachgefahrenen Strecke [path] man steht, gesucht ab [vorher] und nur
+ * vorwärts, höchstens [FOLGE_SUCHWEITE_M] weit. Angekommen ist man erst am letzten Stück
+ * und nahe am Ende, nicht schon, wenn man zufällig dort vorbeikommt.
+ */
+fun folgen(path: List<LatLon>, vorher: Int, hier: LatLon, ankunftM: Double): Folgestand {
+    if (path.isEmpty()) return Folgestand(0, 0.0, true)
+    val start = vorher.coerceIn(0, path.lastIndex)
+    var best = start
+    var bestD = distanceM(hier, path[start])
+    var weg = 0.0
+    var i = start
+    while (i < path.lastIndex && weg <= FOLGE_SUCHWEITE_M) {
+        weg += distanceM(path[i], path[i + 1])
+        i++
+        val d = distanceM(hier, path[i])
+        if (d < bestD) {
+            bestD = d
+            best = i
+        }
+    }
+    val rest = bestD + pathLengthM(path.subList(best, path.size))
+    val amEnde = best >= path.lastIndex - 1 && distanceM(hier, path.last()) <= ankunftM
+    return Folgestand(best, rest, amEnde)
+}
+
+/**
+ * Der erste Punkt der Strecke, an dem man [hier] auf sie trifft. Wer mitten in eine
+ * gespeicherte Route einsteigt, soll dort weiterfolgen, nicht am Anfang; bei einer
+ * Rundfahrt gewinnt dagegen der Anfang, nicht das Ende am selben Ort.
+ */
+fun einstieg(path: List<LatLon>, hier: LatLon, grenzeM: Double): Int? {
+    for (i in 0 until path.lastIndex) {
+        if (abstandZurLinie(hier, listOf(path[i], path[i + 1])) <= grenzeM) return i
+    }
+    return null
+}
 
 /**
  * Entfernung in Metern (Haversine). Bewusst selbst gerechnet statt über
@@ -712,6 +769,29 @@ object WaterRouter {
         }
         if (!ok) return emptyList()
         return zusammenlegen(alle.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) })
+    }
+
+    /**
+     * Die Hindernisse entlang einer fremden Strecke, etwa einer aufgezeichneten Fahrt, die
+     * nachgefahren werden soll. Nur aus den Kacheln; fehlt eine, bleibt die Liste leer.
+     */
+    fun obstaclesAlong(dir: java.io.File?, path: List<LatLon>): List<Obstacle> {
+        if (dir == null || !dir.isDirectory || path.size < 2) return emptyList()
+        val rand = 0.005
+        val south = path.minOf { it.lat } - rand
+        val north = path.maxOf { it.lat } + rand
+        val west = path.minOf { it.lon } - rand
+        val east = path.maxOf { it.lon } + rand
+        val ids = MapTiles.tilesFor(south, west, north, east)
+        if (ids.isEmpty() || ids.size > MAX_TILES || MapTiles.missing(dir, ids).isNotEmpty()) return emptyList()
+        val strecke = StreckenRaster(path)
+        val alle = ArrayList<Obstacle>()
+        val ok = MapTiles.forEach(dir, ids) { json ->
+            parseObstacles(elemente(json)).filterTo(alle) {
+                strecke.abstand(LatLon(it.lat, it.lon), OBSTACLE_UMGEBUNG_M) <= OBSTACLE_UMGEBUNG_M
+            }
+        }
+        return if (ok) onPath(alle, path) else emptyList()
     }
 
     /**

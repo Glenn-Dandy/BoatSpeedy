@@ -89,4 +89,20 @@ class GpxRoundTripTest {
         assertEquals(0f, t!!.energyWh, 0f)
         assertEquals(1112.0, t.distanceM, 5.0)
     }
+
+    /** Ein vergebener Name kommt zurück; ohne Namen bleibt es beim Datum, kein Name. */
+    @Test
+    fun `der Name kommt zurueck, das Datum wird keiner`() {
+        assertEquals("Alter zur Linkenmühle", zurueck(fahrt.copy(name = "Alter zur Linkenmühle")).name)
+        assertEquals(null, zurueck(fahrt).name)
+    }
+
+    @Test
+    fun `fremde GPX bringen ihren Spurnamen mit`() {
+        val gpx = """<?xml version="1.0"?><gpx version="1.1"><trk><name>Saale Etappe 2</name><trkseg>
+            <trkpt lat="50.80" lon="11.58"><name>Punkt</name><time>2026-09-20T10:00:00Z</time></trkpt>
+            <trkpt lat="50.81" lon="11.58"><time>2026-09-20T10:05:00Z</time></trkpt>
+            </trkseg></trk></gpx>"""
+        assertEquals("Saale Etappe 2", GpxImport.fromGpx(gpx.byteInputStream(), KXmlParser())!!.name)
+    }
 }

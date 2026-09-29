@@ -415,4 +415,21 @@
     <string name="map_orientation_hint">Course up turns the map with your heading; a north arrow then shows where north is. Applies to the small map on the dashboard too.</string>
     <string name="boat_marker">Craft as position marker</string>
     <string name="boat_marker_hint">The map shows a motorboat or a canoe, depending on the chosen craft. Off: the arrow.</string>
+    <string name="routes">Routes</string>
+    <string name="routes_empty">No saved routes yet. Plan a route on the Navigation map and save it with the bookmark.</string>
+    <string name="route_save">Save route</string>
+    <string name="route_saved">Route saved</string>
+    <string name="name_hint">Name, e.g. Harbour to the mill (optional)</string>
+    <string name="route_length">Length</string>
+    <string name="route_craft">Planned for</string>
+    <string name="route_locks">Locks</string>
+    <string name="route_weirs">Weirs</string>
+    <string name="route_portage">Portage</string>
+    <string name="route_upstream">Upstream</string>
+    <string name="route_downstream">Downstream</string>
+    <string name="route_other_craft">Planned for %1$s. %2$s is selected now: Recalculate plans it for that.</string>
+    <string name="route_navigate">Navigate</string>
+    <string name="route_recalc">Recalculate</string>
+    <string name="route_recalculated">Route recalculated</string>
+    <string name="route_delete_confirm">Delete this route?</string>
 </resources>

@@ -45,6 +45,8 @@ import de.kewl.boatspeedy.trip.TripStore
 import de.kewl.boatspeedy.util.Notifier
 import de.kewl.boatspeedy.weather.WeatherRepository
 import de.kewl.boatspeedy.weather.WeatherWarning
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
@@ -69,6 +71,10 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _trips = MutableStateFlow<List<SavedTrip>>(emptyList())
     val trips: StateFlow<List<SavedTrip>> = _trips.asStateFlow()
+
+    private val routeStore = de.kewl.boatspeedy.nav.RouteStore(app)
+    private val _routes = MutableStateFlow<List<de.kewl.boatspeedy.nav.SavedRoute>>(emptyList())
+    val routes: StateFlow<List<de.kewl.boatspeedy.nav.SavedRoute>> = _routes.asStateFlow()
 
     val settings: StateFlow<Settings> =
         settingsRepo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
@@ -329,6 +335,107 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         _trips.value = tripStore.list()
         onDone(true)
     }
+
+    /** Einer Fahrt nachträglich einen Namen geben; leer entfernt ihn wieder. */
+    fun renameTrip(id: Long, name: String) = viewModelScope.launch {
+        val t = tripStore.get(id) ?: return@launch
+        tripStore.save(t.copy(name = name.trim().takeIf { it.isNotEmpty() }))
+        _trips.value = tripStore.list()
+    }
+
+    /**
+     * Eine aufgezeichnete Fahrt nachfahren: Der Track wird zur Route, erst mit Anfahrt vom
+     * Boot zum Start. Hindernisse kommen aus den Kacheln, soweit sie auf dem Gerät sind.
+     */
+    fun navigateTrip(id: Long, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val t = tripStore.get(id)
+        val pfad = t?.let { ausduennen(it.points.map { p -> de.kewl.boatspeedy.nav.LatLon(p.lat, p.lon) }) }
+        if (pfad == null || pfad.size < 2) { onDone(false); return@launch }
+        val hindernisse = withContext(Dispatchers.Default) {
+            de.kewl.boatspeedy.nav.WaterRouter.obstaclesAlong(
+                de.kewl.boatspeedy.nav.MapTiles.dir(getApplication<Application>().filesDir), pfad,
+            )
+        }
+        de.kewl.boatspeedy.nav.NavRepository.set(
+            de.kewl.boatspeedy.nav.NavTarget(
+                target = pfad.last(),
+                mode = de.kewl.boatspeedy.nav.NavMode.ROUTE,
+                path = pfad,
+                distanceM = de.kewl.boatspeedy.nav.pathLengthM(pfad),
+                water = pfad,
+                obstacles = hindernisse,
+                anfahrt = pfad.first(),
+                folge = 0,
+            ),
+        )
+        onDone(true)
+    }
+
+    /** Punkte näher als 10 m am vorigen weglassen: Zum Nachfahren reicht das, und es zeichnet sich schneller. */
+    private fun ausduennen(p: List<de.kewl.boatspeedy.nav.LatLon>): List<de.kewl.boatspeedy.nav.LatLon> {
+        if (p.size < 3) return p
+        val out = arrayListOf(p.first())
+        for (i in 1 until p.lastIndex) {
+            if (de.kewl.boatspeedy.nav.distanceM(out.last(), p[i]) >= 10.0) out.add(p[i])
+        }
+        out.add(p.last())
+        return out
+    }
+
+    fun refreshRoutes() = viewModelScope.launch { _routes.value = routeStore.list() }
+
+    /** Die gerade gerechnete Route speichern. */
+    fun saveRoute(t: de.kewl.boatspeedy.nav.NavTarget, name: String, onDone: (Boolean) -> Unit = {}) =
+        viewModelScope.launch {
+            val r = de.kewl.boatspeedy.nav.SavedRoute.aus(t, settings.value.craft, System.currentTimeMillis(), name)
+            if (r == null) { onDone(false); return@launch }
+            routeStore.save(r)
+            _routes.value = routeStore.list()
+            onDone(true)
+        }
+
+    fun renameRoute(id: Long, name: String) = viewModelScope.launch {
+        val r = _routes.value.firstOrNull { it.id == id } ?: return@launch
+        routeStore.save(r.copy(name = name.trim().takeIf { it.isNotEmpty() }))
+        _routes.value = routeStore.list()
+    }
+
+    fun deleteRoutes(ids: Set<Long>) = viewModelScope.launch {
+        routeStore.delete(ids)
+        _routes.value = routeStore.list()
+    }
+
+    fun navigateRoute(r: de.kewl.boatspeedy.nav.SavedRoute) = de.kewl.boatspeedy.nav.NavRepository.set(r.alsZiel())
+
+    /**
+     * Eine gespeicherte Route mit dem eingestellten Fahrzeug und den aktuellen Kartendaten
+     * neu rechnen. Name und Platz in der Liste bleiben. [onDone] bekommt den Fehler oder null.
+     */
+    fun recalcRoute(r: de.kewl.boatspeedy.nav.SavedRoute, onDone: (de.kewl.boatspeedy.nav.RouteError?) -> Unit) =
+        viewModelScope.launch {
+            val craft = settings.value.craft
+            val res = withContext(Dispatchers.IO) {
+                de.kewl.boatspeedy.nav.WaterRouter.route(
+                    r.start, r.target, craft,
+                    de.kewl.boatspeedy.nav.MapTiles.dir(getApplication<Application>().filesDir),
+                )
+            }
+            when (res) {
+                is de.kewl.boatspeedy.nav.RouteResult.Ok -> {
+                    routeStore.save(
+                        r.copy(
+                            craft = craft, path = res.path, water = res.water, obstacles = res.obstacles,
+                            restrictedM = res.restrictedM, restricted = res.restricted,
+                            upstreamM = res.upstreamM, downstreamM = res.downstreamM,
+                            portageM = res.portageM, portage = res.portage,
+                        ),
+                    )
+                    _routes.value = routeStore.list()
+                    onDone(null)
+                }
+                is de.kewl.boatspeedy.nav.RouteResult.Failed -> onDone(res.reason)
+            }
+        }
 
     fun deleteTrips(ids: Set<Long>) = viewModelScope.launch {
         tripStore.delete(ids)

@@ -29,7 +29,7 @@ fun TripMapScreen(trip: SavedTrip, settings: Settings, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(tripDate(trip.startedAt)) },
+                title = { NameUndDatum(trip.name, trip.startedAt, groesse = 20) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))

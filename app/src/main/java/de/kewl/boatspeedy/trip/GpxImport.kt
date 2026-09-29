@@ -52,6 +52,7 @@ object GpxImport {
         val totalS: Long?,
         val distanceM: Double? = null,
         val energyWh: Float? = null,
+        val name: String? = null,
     )
 
     private data class Parsed(val points: List<Raw>, val meta: TripMeta)
@@ -81,12 +82,20 @@ object GpxImport {
         var totalS: Long? = null
         var fahrtStrecke: Double? = null
         var fahrtEnergie: Float? = null
+        var eigenerName: String? = null
+        var trkName: String? = null
+        var ausBoatSpeedy = false
+        var inTrk = false
+        var inPunkt = false
         var event = parser.eventType
         while (event != XmlPullParser.END_DOCUMENT) {
             when (event) {
                 XmlPullParser.START_TAG -> {
                     val n = parser.name.lowercase()
+                    if (n == "trk") inTrk = true
+                    if (n.startsWith("boatspeedy:")) ausBoatSpeedy = true
                     if (n == "trkpt" || n == "rtept" || n == "wpt") {
+                        inPunkt = true
                         lat = parser.getAttributeValue(null, "lat")?.toDoubleOrNull()
                         lon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull()
                         time = null; speed = null; soc = null; chargeAh = null
@@ -106,11 +115,17 @@ object GpxImport {
                         "boatspeedy:totaltimes" -> totalS = t.trim().toLongOrNull()
                         "boatspeedy:distancem" -> fahrtStrecke = t.trim().toDoubleOrNull()
                         "boatspeedy:energywh" -> fahrtEnergie = t.trim().toFloatOrNull()
+                        "boatspeedy:name" -> eigenerName = t.trim().takeIf { it.isNotEmpty() }
+                        // Der Name der Spur, nicht der eines Punktes.
+                        "name" -> if (inTrk && !inPunkt && trkName == null) {
+                            trkName = t.trim().takeIf { it.isNotEmpty() }
+                        }
                     }
                 }
                 XmlPullParser.END_TAG -> {
                     val n = parser.name.lowercase()
                     if (n == "trkpt" || n == "rtept" || n == "wpt") {
+                        inPunkt = false
                         val la = lat; val lo = lon
                         if (la != null && lo != null) out.add(Raw(la, lo, time, speed, soc, chargeAh))
                         lat = null; lon = null
@@ -120,7 +135,10 @@ object GpxImport {
             }
             event = parser.next()
         }
-        return Parsed(out, TripMeta(movingS, pauseS, totalS, fahrtStrecke, fahrtEnergie))
+        // Aus einer BoatSpeedy-Datei zählt nur der eigene Name: Ihr <name> ist ohne ihn
+        // das Datum, und das stünde sonst zweimal da. Fremde Dateien bringen ihren Namen mit.
+        val name = eigenerName ?: trkName.takeIf { !ausBoatSpeedy }
+        return Parsed(out, TripMeta(movingS, pauseS, totalS, fahrtStrecke, fahrtEnergie, name))
     }
 
     /**
@@ -205,6 +223,7 @@ object GpxImport {
             avgSpeedMs = avg,
             maxSpeedMs = maxSpeed,
             energyWh = meta.energyWh ?: 0f,
+            name = meta.name,
             chargeAh = tripCharge,
             points = points,
         )

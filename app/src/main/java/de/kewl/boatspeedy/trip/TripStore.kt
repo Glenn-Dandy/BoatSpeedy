@@ -56,6 +56,7 @@ class TripStore(context: Context) {
             .put("energyWh", t.energyWh.toDouble())
             .put("chargeAh", t.chargeAh.toDouble())
             .put("points", pts)
+            .apply { t.name?.let { put("name", it) } }
             .toString()
     }
 
@@ -87,6 +88,7 @@ class TripStore(context: Context) {
             energyWh = o.getDouble("energyWh").toFloat(),
             chargeAh = o.getDouble("chargeAh").toFloat(),
             points = pts,
+            name = o.optString("name").takeIf { it.isNotBlank() },
         )
     }
 }

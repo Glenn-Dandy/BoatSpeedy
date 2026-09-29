@@ -857,7 +857,14 @@ private fun MapMiniTile(
                 currentLat = lat,
                 currentLon = lon,
                 interactive = false,
-                navPath = navTarget?.path.orEmpty(),
+                // Beim Nachfahren erst die Luftlinie vom Boot zum Start.
+                navPath = navTarget?.let { t ->
+                    if (t.anfahrt != null && lat != null && lon != null) {
+                        listOf(de.kewl.boatspeedy.nav.LatLon(lat, lon)) + t.path
+                    } else {
+                        t.path
+                    }
+                }.orEmpty(),
                 navWaterPath = navTarget?.water.orEmpty(),
                 courseDeg = mapCourse?.deg,
                 speedMs = speedMs,

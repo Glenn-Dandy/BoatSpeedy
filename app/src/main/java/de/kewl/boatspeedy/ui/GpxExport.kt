@@ -49,7 +49,7 @@ object GpxExport {
         }
         for (trip in trips) {
             sb.append("  <trk>\n    <name>")
-            sb.append(escape(name.format(Date(trip.startedAt))))
+            sb.append(escape(trip.name ?: name.format(Date(trip.startedAt))))
             sb.append("</name>\n")
             // Die Zeiten der App explizit mitgeben: Werkzeuge rechnen sonst nur die
             // Gesamtspanne (inkl. Pausen) aus den Zeitstempeln.
@@ -73,6 +73,9 @@ object GpxExport {
             // Die Energie fehlte hier. Nach dem Import stand der Verbrauch in Ah wieder da,
             // Energie und Effizienz (Wh/km) aber nicht: Die gibt es nur aus diesem Wert.
             sb.append("<boatspeedy:energyWh>").append(fmt3(trip.energyWh)).append("</boatspeedy:energyWh>")
+            // Der eigene Name eigens: <name> trägt ohne ihn das Datum, und das soll beim
+            // Einlesen nicht zum Namen werden.
+            trip.name?.let { sb.append("<boatspeedy:name>").append(escape(it)).append("</boatspeedy:name>") }
             sb.append("</extensions>\n")
             sb.append("    <trkseg>\n")
             for (p in trip.points) {

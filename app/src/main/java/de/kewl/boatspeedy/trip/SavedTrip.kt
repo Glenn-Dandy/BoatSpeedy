@@ -25,6 +25,8 @@ data class SavedTrip(
     val energyWh: Float,
     val chargeAh: Float,
     val points: List<TrackPoint> = emptyList(),
+    /** Selbst vergebener Name, etwa „Alter zur Linkenmühle"; ohne Namen zählt das Datum. */
+    val name: String? = null,
 ) {
     val hasTrack: Boolean get() = points.size >= 2
 }

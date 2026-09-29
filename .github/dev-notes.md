@@ -11,6 +11,16 @@
 - Navigation im Hauptmenü, direkt unter Dashboard; die Live-Karte heißt jetzt so.
 - Kartenserver wählbar unter Navigation, Kartendaten. Standard bleibt der
   BoatSpeedy-Server; übernommen wird eine Adresse nur, wenn dort eine index.json liegt.
+- Routen speichern: In der Navigation merkt sich das Lesezeichen an der Routenanzeige die
+  gerechnete Route, auf Wunsch mit Namen. Unter Fahrten, Reiter Routen, steht sie mit
+  Karte, Länge, Schleusen und Fahrzeug. So wie gespeichert wird sie gezeigt; Neu berechnen
+  holt den aktuellen Stand der Kartendaten.
+- Nachfahren: Navigieren bei einer Route oder einer aufgezeichneten Fahrt legt sie in die
+  Navigation. Eine gestrichelte Luftlinie führt vom Boot zum Start und verschwindet dort,
+  danach geht es der Strecke nach. Auch Rundfahrten, die am Start enden.
+- Fahrten und Routen lassen sich umbenennen, etwa „Alter zur Linkenmühle". Der Name steht
+  groß, Datum und Uhrzeit klein darunter. Der GPX-Export nimmt ihn mit, der Import
+  übernimmt ihn.
 
 **Geändert**
 - Die App bleibt im Hochformat und dreht sich nicht mehr ins Querformat.
@@ -43,6 +53,14 @@
 - Navigation in the main menu, right under Dashboard; that is the live map's new name.
 - Choose the map server under Navigation, Map data. The BoatSpeedy server stays the
   default; an address is only accepted if an index.json is found there.
+- Save routes: in Navigation, the bookmark on the route display keeps the planned route,
+  optionally with a name. Trips, tab Routes, lists it with map, length, locks and craft.
+  It is shown as saved; Recalculate uses the current map data.
+- Follow: Navigate on a route or a recorded trip puts it into Navigation. A dashed line
+  leads from the boat to the start and disappears there, then you follow the track. Round
+  trips that end at the start work too.
+- Trips and routes can be renamed, for example "Harbour to the mill". The name is shown
+  large with date and time small below. GPX export carries it and import picks it up.
 
 **Changed**
 - The app stays in portrait and no longer turns to landscape.

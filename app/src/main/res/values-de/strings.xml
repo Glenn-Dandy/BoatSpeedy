@@ -413,4 +413,21 @@
     <string name="map_orientation_hint">Bei Fahrtrichtung dreht sich die Karte mit dem Kurs; ein Nordpfeil zeigt dann, wo Norden liegt. Gilt auch für die kleine Karte auf dem Dashboard.</string>
     <string name="boat_marker">Fahrzeug als Positionssymbol</string>
     <string name="boat_marker_hint">Die Karte zeigt Motorboot oder Kanu, je nach gewähltem Fahrzeug. Aus: der Pfeil.</string>
+    <string name="routes">Routen</string>
+    <string name="routes_empty">Noch keine Routen gespeichert. Plane eine Route in der Navigation und speichere sie mit dem Lesezeichen.</string>
+    <string name="route_save">Route speichern</string>
+    <string name="route_saved">Route gespeichert</string>
+    <string name="name_hint">Name, z. B. Alter zur Linkenmühle (optional)</string>
+    <string name="route_length">Länge</string>
+    <string name="route_craft">Geplant für</string>
+    <string name="route_locks">Schleusen</string>
+    <string name="route_weirs">Wehre</string>
+    <string name="route_portage">Umtragen</string>
+    <string name="route_upstream">Flussauf</string>
+    <string name="route_downstream">Flussab</string>
+    <string name="route_other_craft">Geplant für %1$s. Eingestellt ist jetzt %2$s: Neu berechnen plant sie dafür.</string>
+    <string name="route_navigate">Navigieren</string>
+    <string name="route_recalc">Neu berechnen</string>
+    <string name="route_recalculated">Route neu berechnet</string>
+    <string name="route_delete_confirm">Diese Route löschen?</string>
 </resources>
