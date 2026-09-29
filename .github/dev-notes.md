@@ -21,6 +21,11 @@
 - Fahrten und Routen lassen sich umbenennen, etwa „Alter zur Linkenmühle". Der Name steht
   groß, Datum und Uhrzeit klein darunter. Der GPX-Export nimmt ihn mit, der Import
   übernimmt ihn.
+- Routen lassen sich wie Fahrten markieren, teilen und löschen. Geteilt wird als GPX mit
+  der Strecke als Route und Schleusen und Wehren als Wegpunkte. Eine solche Datei landet
+  beim Import wieder unter Routen, ebenso eine Route aus anderen Programmen.
+- Der Track zeichnet jetzt auch Strom und Leistung auf, wenn eine Batterie verbunden ist.
+  Antippen des Tracks zeigt sie mit an, der GPX-Export nimmt sie mit.
 
 **Geändert**
 - Die App bleibt im Hochformat und dreht sich nicht mehr ins Querformat.
@@ -28,6 +33,9 @@
   Rechner 6,5 statt 11,9 Sekunden, auf dem Handy entsprechend.
 
 **Behoben**
+- Routen durch Seen brachen ab, etwa an der Müritz am Ende des Junkerkanals. Der Weg durch
+  einen See steht in OSM oft als flowline, und die fehlte in den Kartendaten. Braucht die
+  neuen Kacheln.
 - Ohne Fix, etwa drinnen, stand oft eine alte Geschwindigkeit fest auf dem Tacho. Sie kam
   vom letzten bekannten Standort des Handys, teils Stunden alt. Jetzt steht dort "--".
 - Der Track hörte nach 10.000 Punkten mitten in der Fahrt auf, Zeit und Strecke liefen
@@ -61,6 +69,11 @@
   trips that end at the start work too.
 - Trips and routes can be renamed, for example "Harbour to the mill". The name is shown
   large with date and time small below. GPX export carries it and import picks it up.
+- Routes can be selected, shared and deleted like trips. They are shared as GPX with the
+  course as a route and locks and weirs as waypoints. Importing such a file puts it back
+  under Routes, and so does a route from other apps.
+- The track now also records current and power while a battery is connected. Tapping the
+  track shows them, and GPX export carries them.
 
 **Changed**
 - The app stays in portrait and no longer turns to landscape.
@@ -68,6 +81,9 @@
   seconds on a desktop, and the phone gains accordingly.
 
 **Fixed**
+- Routes through lakes broke off, for example at the Müritz at the end of the Junkerkanal.
+  OSM often maps the course through a lake as a flowline, which was missing from the map
+  data. Needs the new tiles.
 - Without a fix, indoors for instance, an old speed often stuck on the speedometer. It came
   from the phone's last known location, sometimes hours old. It now shows "--".
 - The track stopped after 10,000 points in the middle of a trip while time and distance
