@@ -172,7 +172,7 @@ private fun CraftIcon(craft: Craft) {
     )
 }
 
-/** Die Strecke als Pseudo-Fahrt, damit die kleine Karte sie zeichnen kann. */
+/** Die Strecke als Pseudo-Fahrt, damit die Karte sie zeichnen kann. */
 private fun alsFahrt(r: SavedRoute) = SavedTrip(
     id = r.id,
     startedAt = r.createdAt,
@@ -199,6 +199,7 @@ fun RouteDetailScreen(
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
     onBack: () -> Unit,
+    onShowMap: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -253,6 +254,8 @@ fun RouteDetailScreen(
                     modifier = Modifier.matchParentSize(),
                 )
                 }
+                // Antippen öffnet die große Karte, wie bei den Fahrten.
+                Box(modifier = Modifier.matchParentSize().clickable(onClick = onShowMap))
             }
             RouteRow(stringResource(R.string.route_length), formatDistance(route.distanceM))
             RouteRow(
@@ -338,5 +341,35 @@ private fun RouteRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
         Text(value, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** Die gespeicherte Route auf der großen Karte, zum Verschieben und Zoomen. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RouteMapScreen(route: SavedRoute, settings: Settings, onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { NameUndDatum(route.name, route.createdAt, groesse = 20) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
+        androidx.compose.runtime.key(route.path) {
+            TrackMap(
+                trip = alsFahrt(route),
+                interactive = true,
+                showArrows = true,
+                bubbleText = null,
+                color = android.graphics.Color.parseColor("#FB8C00"),
+                strokeWidth = settings.trackWidth.px,
+                modifier = Modifier.padding(innerPadding).fillMaxSize(),
+            )
+        }
     }
 }

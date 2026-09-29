@@ -91,7 +91,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, ROUTE_DETAIL, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_NAV, SETTINGS_MAPDATA, SETTINGS_APPEARANCE, SETTINGS_DEV, WEATHER, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, ROUTE_DETAIL, ROUTE_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_NAV, SETTINGS_MAPDATA, SETTINGS_APPEARANCE, SETTINGS_DEV, WEATHER, ABOUT }
 
 class MainActivity : ComponentActivity() {
     // Von außen zum Import übergebene GPX-Datei (Öffnen-mit / Teilen an BoatSpeedy).
@@ -309,6 +309,7 @@ private fun BoatSpeedyApp(
                     Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_NOTIF, Screen.SETTINGS_GENERAL, Screen.SETTINGS_TRACKS, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE, Screen.SETTINGS_DEV -> Screen.SETTINGS
                     Screen.TRIP_DETAIL, Screen.ROUTE_DETAIL -> Screen.TRIPS
                     Screen.TRIP_MAP -> Screen.TRIP_DETAIL
+                    Screen.ROUTE_MAP -> Screen.ROUTE_DETAIL
                     else -> Screen.SPEED
                 }
             }
@@ -329,7 +330,7 @@ private fun BoatSpeedyApp(
                         HorizontalDivider()
                         DrawerItem(R.string.nav_speed, Icons.Filled.Speed, screen == Screen.SPEED) { goTo(Screen.SPEED) }
                         DrawerItem(R.string.live_map, Icons.Filled.Map, screen == Screen.LIVE_MAP) { goTo(Screen.LIVE_MAP) }
-                        DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen.name.startsWith("TRIP")) { goTo(Screen.TRIPS) }
+                        DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen.name.startsWith("TRIP") || screen.name.startsWith("ROUTE")) { goTo(Screen.TRIPS) }
                         DrawerItem(R.string.nav_battery, Icons.Filled.BatteryFull, screen == Screen.BATTERY) { goTo(Screen.BATTERY) }
                         DrawerItem(R.string.nav_anchor, Icons.Filled.Anchor, screen == Screen.ANCHOR) { goTo(Screen.ANCHOR) }
                         DrawerItem(R.string.nav_weather, Icons.Filled.Cloud, screen == Screen.WEATHER) { goTo(Screen.WEATHER) }
@@ -520,6 +521,20 @@ private fun BoatSpeedyApp(
                                     screen = Screen.TRIPS
                                 },
                                 onBack = { screen = Screen.TRIPS },
+                                onShowMap = { screen = Screen.ROUTE_MAP },
+                            )
+                        }
+                    }
+
+                    Screen.ROUTE_MAP -> {
+                        val route = routes.firstOrNull { it.id == selectedRouteId }
+                        if (route == null) {
+                            screen = Screen.TRIPS
+                        } else {
+                            de.kewl.boatspeedy.ui.RouteMapScreen(
+                                route = route,
+                                settings = settings,
+                                onBack = { screen = Screen.ROUTE_DETAIL },
                             )
                         }
                     }
