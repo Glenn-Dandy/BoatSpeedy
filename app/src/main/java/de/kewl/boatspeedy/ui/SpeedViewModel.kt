@@ -47,6 +47,7 @@ import de.kewl.boatspeedy.weather.WeatherRepository
 import de.kewl.boatspeedy.weather.WeatherWarning
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -359,15 +360,27 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Tickt jede Sekunde, damit ein veralteter Fix auch ohne neue Meldung auffällt. */
+    private val sekundentakt = flow {
+        while (true) {
+            emit(Unit)
+            delay(1000)
+        }
+    }
+
     // Gleitender Mittelwert der rohen Geschwindigkeit (m/s).
     private val speedWindow = ArrayDeque<Float>()
     // A+D: letzten Anzeigewert halten und schlechte Fixes fürs Tempo ignorieren.
     private var lastDisplayMs: Float? = null
-    private var badTicks = 0
+    /** Zeit des letzten brauchbaren Fixes; bis [HALTEN_NS] danach bleibt sein Wert stehen. */
+    private var lastGoodNanos: Long? = null
+    /** Zuletzt eingerechneter Fix: jeder zählt nur einmal, nicht bei jeder Satellitenmeldung. */
+    private var lastUsedFixNanos: Long? = null
 
     /** Fertig formatierter Anzeigewert (bereits geglättet & umgerechnet). Im Lademodus „--". */
     val displaySpeed: StateFlow<String> =
-        combine(_gps, settings, _charge) { gps, settings, charge ->
+        // Der Sekundentakt prüft das Alter auch dann, wenn gar nichts mehr kommt.
+        combine(_gps, settings, _charge, sekundentakt) { gps, settings, charge, _ ->
             if (charge.charging) NO_FIX else smoothAndFormat(gps, settings)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, NO_FIX)
 
@@ -395,7 +408,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         if (collectJob?.isActive == true) return
         speedWindow.clear()
         lastDisplayMs = null
-        badTicks = 0
+        lastGoodNanos = null
+        lastUsedFixNanos = null
         collectJob = viewModelScope.launch {
             locationProvider.state.collect { g ->
                 _gps.value = g
@@ -613,14 +627,19 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     private fun smoothAndFormat(gps: GpsState, settings: Settings): String {
         val raw = gps.speedMs
         val acc = gps.accuracyM
+        val jetzt = SystemClock.elapsedRealtimeNanos()
+        // **Nur ein frischer Fix zählt.** Drinnen kommen keine neuen Positionen, die
+        // Satellitenmeldungen schicken aber die alte immer wieder durch; ihr Tempo stand
+        // dann fest auf dem Tacho, als wäre es gerade gemessen.
+        val frisch = gps.fixNanos?.let { jetzt - it <= HALTEN_NS } ?: false
         // D: nur Fixes mit brauchbarer Genauigkeit fürs Tempo verwenden.
-        val good = raw != null && (acc == null || acc <= MAX_ACCURACY_M)
+        val good = frisch && raw != null && (acc == null || acc <= MAX_ACCURACY_M)
 
         if (!good) {
             // A: kurze Aussetzer/schlechte Fixes überbrücken – letzten Wert halten,
-            // erst nach längerem Verlust auf „--" fallen.
-            badTicks++
-            if (badTicks > MAX_HOLD_TICKS) {
+            // erst nach [HALTEN_NS] ohne brauchbaren Fix auf „--" fallen.
+            val seit = lastGoodNanos?.let { jetzt - it }
+            if (seit == null || seit > HALTEN_NS) {
                 speedWindow.clear()
                 lastDisplayMs = null
                 return NO_FIX
@@ -628,10 +647,13 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             return lastDisplayMs?.let { formatMs(it, settings) } ?: NO_FIX
         }
 
-        badTicks = 0
-        val window = settings.smoothing.window
-        speedWindow.addLast(raw!!)
-        while (speedWindow.size > window) speedWindow.removeFirst()
+        lastGoodNanos = gps.fixNanos
+        if (gps.fixNanos != lastUsedFixNanos) {
+            lastUsedFixNanos = gps.fixNanos
+            val window = settings.smoothing.window
+            speedWindow.addLast(raw!!)
+            while (speedWindow.size > window) speedWindow.removeFirst()
+        }
         val avgMs = speedWindow.average().toFloat()
         lastDisplayMs = avgMs
         return formatMs(avgMs, settings)
@@ -647,7 +669,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         const val NO_FIX = "--"
         private const val MAX_ACCURACY_M = 25f  // schlechtere Fixes fürs Tempo ignorieren (D)
-        private const val MAX_HOLD_TICKS = 5    // so viele schlechte Fixes den letzten Wert halten (A)
+        /** So lange nach dem letzten brauchbaren Fix bleibt sein Wert stehen, danach „--". */
+        private const val HALTEN_NS = 5_000_000_000L
         private const val CHARGE_ON_A = 0.5f    // ab diesem positiven Strom gilt „lädt"
         private const val CHARGE_FULL_A = 0.1f  // darunter: Strom abgeklungen → voll
         private const val FULL_SOC_MIN = 90     // „voll" nur ab diesem Ladestand melden

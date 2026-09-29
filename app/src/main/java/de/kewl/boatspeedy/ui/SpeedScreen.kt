@@ -1126,8 +1126,11 @@ private fun TripButton(tracking: Boolean, onStart: () -> Unit, onStop: () -> Uni
 @Composable
 private fun StatusRow(gps: GpsState, showSatDetails: Boolean) {
     if (!showSatDetails) return
+    // Ein Fix zählt nur, solange er frisch ist; drinnen käme sonst die letzte Position
+    // immer wieder durch und stünde als „Fix" da.
+    val fix = gps.hasFix && gps.fixNanos?.let { SystemClock.elapsedRealtimeNanos() - it <= 5_000_000_000L } == true
     val statusColor = when {
-        !gps.hasFix -> StatusNone
+        !fix -> StatusNone
         (gps.accuracyM ?: Float.MAX_VALUE) <= 10f && gps.satellitesUsed >= 4 -> StatusGood
         else -> StatusWeak
     }
@@ -1136,7 +1139,7 @@ private fun StatusRow(gps: GpsState, showSatDetails: Boolean) {
         Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(statusColor))
         Spacer(Modifier.width(8.dp))
         Text(
-            text = if (gps.hasFix) stringResource(R.string.status_fix) else stringResource(R.string.status_no_fix),
+            text = if (fix) stringResource(R.string.status_fix) else stringResource(R.string.status_no_fix),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
         Spacer(Modifier.width(16.dp))

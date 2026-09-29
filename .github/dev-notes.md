@@ -11,10 +11,13 @@
   BoatSpeedy-Server; übernommen wird eine Adresse nur, wenn dort eine index.json liegt.
 
 **Geändert**
+- Die App bleibt im Hochformat und dreht sich nicht mehr ins Querformat.
 - Die Routenberechnung ist etwa doppelt so schnell. Kahla nach Lübeck braucht auf dem
   Rechner 6,5 statt 11,9 Sekunden, auf dem Handy entsprechend.
 
 **Behoben**
+- Ohne Fix, etwa drinnen, stand oft eine alte Geschwindigkeit fest auf dem Tacho. Sie kam
+  vom letzten bekannten Standort des Handys, teils Stunden alt. Jetzt steht dort "--".
 - Der Track hörte nach 10.000 Punkten mitten in der Fahrt auf, Zeit und Strecke liefen
   weiter. Die Grenze liegt jetzt bei 50.000 Punkten, knapp 14 Stunden am Stück; darüber
   wird ausgedünnt statt aufgehört.
@@ -38,10 +41,13 @@
   default; an address is only accepted if an index.json is found there.
 
 **Changed**
+- The app stays in portrait and no longer turns to landscape.
 - Route calculation is about twice as fast. Kahla to Lübeck takes 6.5 instead of 11.9
   seconds on a desktop, and the phone gains accordingly.
 
 **Fixed**
+- Without a fix, indoors for instance, an old speed often stuck on the speedometer. It came
+  from the phone's last known location, sometimes hours old. It now shows "--".
 - The track stopped after 10,000 points in the middle of a trip while time and distance
   went on. The limit is now 50,000 points, almost 14 hours in one go; beyond that the
   track gets thinned out instead of stopping.
