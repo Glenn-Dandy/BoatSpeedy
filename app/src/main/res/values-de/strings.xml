@@ -245,8 +245,8 @@
     <string name="version">Version</string>
     <string name="license_value">MIT</string>
     <string name="about_feedback">Feedback</string>
-    <string name="about_data">Daten &amp; Karten</string>
-    <string name="about_data_text">Karten: © OpenStreetMap-Mitwirkende (ODbL).\n\nSeezeichen: © OpenSeaMap-Mitwirkende. Kartenkacheln unter CC BY-SA 2.0, zugrunde liegende Daten unter ODbL. OpenSeaMap ist kein Ersatz für amtliche Seekarten.\n\nWetterwarnungen, Regenradar und Blitze: Deutscher Wetterdienst (DWD), lizenziert unter CC BY 4.0. Warnungen über Bright Sky; Radar über den offenen DWD-GeoServer (WMS).\n\nBoatSpeedy steht in keiner Verbindung zum DWD.</string>
+    <string name="about_data">Daten, Karten &amp; Navigation</string>
+    <string name="about_data_text">Karten: © OpenStreetMap-Mitwirkende (ODbL).\n\nNavigation: Routen entstehen aus OpenStreetMap-Daten, die Freiwillige eintragen. Sie sind ein Vorschlag und nicht immer richtig: Ein Verbot für Kanu oder Motorboot, ein Wehr oder eine Umtragestelle kann fehlen oder falsch sein. Was vor Ort ausgeschildert ist, gilt. Die Verantwortung für deine Fahrt liegt immer bei dir.\n\nSeezeichen: © OpenSeaMap-Mitwirkende. Kartenkacheln unter CC BY-SA 2.0, zugrunde liegende Daten unter ODbL. OpenSeaMap ist kein Ersatz für amtliche Seekarten.\n\nWetterwarnungen, Regenradar und Blitze: Deutscher Wetterdienst (DWD), lizenziert unter CC BY 4.0. Warnungen über Bright Sky; Radar über den offenen DWD-GeoServer (WMS).\n\nBoatSpeedy steht in keiner Verbindung zum DWD.</string>
     <string name="about_project">Projekt</string>
     <string name="update_section">Update</string>
     <string name="report_bug">Fehler melden</string>

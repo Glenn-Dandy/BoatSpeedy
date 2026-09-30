@@ -18,6 +18,8 @@
 - Nachfahren: Navigieren bei einer Route oder einer aufgezeichneten Fahrt legt sie in die
   Navigation. Eine gestrichelte Luftlinie führt vom Boot zum Start und verschwindet dort,
   danach geht es der Strecke nach. Auch Rundfahrten, die am Start enden.
+- Unter Über heißt der Abschnitt jetzt Daten, Karten & Navigation, mit einem Hinweis, dass
+  Routen ein Vorschlag sind und die Verantwortung für die Fahrt immer bei einem selbst liegt.
 - Fahrten und Routen lassen sich umbenennen, etwa „Alter zur Linkenmühle". Der Name steht
   groß, Datum und Uhrzeit klein darunter. Der GPX-Export nimmt ihn mit, der Import
   übernimmt ihn.
@@ -79,6 +81,8 @@
 - Follow: Navigate on a route or a recorded trip puts it into Navigation. A dashed line
   leads from the boat to the start and disappears there, then you follow the track. Round
   trips that end at the start work too.
+- In About, the section is now called Data, maps & navigation, with a note that routes are
+  a suggestion and that you are always responsible for your trip.
 - Trips and routes can be renamed, for example "Harbour to the mill". The name is shown
   large with date and time small below. GPX export carries it and import picks it up.
 - Routes can be selected, shared and deleted like trips. They are shared as GPX with the
