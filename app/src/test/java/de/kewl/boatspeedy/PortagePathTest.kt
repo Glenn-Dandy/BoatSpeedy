@@ -6,6 +6,7 @@ import de.kewl.boatspeedy.nav.MapTiles
 import de.kewl.boatspeedy.nav.ObstacleKind
 import de.kewl.boatspeedy.nav.RouteResult
 import de.kewl.boatspeedy.nav.WaterRouter
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -64,9 +65,9 @@ class PortagePathTest {
     fun `der eingetragene Pfad schlaegt die gerade Linie`() {
         val r = fahre()
         assertTrue("über den Pfad im Osten: ${r.water}", r.water.any { it.lon > 11.0007 })
-        assertTrue(
-            "das Wehr liegt nicht auf dem Weg: ${r.obstacles}",
-            r.obstacles.none { it.kind == ObstacleKind.WEIR },
+        assertEquals(
+            "das umgetragene Wehr zählt einmal: ${r.obstacles}",
+            1, r.obstacles.count { it.kind == ObstacleKind.WEIR },
         )
     }
 }

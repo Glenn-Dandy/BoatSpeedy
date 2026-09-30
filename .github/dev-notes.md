@@ -41,7 +41,10 @@
   den Kartendaten, nur whitewater=egress kam an. Braucht die neuen Kacheln.
 - Im Kanu nahm die Route am Wehr oft eine gerade Linie von Anleger zu Anleger über das Wehr,
   statt den eingetragenen Umtrageweg, etwa am Burgauer Wehr in Jena. Eingetragene Wege gehen
-  jetzt vor, und umgetragene Wehre werden nicht mehr als Hindernis gemeldet.
+  jetzt vor.
+- Die Zahl der Wehre auf der Route stimmt: Jedes Wehr zählt einmal, wenn man durch muss oder
+  daran vorbeiträgt, aber nicht, wenn die Route nur daneben vorbeiführt. Wehre, die in OSM
+  aus mehreren Teilen bestehen, zählten vorher doppelt.
 - Routen durch Seen brachen ab, etwa an der Müritz am Ende des Junkerkanals. Der Weg durch
   einen See steht in OSM oft als flowline, und die fehlte in den Kartendaten. Braucht die
   neuen Kacheln.
@@ -98,7 +101,10 @@
   only whitewater=egress came through. Needs the new tiles.
 - By canoe, the route often took a straight line from landing to landing across the weir
   instead of the mapped portage path, for example at the Burgau weir in Jena. Mapped paths
-  now come first, and weirs that are portaged are no longer reported as obstacles.
+  now come first.
+- The number of weirs on the route is right: each weir counts once if you have to pass
+  through it or portage around it, but not if the route only passes nearby. Weirs mapped
+  in several parts in OSM used to count twice.
 - Routes through lakes broke off, for example at the Müritz at the end of the Junkerkanal.
   OSM often maps the course through a lake as a flowline, which was missing from the map
   data. Needs the new tiles.

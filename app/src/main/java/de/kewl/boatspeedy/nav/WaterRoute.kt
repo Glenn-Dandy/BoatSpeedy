@@ -573,7 +573,7 @@ object WaterRouter {
             // Fahrwasser; von dort läuft die Route als Luftlinie weiter, und das Wehr
             // liegt genau darauf. Nur das Fahrwasser zu prüfen hieße: kein Hinweis
             // ausgerechnet dort, wo die Fahrt aufhört.
-            obstacles = onPath(quelle.obstacles, full),
+            obstacles = onPath(quelle.obstacles, full, kantenZuege(knoten, graph.umtrage)),
             restrictedM = eingeschraenkteLaenge(knoten, quelle.eingeschraenkt),
             restricted = eingeschraenkteZuege(knoten, quelle.eingeschraenkt),
             upstreamM = flussauf,
@@ -1319,7 +1319,12 @@ object WaterRouter {
     }
 
     /** Welche Hindernisse dicht genug am Weg liegen, um ihn zu betreffen. */
-    private fun onPath(all: List<Obstacle>, path: List<LatLon>): List<Obstacle> {
+    private fun onPath(
+        all: List<Obstacle>,
+        path: List<LatLon>,
+        /** Die Stücke, auf denen getragen wird. */
+        getragen: List<List<LatLon>> = emptyList(),
+    ): List<Obstacle> {
         // Erst grob die Umgebung, dann zusammenlegen, dann fein prüfen. Andersherum fielen
         // Tore und Kammerflächen neben der Route vorher heraus, und das Symbol der Route
         // säße woanders als das der Karte.
@@ -1331,17 +1336,50 @@ object WaterRouter {
             .distinctBy { "%.5f,%.5f".format(it.lat, it.lon) }
         // Zur **Strecke**, nicht zu ihren Stützpunkten: Das Symbol sitzt in der Mitte der
         // Kammer, bei 225 m Länge über 100 m von jedem Punkt entfernt.
-        return zusammenlegen(nah).filter { o ->
+        val gefunden = zusammenlegen(nah).filter { o ->
             val nahGenug = strecke.abstand(LatLon(o.lat, o.lon), OBSTACLE_NEAR_M) <= OBSTACLE_NEAR_M ||
                 o.line.any { strecke.abstand(it, OBSTACLE_NEAR_M) <= OBSTACLE_NEAR_M }
-            // **Ein Wehr zählt nur, wenn die Strecke es kreuzt.** Vierzig Meter Nähe
-            // reichen dafür nicht: Wo umtragen wird, liegt das Wehr daneben, und es als
-            // Hindernis zu melden hieße, vor etwas zu warnen, an dem man vorbeigeht.
+            // **Ein Wehr zählt, wenn man durch muss oder drumherum trägt.** Nicht, wenn die
+            // Strecke nur daran vorbeiführt, etwa auf dem Fluss neben einem Wehr im
+            // Seitenarm oder durch die Schleuse daneben. Vierzig Meter Nähe allein sagen
+            // darüber nichts.
             if (o.kind == ObstacleKind.WEIR || o.kind == ObstacleKind.DAM) {
-                nahGenug && kreuzt(o, strecke)
+                (nahGenug && kreuzt(o, strecke)) || umgetragen(o, getragen)
             } else {
                 nahGenug
             }
+        }
+        // **Ein Wehr, eine Zahl.** In OSM steht dasselbe Wehr oft mehrfach: als Weg und als
+        // Knoten, oder in zwei Hälften. In Kahla und Porstendorf zählte es dadurch doppelt.
+        val (wehre, rest) = gefunden.partition { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
+        return rest + gruppieren(wehre) { a, b -> wehrAbstand(a, b) <= WEHR_DOPPELT_M }.map { gruppe ->
+            // Der Ort bleibt der eines Teils, nicht die Mitte: Die läge leicht neben dem Wasser.
+            val ort = gruppe.firstOrNull { it.name != null } ?: gruppe.first()
+            zuEiner(gruppe).copy(lat = ort.lat, lon = ort.lon, line = ort.line)
+        }
+    }
+
+    /** Wehrteile, die näher beieinanderliegen, sind ein Wehr. */
+    private const val WEHR_DOPPELT_M = 60.0
+
+    /** Der kleinste Abstand zwischen zwei Wehren, ihre Linien eingeschlossen. */
+    private fun wehrAbstand(a: Obstacle, b: Obstacle): Double {
+        val pa = a.line.ifEmpty { listOf(LatLon(a.lat, a.lon)) }
+        val pb = b.line.ifEmpty { listOf(LatLon(b.lat, b.lon)) }
+        val ab = if (pb.size >= 2) pa.minOf { abstandZurLinie(it, pb) } else pa.minOf { distanceM(it, pb[0]) }
+        val ba = if (pa.size >= 2) pb.minOf { abstandZurLinie(it, pa) } else pb.minOf { distanceM(it, pa[0]) }
+        return minOf(ab, ba)
+    }
+
+    /** So nah muss eine Umtragung an einem Wehr liegen, um ihm zu gelten. */
+    private const val UMGETRAGEN_M = 80.0
+
+    /** Ob eines der getragenen Stücke an diesem Wehr vorbeiführt. */
+    private fun umgetragen(o: Obstacle, getragen: List<List<LatLon>>): Boolean {
+        if (getragen.isEmpty()) return false
+        val punkte = o.line.ifEmpty { listOf(LatLon(o.lat, o.lon)) }
+        return getragen.any { zug ->
+            zug.size >= 2 && punkte.any { abstandZurLinie(it, zug) <= UMGETRAGEN_M }
         }
     }
 

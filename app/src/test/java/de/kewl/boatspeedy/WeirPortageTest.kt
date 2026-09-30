@@ -212,15 +212,12 @@ class WeirPortageTest {
         assertEquals("beide Wehre umtragen", 2, r.portage.size)
     }
 
-    /**
-     * Wer umträgt, fährt nicht durch das Wehr, und gemeldet wird es dann auch nicht. Früher
-     * streifte die Umtragung hier das Wehr an seinem Ende und meldete es so doch.
-     */
+    /** Wer um das Wehr trägt, bekommt es gemeldet: Es ist der Grund für das Tragen. */
     @Test
-    fun `wer in Uhlstaedt umtraegt, bekommt das Wehr nicht gemeldet`() {
+    fun `wer in Uhlstaedt umtraegt, bekommt das Wehr gemeldet`() {
         val r = fahre(Craft.CANOE, "uhlstaedt.json", uhlstaedtOben, uhlstaedtUnten) as RouteResult.Ok
         assertTrue("nichts getragen: ${r.portageM}", r.portageM > 0)
-        assertTrue("Wehr gemeldet: ${r.obstacles}", r.obstacles.none { it.kind == ObstacleKind.WEIR })
+        assertEquals("ein Wehr: ${r.obstacles}", 1, r.obstacles.count { it.kind == ObstacleKind.WEIR })
     }
 
     /** Ein Motorboot trägt nicht. Unterhalb liegt auf der Saale ein Bootsverbot. */
