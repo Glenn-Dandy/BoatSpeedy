@@ -195,6 +195,14 @@ fun buildTrackBubble(context: android.content.Context, settings: de.kewl.boatspe
         if (p.soc >= 0) {
             append("\n").append(context.getString(R.string.soc_short)).append(": ").append("${p.soc} %")
         }
+        if (!p.currentA.isNaN()) {
+            append("\n").append(context.getString(R.string.bat_current)).append(": ")
+                .append(String.format(java.util.Locale.getDefault(), "%.1f A", p.currentA))
+        }
+        if (!p.powerW.isNaN()) {
+            append("\n").append(context.getString(R.string.bat_power)).append(": ")
+                .append(String.format(java.util.Locale.getDefault(), "%.0f W", p.powerW))
+        }
     }
 
 internal fun nearestPoint(points: List<TrackPoint>, at: GeoPoint): TrackPoint? {

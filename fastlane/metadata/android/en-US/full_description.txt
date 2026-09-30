@@ -2,7 +2,7 @@ GPS boat speedometer and navigation for small boats. Under motor, paddle or oars
 
 Navigation
 * Set a destination on the map: straight line or a route along the waterways, with distance and estimated draw
-* Load map data onto the device, then route offline up to 600 km
+* Load the waterways onto the device as tiles, routes up to 600 km, map server selectable
 * Craft type, motorboat or canoe, decides which bans apply
 * Locks and weirs on the route, tap one for hours, phone and chamber size
 * Seamarks are tappable, speed signs show their number

@@ -70,6 +70,8 @@ fun OsmMap(
     currentLon: Double?,
     interactive: Boolean,
     modifier: Modifier = Modifier,
+    /** Das Positionssymbol, siehe [positionsSymbol]. */
+    positionIcon: Int = R.drawable.ic_nav_arrow,
     zoom: Double = 16.0,
     follow: Boolean = true,
     onUserPan: () -> Unit = {},
@@ -188,8 +190,13 @@ fun OsmMap(
     val marker = remember(mapView) {
         Marker(mapView).apply {
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-            icon = ContextCompat.getDrawable(context, R.drawable.ic_nav_arrow)
+            icon = ContextCompat.getDrawable(context, positionIcon)
         }
+    }
+    // Wechselt Fahrzeug oder Einstellung, wechselt das Symbol gleich mit.
+    LaunchedEffect(positionIcon) {
+        marker.icon = ContextCompat.getDrawable(context, positionIcon)
+        mapView.invalidate()
     }
     // Zwei Linien, weil zwei verschiedene Dinge gemeint sind: gestrichelt, wo man selbst
     // navigiert (Anfahrt und Auslauf), durchgezogen entlang des Fahrwassers.
@@ -465,8 +472,22 @@ fun OsmMap(
         mapView.invalidate()
     }
 
+    val signMarkers = remember(mapView) { mutableListOf<Marker>() }
     // Schleusen und Wehre als eigene Marker; Wehre in Rot, weil sie meist das Ende sind.
     val obstacleMarkers = remember(mapView) { mutableListOf<Marker>() }
+
+    /**
+     * Symbole über alle Linien. osmdroid zeichnet in der Reihenfolge des Einhängens, und
+     * die Linien kommen oft später: die Route erst nach dem Rechnen, der Track mit dem
+     * zweiten Punkt, Umtragen und Sperren bei jeder neuen Entfernung. Danach lagen
+     * Schleusen und Brückenhöhen unter der Linie. Also nach jeder Linie wieder nach oben.
+     */
+    fun symboleNachOben() {
+        (signMarkers + obstacleMarkers).forEach {
+            mapView.overlays.remove(it)
+            mapView.overlays.add(it)
+        }
+    }
     LaunchedEffect(obstacles, onObstacle != null) {
         obstacleMarkers.forEach { mapView.overlays.remove(it) }
         obstacleMarkers.clear()
@@ -554,17 +575,13 @@ fun OsmMap(
         // Bei Wettin liegen im Umkreis von 400 m ein Hafen, eine Slipanlage, ein Liegeplatz
         // und eine Tonne — die fingen den Tipp ab, und die Schleuse war kaum zu treffen.
         // Was auf der eigenen Route liegt, hat Vorrang vor dem, was daneben steht.
-        obstacleMarkers.forEach {
-            mapView.overlays.remove(it)
-            mapView.overlays.add(it)
-        }
+        symboleNachOben()
         mapView.invalidate()
         onDispose { }
     }
 
     // Geschwindigkeitszeichen: eigene Marker, weil die Kacheln zwar das Schild zeichnen,
     // aber die Zahl darin frei lassen. Unsere liegen genau darauf und decken es ab.
-    val signMarkers = remember(mapView) { mutableListOf<Marker>() }
     DisposableEffect(speedSigns, showSeamarks) {
         signMarkers.forEach { mapView.overlays.remove(it) }
         signMarkers.clear()
@@ -655,6 +672,7 @@ fun OsmMap(
             navPortageLines.add(linie)
             mapView.overlays.add(linie)
         }
+        symboleNachOben()
         mapView.invalidate()
     }
 
@@ -796,7 +814,10 @@ fun OsmMap(
         val geo = points.map { GeoPoint(it.lat, it.lon) }
         line.setPoints(geo)
         if (geo.size >= 2) {
-            if (!mapView.overlays.contains(line)) mapView.overlays.add(line)
+            if (!mapView.overlays.contains(line)) {
+                mapView.overlays.add(line)
+                symboleNachOben()
+            }
         } else {
             mapView.overlays.remove(line)
         }
@@ -1071,4 +1092,15 @@ fun CraftButton(
             )
         }
     }
+}
+
+/**
+ * Das Positionssymbol: Motorboot oder Kanu je nach Fahrzeug, oder der Pfeil, wenn es
+ * abgeschaltet ist. Das Fahrzeug auf der Karte zeigt auf einen Blick, in welchem Modus
+ * die Route gerechnet wird.
+ */
+fun positionsSymbol(settings: de.kewl.boatspeedy.data.Settings): Int = when {
+    !settings.boatMarker -> R.drawable.ic_nav_arrow
+    settings.craft == de.kewl.boatspeedy.data.Craft.CANOE -> R.drawable.ic_nav_canoe
+    else -> R.drawable.ic_nav_motorboat
 }

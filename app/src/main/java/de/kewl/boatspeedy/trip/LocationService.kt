@@ -26,8 +26,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.Locale
-import kotlin.math.roundToInt
 
 /**
  * Vordergrunddienst, der während einer Fahrt GPS-Updates sammelt (auch bei
@@ -107,10 +105,6 @@ class LocationService : Service() {
             )
         }
     }
-
-    private fun formatDistance(m: Double): String =
-        if (m < 1000) "${m.roundToInt()} m"
-        else String.format(Locale.getDefault(), "%.2f km", m / 1000.0)
 
     private fun buildNotification(lines: Pair<String, String>): Notification {
         val (line1, line2) = lines

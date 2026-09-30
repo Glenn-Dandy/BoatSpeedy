@@ -112,12 +112,18 @@ data class Settings(
     val showBatteryTile: Boolean = true,
     val showRangeTile: Boolean = true,
     val showMapTile: Boolean = true,
+    val showTripTile: Boolean = true,
+    /** Reihenfolge der Kacheln, siehe [de.kewl.boatspeedy.ui.reihenfolgeAus]; leer = Standard. */
+    val dashboardOrder: String = "",
+    /** Stufe der Kartenhöhe, Index in [de.kewl.boatspeedy.ui.KARTEN_HOEHEN_DP]. */
+    val mapTileSize: Int = 1,
     // Tracks / Karte
     val trackColor: TrackColor = TrackColor.BLUE,
     val trackWidth: TrackWidth = TrackWidth.NORMAL,
     val trackArrows: Boolean = true,
+    /** Server der Kartendaten; leer = der Standardserver [de.kewl.boatspeedy.nav.MapTiles.DEFAULT_BASE]. */
+    val mapServer: String = "",
     // Batterie
-    val batteryBms: BmsType = BmsType.JBD,
     val bankMode: BankMode = BankMode.SINGLE,
     val batteries: List<SavedBattery> = emptyList(),
     /** Ausgewählte Anzeige auf dem Dashboard: Adresse einer Batterie oder [COMBINED_SELECTION]. */
@@ -171,4 +177,6 @@ data class Settings(
     val seamarks: Boolean = true,
     /** Norden oben, oder die Karte in Fahrtrichtung drehen. */
     val mapOrientation: MapOrientation = MapOrientation.NORTH,
+    /** Positionssymbol als Motorboot oder Kanu nach [craft]; aus = der Pfeil. */
+    val boatMarker: Boolean = true,
 )

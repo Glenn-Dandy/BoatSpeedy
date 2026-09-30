@@ -86,4 +86,16 @@ class MapTilesTest {
         assertEquals(0.1, MapTiles.roundUpMb(1), 1e-9)
         assertEquals(0.0, MapTiles.roundUpMb(0), 1e-9)
     }
+
+    /** Leer heißt Standard, und jede Adresse endet mit einem Schrägstrich. */
+    @Test
+    fun `Serveradresse wird in Form gebracht`() {
+        assertEquals(MapTiles.DEFAULT_BASE, MapTiles.serverAdresse(""))
+        assertEquals(MapTiles.DEFAULT_BASE, MapTiles.serverAdresse("   "))
+        assertEquals("https://example.org/kacheln/", MapTiles.serverAdresse(" https://example.org/kacheln "))
+        assertEquals("https://example.org/kacheln/", MapTiles.serverAdresse("https://example.org/kacheln/"))
+        assertTrue(MapTiles.istStandard(""))
+        assertTrue(MapTiles.istStandard("https://boatspeedy.wozise.de/mapdata"))
+        assertTrue(!MapTiles.istStandard("https://example.org/kacheln"))
+    }
 }

@@ -7,6 +7,7 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Looper
+import android.os.SystemClock
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -36,6 +37,7 @@ class LocationProvider(private val context: Context) {
         val longitude: Double?,
         val bearingDeg: Float?,
         val altitudeM: Double?,
+        val fixNanos: Long,
     )
 
     private data class GnssSample(
@@ -52,15 +54,22 @@ class LocationProvider(private val context: Context) {
         longitude = longitude,
         bearingDeg = if (hasBearing()) bearing else null,
         altitudeM = if (hasAltitude()) altitude else null,
+        fixNanos = elapsedRealtimeNanos,
     )
 
     @SuppressLint("MissingPermission")
     private val locationFlow: Flow<LocSample> = callbackFlow {
         val listener = LocationListener { loc -> trySend(loc.toSample()) }
 
-        // Sofort den letzten bekannten Fix schicken (schnellerer Start).
+        // Sofort den letzten bekannten Standort schicken (schnellerer Start), aber nur die
+        // **Position**, wenn er alt ist. Er kann Stunden alt sein, samt der Geschwindigkeit
+        // von damals; die stand dann drinnen ohne Fix fest auf dem Tacho und zählte als Fix.
         runCatching { locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER) }
-            .getOrNull()?.let { trySend(it.toSample()) }
+            .getOrNull()?.let { loc ->
+                val alterNs = SystemClock.elapsedRealtimeNanos() - loc.elapsedRealtimeNanos
+                val probe = loc.toSample()
+                trySend(if (alterNs <= LETZTER_STANDORT_FRISCH_NS) probe else probe.copy(speedMs = null))
+            }
 
         locationManager.requestLocationUpdates(
             LocationManager.GPS_PROVIDER,
@@ -122,6 +131,7 @@ class LocationProvider(private val context: Context) {
             altitudeM = loc.altitudeM,
             cn0DbHz = gnss.cn0DbHz,
             constellations = gnss.constellations,
+            fixNanos = loc.fixNanos,
         )
     }
 
@@ -136,3 +146,6 @@ class LocationProvider(private val context: Context) {
         else -> null
     }
 }
+
+/** So jung muss der letzte bekannte Standort sein, damit seine Geschwindigkeit zählt. */
+private const val LETZTER_STANDORT_FRISCH_NS = 10_000_000_000L

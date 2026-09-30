@@ -25,7 +25,7 @@
     <string name="range_smoothing">Reichweiten-Glättung</string>
     <string name="low_soc_warn">Warnung bei niedrigem Ladestand</string>
 
-    <string name="show_sat_details">Satelliten-Details</string>
+    <string name="show_sat_details">GPS &amp; Satelliten</string>
 
     <string name="status_fix">Fix</string>
     <string name="status_no_fix">kein Fix</string>
@@ -62,7 +62,6 @@
     <string name="nav_battery">Batterie</string>
     <string name="trips_empty">Noch keine Fahrten. Starte auf dem Dashboard eine Fahrt zum Aufzeichnen.</string>
     <string name="trip_points">Track-Punkte</string>
-    <string name="trip_point_title">Punkt</string>
     <string name="speed_label">Geschwindigkeit</string>
     <string name="group_tracks">Fahrten</string>
     <string name="cat_tracks_desc">Track-Farbe, Linienstärke, Pfeile, Auto-Pause</string>
@@ -83,26 +82,30 @@
     <string name="import_gpx">GPX importieren</string>
     <string name="import_ok">Fahrt importiert.</string>
     <string name="import_failed">GPX-Datei konnte nicht importiert werden.</string>
-    <string name="show_on_map">In Karte anzeigen</string>
 
     <!-- Einstellungs-Kategorien -->
-    <string name="group_speed">Geschwindigkeit</string>
     <string name="group_dashboard">Dashboard</string>
-    <string name="group_display">Anzeige</string>
-    <string name="group_language">Sprache</string>
     <string name="group_gps">GPS</string>
     <string name="appearance">Darstellung</string>
     <string name="cat_dashboard_desc">Einheit, Nachkommastellen, Glättung, Kacheln</string>
     <string name="cat_appearance_desc">Theme, Display anlassen</string>
-    <string name="cat_language_desc">English / Deutsch</string>
     <string name="language">Sprache</string>
     <string name="language_english">English</string>
     <string name="language_german">Deutsch</string>
     <string name="tile_battery">Batterie</string>
     <string name="tile_range">Reichweite &amp; Zeit</string>
     <string name="tile_map">Karte</string>
+    <string name="tile_trip">Fahrt</string>
+    <string name="dashboard_edit_done">Fertig</string>
+    <string name="dashboard_edit_move">Verschieben</string>
+    <string name="dashboard_edit_hide">Ausblenden</string>
+    <string name="dashboard_edit_show">Einblenden</string>
+    <string name="dashboard_hidden">Ausgeblendet</string>
+    <string name="dashboard_edit_resize">Größe ziehen</string>
+    <string name="dashboard_edit_how">Zum Anordnen eine Kachel auf dem Dashboard drei Sekunden ruhig halten.</string>
+    <string name="dashboard_reset">Anordnung zurücksetzen</string>
     <string name="cat_gps_desc">Satelliten, Genauigkeit, Kurs, Signal</string>
-    <string name="live_map">Live-Karte</string>
+    <string name="live_map">Navigation</string>
     <string name="gps_live_title">GPS live</string>
     <string name="gps_satellites">Satelliten</string>
     <string name="accuracy_label_short">Genauigkeit</string>
@@ -115,8 +118,6 @@
 
     <!-- Batterie -->
     <string name="battery">Batterie</string>
-    <string name="connect">Verbinden</string>
-    <string name="disconnect">Trennen</string>
     <string name="bat_scanning">Suche Batterie …</string>
     <string name="bat_connecting">Verbinde …</string>
     <string name="bat_connected">Verbunden</string>
@@ -130,24 +131,16 @@
     <string name="bat_remaining">Rest</string>
     <string name="bat_temp">Temperatur</string>
     <string name="bat_cells">Zellen</string>
-    <string name="bat_manufacturer">Hersteller</string>
     <string name="bat_type">Typ</string>
-    <string name="bat_capacity">Größe</string>
     <string name="bat_est_range">Reichweite</string>
     <string name="bat_est_time">Restzeit</string>
-    <string name="bat_range_title">Reichweite bei aktueller Geschwindigkeit</string>
-    <string name="bat_range_hint">Braucht Entladestrom und Bootsgeschwindigkeit &gt; 0.</string>
-    <string name="bat_permission_needed">Für die Verbindung zur Batterie wird die Bluetooth-Berechtigung benötigt.</string>
     <string name="bms">BMS</string>
     <string name="bms_unknown">Typ?</string>
     <string name="bms_pick_hint">Der BMS-Typ konnte nicht erkannt werden. Bitte auswählen:</string>
     <string name="bms_experimental">%1$s ist experimentell und ungetestet.</string>
-    <string name="experimental">experimentell</string>
     <string name="scan">Scannen</string>
     <string name="rescan">Erneut scannen</string>
-    <string name="switch_battery">Batterie wechseln</string>
     <string name="no_devices">Keine Batterien gefunden.</string>
-    <string name="scan_hint">BMS wählen, dann scannen und die richtige Batterie antippen.</string>
     <string name="soc_short">SoC</string>
 
     <!-- Mehrere Batterien -->
@@ -225,7 +218,6 @@
     <string name="weather_channel">Wetterwarnung (DWD)</string>
     <string name="weather_notif_title">Wetterwarnung</string>
     <string name="weather_valid_until">gültig bis %s</string>
-    <string name="weather_show">Wetter anzeigen</string>
     <string name="weather_play">Abspielen/Pause</string>
     <string name="radar_now">jetzt</string>
     <string name="lightning_toggle">Blitze</string>
@@ -251,14 +243,10 @@
     <!-- Über -->
     <string name="about">Über</string>
     <string name="version">Version</string>
-    <string name="build_label">Build</string>
-    <string name="source_code">Quellcode (GitHub)</string>
-    <string name="open_on_github">Auf GitHub öffnen</string>
-    <string name="license_label">Lizenz</string>
     <string name="license_value">MIT</string>
     <string name="about_feedback">Feedback</string>
-    <string name="about_data">Daten &amp; Karten</string>
-    <string name="about_data_text">Karten: © OpenStreetMap-Mitwirkende (ODbL).\n\nSeezeichen: © OpenSeaMap-Mitwirkende. Kartenkacheln unter CC BY-SA 2.0, zugrunde liegende Daten unter ODbL. OpenSeaMap ist kein Ersatz für amtliche Seekarten.\n\nWetterwarnungen, Regenradar und Blitze: Deutscher Wetterdienst (DWD), lizenziert unter CC BY 4.0. Warnungen über Bright Sky; Radar über den offenen DWD-GeoServer (WMS).\n\nBoatSpeedy steht in keiner Verbindung zum DWD.</string>
+    <string name="about_data">Daten, Karten &amp; Navigation</string>
+    <string name="about_data_text">Karten: © OpenStreetMap-Mitwirkende (ODbL).\n\nNavigation: Routen entstehen aus OpenStreetMap-Daten, die Freiwillige eintragen. Sie sind ein Vorschlag und nicht immer richtig: Ein Verbot für Kanu oder Motorboot, ein Wehr oder eine Umtragestelle kann fehlen oder falsch sein. Was vor Ort ausgeschildert ist, gilt. Die Verantwortung für deine Fahrt liegt immer bei dir.\n\nSeezeichen: © OpenSeaMap-Mitwirkende. Kartenkacheln unter CC BY-SA 2.0, zugrunde liegende Daten unter ODbL. OpenSeaMap ist kein Ersatz für amtliche Seekarten.\n\nWetterwarnungen, Regenradar und Blitze: Deutscher Wetterdienst (DWD), lizenziert unter CC BY 4.0. Warnungen über Bright Sky; Radar über den offenen DWD-GeoServer (WMS).\n\nBoatSpeedy steht in keiner Verbindung zum DWD.</string>
     <string name="about_project">Projekt</string>
     <string name="update_section">Update</string>
     <string name="report_bug">Fehler melden</string>
@@ -394,16 +382,22 @@
     <string name="mapdata_delete">Löschen</string>
     <string name="mapdata_index_loading">Verzeichnis wird geladen…</string>
     <string name="mapdata_attribution">© OpenStreetMap-Mitwirkende (ODbL). Keine Seekarte.</string>
-    <string name="seamark_asking">Frage nach…</string>
-    <string name="seamark_title">Seezeichen</string>
-    <string name="seamark_none_title">Nichts gefunden</string>
-    <string name="seamark_none">An dieser Stelle ist kein Seezeichen verzeichnet. Näher herantippen oder weiter heranzoomen.</string>
+    <string name="mapdata_server">Kartenserver</string>
+    <string name="mapdata_server_default">Standard: BoatSpeedy-Server</string>
+    <string name="mapdata_server_custom">Eigener Server</string>
+    <string name="mapdata_server_hint">Die Kacheln lassen sich mit boatspeedy-mapdata selbst erzeugen und von einem eigenen Server laden. Übernommen wird eine Adresse nur, wenn dort eine index.json liegt.</string>
+    <string name="mapdata_server_label">Adresse</string>
+    <string name="mapdata_server_apply">Prüfen und übernehmen</string>
+    <string name="mapdata_server_reset">Standard</string>
+    <string name="mapdata_server_checking">Wird geprüft…</string>
+    <string name="mapdata_server_ok">Übernommen: %1$d Kacheln, Stand %2$s</string>
+    <string name="mapdata_server_failed">Unter dieser Adresse liegt keine lesbare index.json. Nichts geändert.</string>
     <string name="close">Schließen</string>
     <string name="mapdata_missing_title">Kartendaten fehlen</string>
     <string name="mapdata_stale_title">Neuere Kartendaten da</string>
     <string name="mapdata_stale">Für diese Strecke gibt es %1$d neuere Felder. Auf altem Stand zu rechnen kann eine Route zerreißen, die es längst gibt.</string>
     <string name="mapdata_missing_and_stale">Für diese Strecke fehlen %1$d Felder, %2$d weitere sind veraltet.</string>
-    <string name="mapdata_missing">Für diese Strecke fehlen %1$d Felder. Geladen rechnet die App sofort und ohne Netz — auch für jedes weitere Ziel in der Gegend.</string>
+    <string name="mapdata_missing">Für diese Strecke fehlen %1$d Felder. Geladen rechnet die App sofort, auch für jedes weitere Ziel in der Gegend.</string>
     <string name="mapdata_download_now">Laden</string>
     <string name="mapdata_online_instead">Online rechnen</string>
     <string name="nav_pick_hint_planned">Ab Startpunkt · keine Tiefen und Durchfahrtshöhen.</string>
@@ -417,4 +411,24 @@
     <string name="map_north_up">Norden oben</string>
     <string name="map_course_up">Fahrtrichtung</string>
     <string name="map_orientation_hint">Bei Fahrtrichtung dreht sich die Karte mit dem Kurs; ein Nordpfeil zeigt dann, wo Norden liegt. Gilt auch für die kleine Karte auf dem Dashboard.</string>
+    <string name="boat_marker">Fahrzeug als Positionssymbol</string>
+    <string name="boat_marker_hint">Die Karte zeigt Motorboot oder Kanu, je nach gewähltem Fahrzeug. Aus: der Pfeil.</string>
+    <string name="routes">Routen</string>
+    <string name="routes_empty">Noch keine Routen gespeichert. Plane eine Route in der Navigation und speichere sie mit dem Lesezeichen.</string>
+    <string name="route_save">Route speichern</string>
+    <string name="route_saved">Route gespeichert</string>
+    <string name="name_hint">Name, z. B. Alter zur Linkenmühle (optional)</string>
+    <string name="route_length">Länge</string>
+    <string name="route_craft">Geplant für</string>
+    <string name="route_locks">Schleusen</string>
+    <string name="route_weirs">Wehre</string>
+    <string name="route_portage">Umtragen</string>
+    <string name="route_upstream">Flussauf</string>
+    <string name="route_downstream">Flussab</string>
+    <string name="route_other_craft">Geplant für %1$s. Eingestellt ist jetzt %2$s: Neu berechnen plant sie dafür.</string>
+    <string name="route_navigate">Navigieren</string>
+    <string name="route_recalc">Neu berechnen</string>
+    <string name="route_recalculated">Route neu berechnet</string>
+    <string name="route_delete_confirm">Diese Route löschen?</string>
+    <string name="routes_delete_confirm">%1$d Routen endgültig löschen? Das lässt sich nicht rückgängig machen.</string>
 </resources>

@@ -44,6 +44,24 @@ object MapTiles {
     /** Wo die Kacheln liegen. Erzeugt aus OpenStreetMap, siehe boatspeedy-mapdata. */
     const val DEFAULT_BASE = "https://boatspeedy.wozise.de/mapdata/"
 
+    /**
+     * Der Server, von dem geladen wird. Standard ist unserer; wer die Kacheln selbst
+     * erzeugt (boatspeedy-mapdata), trägt hier seinen eigenen ein. Leer heißt Standard.
+     */
+    @Volatile
+    var base: String = DEFAULT_BASE
+        set(value) { field = serverAdresse(value) }
+
+    /** Bringt eine eingegebene Adresse in Form: leer wird Standard, am Ende ein `/`. */
+    fun serverAdresse(eingabe: String): String {
+        val s = eingabe.trim()
+        if (s.isEmpty()) return DEFAULT_BASE
+        return if (s.endsWith("/")) s else "$s/"
+    }
+
+    /** Ob die Adresse der Standardserver ist. */
+    fun istStandard(adresse: String): Boolean = serverAdresse(adresse) == DEFAULT_BASE
+
     private const val CONNECT_MS = 10_000
     private const val READ_MS = 60_000
 
@@ -115,10 +133,6 @@ object MapTiles {
         return tilesFor(lat - dLat, lon - dLon, lat + dLat, lon + dLon)
     }
 
-    /** Grobe Abschätzung, wie viele Kacheln ein Umkreis umfasst — für die Anzeige. */
-    fun tileCountWithin(lat: Double, lon: Double, radiusKm: Double): Int =
-        tilesWithin(lat, lon, radiusKm).size
-
     /* ------------------------------ Ablage ------------------------------ */
 
     fun dir(filesDir: File): File = File(filesDir, "mapdata").apply { mkdirs() }
@@ -162,8 +176,6 @@ object MapTiles {
             val name = f.name.removeSuffix(".json.gz")
             parseName(name)?.let { StoredTile(it, f.length(), readGenerated(f)) }
         }?.sortedBy { it.id.name } ?: emptyList()
-
-    fun storedBytes(dir: File): Long = stored(dir).sumOf { it.bytes }
 
     fun delete(dir: File, id: TileId): Boolean = file(dir, id).delete()
 
@@ -238,7 +250,7 @@ object MapTiles {
      *   nicht zehn Sekunden auf eine Zeitüberschreitung warten, bevor gerechnet wird.
      */
     fun fetchIndex(
-        base: String = DEFAULT_BASE,
+        base: String = this.base,
         connectMs: Int = CONNECT_MS,
         readMs: Int = READ_MS,
     ): Index? = runCatching {
@@ -256,7 +268,7 @@ object MapTiles {
     }.getOrNull()
 
     /** Lädt eine Kachel und legt sie gepackt ab. Liefert die Größe, oder `null`. */
-    fun download(dir: File, id: TileId, base: String = DEFAULT_BASE): Long? {
+    fun download(dir: File, id: TileId, base: String = this.base): Long? {
         val body = get("${base.trimEnd('/')}/${id.name}.json") ?: return null
         return runCatching {
             val tmp = File(dir, "${id.name}.part")

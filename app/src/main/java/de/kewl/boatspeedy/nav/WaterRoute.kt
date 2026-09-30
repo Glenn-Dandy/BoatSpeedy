@@ -1,6 +1,7 @@
 package de.kewl.boatspeedy.nav
 
 import de.kewl.boatspeedy.data.Craft
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -101,7 +102,64 @@ data class NavTarget(
      * sie verwirft — man plant sie ja im Voraus.
      */
     val plannedFrom: LatLon? = null,
+    /** Mit welchem Fahrzeug gerechnet wurde, wenn bekannt. */
+    val craft: de.kewl.boatspeedy.data.Craft? = null,
+    /**
+     * Startpunkt einer gespeicherten Route oder Fahrt, solange man noch nicht dort ist.
+     * Bis dahin führt eine Luftlinie vom Boot hin; danach wird der Strecke gefolgt.
+     */
+    val anfahrt: LatLon? = null,
+    /**
+     * Gesetzt heißt: Diese Strecke wird **nachgefahren**, und der Wert ist der Punkt, bis
+     * zu dem man ihr schon gefolgt ist. Gesucht wird nur vorwärts von dort; sonst hieße es
+     * bei einer Fahrt hin und zurück schon am Start „angekommen", denn dort endet sie auch.
+     */
+    val folge: Int? = null,
 )
+
+/** Wie weit man einer nachgefahrenen Strecke gefolgt ist. */
+data class Folgestand(val index: Int, val restM: Double, val angekommen: Boolean)
+
+/** So weit voraus wird der eigene Platz auf der Strecke gesucht. */
+private const val FOLGE_SUCHWEITE_M = 1_500.0
+
+/**
+ * Wo auf der nachgefahrenen Strecke [path] man steht, gesucht ab [vorher] und nur
+ * vorwärts, höchstens [FOLGE_SUCHWEITE_M] weit. Angekommen ist man erst am letzten Stück
+ * und nahe am Ende, nicht schon, wenn man zufällig dort vorbeikommt.
+ */
+fun folgen(path: List<LatLon>, vorher: Int, hier: LatLon, ankunftM: Double): Folgestand {
+    if (path.isEmpty()) return Folgestand(0, 0.0, true)
+    val start = vorher.coerceIn(0, path.lastIndex)
+    var best = start
+    var bestD = distanceM(hier, path[start])
+    var weg = 0.0
+    var i = start
+    while (i < path.lastIndex && weg <= FOLGE_SUCHWEITE_M) {
+        weg += distanceM(path[i], path[i + 1])
+        i++
+        val d = distanceM(hier, path[i])
+        if (d < bestD) {
+            bestD = d
+            best = i
+        }
+    }
+    val rest = bestD + pathLengthM(path.subList(best, path.size))
+    val amEnde = best >= path.lastIndex - 1 && distanceM(hier, path.last()) <= ankunftM
+    return Folgestand(best, rest, amEnde)
+}
+
+/**
+ * Der erste Punkt der Strecke, an dem man [hier] auf sie trifft. Wer mitten in eine
+ * gespeicherte Route einsteigt, soll dort weiterfolgen, nicht am Anfang; bei einer
+ * Rundfahrt gewinnt dagegen der Anfang, nicht das Ende am selben Ort.
+ */
+fun einstieg(path: List<LatLon>, hier: LatLon, grenzeM: Double): Int? {
+    for (i in 0 until path.lastIndex) {
+        if (abstandZurLinie(hier, listOf(path[i], path[i + 1])) <= grenzeM) return i
+    }
+    return null
+}
 
 /**
  * Entfernung in Metern (Haversine). Bewusst selbst gerechnet statt über
@@ -256,12 +314,13 @@ sealed interface RouteResult {
  * Routet entlang der Wasserwege aus OpenStreetMap.
  *
  * Es gibt keinen fertigen Routendienst fürs Wasser — die üblichen kennen Straßen. Also
- * holen wir die Wasserwege des Gebiets von der Overpass-Schnittstelle (ODbL, dieselbe
- * Datenquelle wie die Karte), bauen daraus ein Wegenetz und suchen den kürzesten Weg.
+ * nehmen wir die Wasserwege aus den geladenen Kacheln (ODbL, dieselbe Datenquelle wie
+ * die Karte), bauen daraus ein Wegenetz und suchen den günstigsten Weg. Fehlen die
+ * Kacheln, fragt die App stattdessen die Overpass-Schnittstelle, und nur dann braucht
+ * sie Netz.
  *
- * Grenzen, die der Nutzer kennen muss und die die UI auch nennt: das braucht **Netz**,
- * die Daten sind unterschiedlich vollständig, und sie enthalten weder Tiefen noch
- * Durchfahrtshöhen. Die Route ist ein Vorschlag, kein Fahrwasser.
+ * Grenzen, die der Nutzer kennen muss: Die Daten sind unterschiedlich vollständig, und
+ * sie enthalten keine Tiefen. Die Route ist ein Vorschlag, kein Fahrwasser.
  */
 object WaterRouter {
 
@@ -320,8 +379,12 @@ object WaterRouter {
      * in OSM zahlreich, hängen kaum zusammen und taugen für kein Boot — im Testgebiet
      * blähten sie das Netz von 220 auf 2633 Wege auf, ohne eine einzige Fahrtstrecke
      * hinzuzufügen.
+     *
+     * `flowline` ist der Weg durch einen See, `link` die kurze Verbindung zu Anleger oder
+     * Hafen. An der Müritz steht die Havel durch die Seen nur als `flowline`; ohne sie brach
+     * jede Route am Ende des Junkerkanals ab.
      */
-    private val WATERWAYS = "river|canal|fairway"
+    private val WATERWAYS = "river|canal|fairway|flowline|link"
 
     /**
      * Bäche standen hier eine Zeit lang zusätzlich für das Kanu. Sie sind es nicht wert:
@@ -442,10 +505,11 @@ object WaterRouter {
         val maxSnap = maxSnapM(direct)
 
         val quelle = offline ?: when (val r = askOverpass(buildQuery(from, to))) {
-            is OverpassResult.Ok -> parseWays(r.body, craft).let { w ->
+            is OverpassResult.Ok -> elemente(r.body).let { el ->
+                val w = parseWays(el, craft)
                 Quelle(
-                    w.ways, parseObstacles(r.body), barrierNodes(r.body),
-                    w.eingeschraenkt, w.stromab, w.umtrage, w.kanal,
+                    w.ways, parseObstacles(el), barrierNodes(el),
+                    w.eingeschraenkt, w.stromab, w.umtrage, w.kanal, w.kanalWege,
                 )
             }
             OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
@@ -454,9 +518,16 @@ object WaterRouter {
         val ways = quelle.ways
         if (ways.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
+        // **Das Wasser als Suchraster, einmal.** Es wurde vorher dreimal mit gleichem
+        // Inhalt gebaut: für die Anleger, für die Anschlüsse und für die Prüfung, ob
+        // eine Verbindung den Fluss quert. Beim Kanu war das Netz dadurch dreimal so
+        // teuer wie beim Motorboot. Gebraucht wird es nur zum Umtragen.
+        val wasserRaster = if (craft == Craft.CANOE) segmentRaster(ways, emptySet()) else null
         // Umtragen nur im Kanu. Ein Motorboot trägt niemand um ein Wehr.
-        val umtrage = if (craft == Craft.CANOE) {
-            quelle.umtrage + uferbruecken(quelle.obstacles, quelle.barriers, ways)
+        val umtrage = if (craft == Craft.CANOE) quelle.umtrage else emptyList()
+        // Die Linien von Anleger zu Anleger getrennt: Sie sind erfunden und kosten mehr.
+        val bruecken = if (craft == Craft.CANOE) {
+            uferbruecken(quelle.obstacles, quelle.barriers, wasserRaster!!)
         } else {
             emptyList()
         }
@@ -469,6 +540,9 @@ object WaterRouter {
             kraftwerke(quelle.obstacles),
             quelle.kanal,
             if (craft == Craft.CANOE) KANAL_KOSTEN_KANU else 1.0,
+            wasserRaster,
+            bruecken,
+            if (craft == Craft.CANOE) werkkanaele(quelle.kanalWege, kraftwerke(quelle.obstacles)) else emptySet(),
         )
         if (graph.adj.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
@@ -499,7 +573,7 @@ object WaterRouter {
             // Fahrwasser; von dort läuft die Route als Luftlinie weiter, und das Wehr
             // liegt genau darauf. Nur das Fahrwasser zu prüfen hieße: kein Hinweis
             // ausgerechnet dort, wo die Fahrt aufhört.
-            obstacles = onPath(quelle.obstacles, full),
+            obstacles = onPath(quelle.obstacles, full, kantenZuege(knoten, graph.umtrage)),
             restrictedM = eingeschraenkteLaenge(knoten, quelle.eingeschraenkt),
             restricted = eingeschraenkteZuege(knoten, quelle.eingeschraenkt),
             upstreamM = flussauf,
@@ -529,7 +603,7 @@ object WaterRouter {
     private fun uferbruecken(
         obstacles: List<Obstacle>,
         barriers: Set<Node>,
-        ways: List<List<Node>>,
+        wasser: Map<Long, MutableList<Pair<Node, Node>>>,
     ): List<List<Node>> {
         if (barriers.isEmpty()) return emptyList()
         val ufer = obstacles.filter { it.kind == ObstacleKind.LANDING }
@@ -541,21 +615,48 @@ object WaterRouter {
         // streift das Wehr an seinem Ende — dort, wo es an Land stößt und wo man
         // vorbeiträgt. Diese Prüfung hatte genau die Umtragungen verhindert, um die es
         // geht.
-        val wasser = segmentRaster(ways, emptySet())
         val raus = ArrayList<List<Node>>()
-        for (i in ufer.indices) {
-            for (j in i + 1 until ufer.size) {
-                val a = LatLon(ufer[i].lat, ufer[i].lon)
-                val b = LatLon(ufer[j].lat, ufer[j].lon)
-                if (distanceM(a, b) > UFER_PAAR_M) continue
-                val mitte = Node.of((a.lat + b.lat) / 2, (a.lon + b.lon) / 2)
-                if (naechster(sperren, mitte, SPERRE_DAZWISCHEN_M) == null) continue
-                val von = Node.of(a.lat, a.lon)
-                val nach = Node.of(b.lat, b.lon)
-                // Getragen wird an Land. Eine Linie, die den Fluss quert, ist keine
-                // Umtragung, sondern sieht auf der Karte aus wie ein Sprung übers Wasser.
-                if (kreuztWasser(wasser, von, nach)) continue
-                raus.add(listOf(von, nach))
+        val lagen = ufer.map { LatLon(it.lat, it.lon) }
+        for ((i, j) in paareInDerNaehe(lagen, UFER_PAAR_M)) {
+            val a = lagen[i]
+            val b = lagen[j]
+            val mitte = Node.of((a.lat + b.lat) / 2, (a.lon + b.lon) / 2)
+            if (naechster(sperren, mitte, SPERRE_DAZWISCHEN_M) == null) continue
+            val von = Node.of(a.lat, a.lon)
+            val nach = Node.of(b.lat, b.lon)
+            // Getragen wird an Land. Eine Linie, die den Fluss quert, ist keine
+            // Umtragung, sondern sieht auf der Karte aus wie ein Sprung übers Wasser.
+            if (kreuztWasser(wasser, von, nach)) continue
+            raus.add(listOf(von, nach))
+        }
+        return raus
+    }
+
+    /**
+     * Alle Paare `(i, j)` mit `i < j`, deren Punkte höchstens [grenze] Meter auseinander
+     * liegen. Über Zellen statt jedes mit jedem: Auf Kahla nach Lübeck liegen Tausende
+     * Anleger und Umtrageweg-Enden im Korridor, und der Vergleich aller Paare kostete
+     * über eine Sekunde.
+     */
+    private fun paareInDerNaehe(punkte: List<LatLon>, grenze: Double): List<Pair<Int, Int>> {
+        if (punkte.size < 2) return emptyList()
+        val zelle = 0.005
+        fun y(p: LatLon) = kotlin.math.floor(p.lat / zelle).toInt()
+        fun x(p: LatLon) = kotlin.math.floor(p.lon / zelle).toInt()
+        val zellen = HashMap<Long, MutableList<Int>>()
+        punkte.forEachIndexed { i, p ->
+            zellen.getOrPut(y(p).toLong() * 10_000_000L + x(p)) { mutableListOf() }.add(i)
+        }
+        val raus = ArrayList<Pair<Int, Int>>()
+        punkte.forEachIndexed { i, p ->
+            val dy = kotlin.math.ceil(grenze / (zelle * 111_320.0)).toInt()
+            val dx = kotlin.math.ceil(grenze / (zelle * 111_320.0 * kotlin.math.cos(Math.toRadians(p.lat)))).toInt()
+            for (yy in y(p) - dy..y(p) + dy) {
+                for (xx in x(p) - dx..x(p) + dx) {
+                    for (j in zellen[yy.toLong() * 10_000_000L + xx].orEmpty()) {
+                        if (j > i && distanceM(p, punkte[j]) <= grenze) raus.add(i to j)
+                    }
+                }
             }
         }
         return raus
@@ -670,12 +771,35 @@ object WaterRouter {
         if (ids.isEmpty() || MapTiles.missing(dir, ids).isNotEmpty()) return emptyList()
         val alle = ArrayList<Obstacle>()
         val ok = MapTiles.forEach(dir, ids) { json ->
-            parseObstacles(json).filterTo(alle) {
+            parseObstacles(elemente(json)).filterTo(alle) {
                 it.lat in south..north && it.lon in west..east
             }
         }
         if (!ok) return emptyList()
         return zusammenlegen(alle.distinctBy { "%.5f,%.5f".format(it.lat, it.lon) })
+    }
+
+    /**
+     * Die Hindernisse entlang einer fremden Strecke, etwa einer aufgezeichneten Fahrt, die
+     * nachgefahren werden soll. Nur aus den Kacheln; fehlt eine, bleibt die Liste leer.
+     */
+    fun obstaclesAlong(dir: java.io.File?, path: List<LatLon>): List<Obstacle> {
+        if (dir == null || !dir.isDirectory || path.size < 2) return emptyList()
+        val rand = 0.005
+        val south = path.minOf { it.lat } - rand
+        val north = path.maxOf { it.lat } + rand
+        val west = path.minOf { it.lon } - rand
+        val east = path.maxOf { it.lon } + rand
+        val ids = MapTiles.tilesFor(south, west, north, east)
+        if (ids.isEmpty() || ids.size > MAX_TILES || MapTiles.missing(dir, ids).isNotEmpty()) return emptyList()
+        val strecke = StreckenRaster(path)
+        val alle = ArrayList<Obstacle>()
+        val ok = MapTiles.forEach(dir, ids) { json ->
+            parseObstacles(elemente(json)).filterTo(alle) {
+                strecke.abstand(LatLon(it.lat, it.lon), OBSTACLE_UMGEBUNG_M) <= OBSTACLE_UMGEBUNG_M
+            }
+        }
+        return if (ok) onPath(alle, path) else emptyList()
     }
 
     /**
@@ -739,6 +863,7 @@ object WaterRouter {
         val umtrage: List<List<Node>> = emptyList(),
         /** Stücke, die zu einem Kanal gehören. */
         val kanal: Set<Kante> = emptySet(),
+        val kanalWege: List<List<Node>> = emptyList(),
     )
 
     /**
@@ -767,18 +892,24 @@ object WaterRouter {
         val stromab = HashSet<Kante>()
         val umtrage = ArrayList<List<Node>>()
         val kanal = HashSet<Kante>()
+        val kanalWege = ArrayList<List<Node>>()
         val ok = MapTiles.forEach(tileDir, ids) { json ->
-            val w = parseWays(json, craft)
+            // **Einmal lesen, dreimal auswerten.** Vorher las jede der drei Auswertungen
+            // die Kachel selbst ein; bei Kahla nach Lübeck waren das 4,6 von 10,6
+            // Sekunden, zwei Drittel davon doppelte Arbeit.
+            val el = elemente(json)
+            val w = parseWays(el, craft)
             ways.addAll(w.ways)
             eingeschraenkt.addAll(w.eingeschraenkt)
             stromab.addAll(w.stromab)
             umtrage.addAll(w.umtrage)
             kanal.addAll(w.kanal)
-            obstacles.addAll(parseObstacles(json))
-            barriers.addAll(barrierNodes(json))
+            kanalWege.addAll(w.kanalWege)
+            obstacles.addAll(parseObstacles(el))
+            barriers.addAll(barrierNodes(el))
         }
         return if (ok) {
-            Quelle(ways, obstacles, barriers, eingeschraenkt, stromab, umtrage, kanal)
+            Quelle(ways, obstacles, barriers, eingeschraenkt, stromab, umtrage, kanal, kanalWege)
         } else {
             null
         }
@@ -976,6 +1107,8 @@ object WaterRouter {
         val umtrage: List<List<Node>> = emptyList(),
         /** Stücke, die zu einem Kanal gehören — für das Kanu ein Umweg zweiter Wahl. */
         val kanal: Set<Kante> = emptySet(),
+        /** Kanäle ohne Schleuse, als ganze Wege: Kandidaten für einen Kraftwerkskanal. */
+        val kanalWege: List<List<Node>> = emptyList(),
     )
 
     /**
@@ -985,14 +1118,18 @@ object WaterRouter {
      */
     private data class Kante(val von: Node, val nach: Node)
 
-    private fun parseWays(json: String, craft: Craft): Wege = runCatching {
-        val elements = JSONObject(json).optJSONArray("elements")
-            ?: return@runCatching Wege(emptyList(), emptySet(), emptySet())
+    /** Die Elemente einer Antwort oder Kachel, oder `null`, wenn sie nicht lesbar ist. */
+    private fun elemente(json: String): JSONArray? =
+        runCatching { JSONObject(json).optJSONArray("elements") }.getOrNull()
+
+    private fun parseWays(elements: JSONArray?, craft: Craft): Wege = runCatching {
+        if (elements == null) return@runCatching Wege(emptyList(), emptySet(), emptySet())
         val ways = ArrayList<List<Node>>()
         val eingeschraenkt = HashSet<Node>()
         val stromab = HashSet<Kante>()
         val umtrage = ArrayList<List<Node>>()
         val kanal = HashSet<Kante>()
+        val kanalWege = ArrayList<List<Node>>()
         for (i in 0 until elements.length()) {
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags")
@@ -1023,6 +1160,7 @@ object WaterRouter {
             // den Fluss. Ein Kanal ohne Alternative bleibt davon unberührt: Dort ändert
             // ein gleichmäßiger Aufschlag an der Wahl nichts.
             if (tags?.optString("waterway") == "canal") {
+                if (tags.optString("lock") != "yes") kanalWege.add(nodes)
                 for ((a, b) in nodes.zipWithNext()) {
                     if (a == b) continue
                     kanal.add(Kante(a, b))
@@ -1030,7 +1168,7 @@ object WaterRouter {
                 }
             }
         }
-        Wege(ways, eingeschraenkt, stromab, umtrage, kanal)
+        Wege(ways, eingeschraenkt, stromab, umtrage, kanal, kanalWege)
     }.getOrDefault(Wege(emptyList(), emptySet(), emptySet()))
 
     /**
@@ -1056,11 +1194,11 @@ object WaterRouter {
         }
     }
 
-    private val NAVIGABLE = setOf("river", "canal", "fairway")
+    private val NAVIGABLE = setOf("river", "canal", "fairway", "flowline", "link")
 
     /** Hindernisse aus derselben Antwort lesen; Wege werden auf ihren Mittelpunkt reduziert. */
-    private fun parseObstacles(json: String): List<Obstacle> = runCatching {
-        val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptyList()
+    private fun parseObstacles(elements: JSONArray?): List<Obstacle> = runCatching {
+        if (elements == null) return@runCatching emptyList()
         (0 until elements.length()).mapNotNull { i ->
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags") ?: return@mapNotNull null
@@ -1165,8 +1303,12 @@ object WaterRouter {
      */
     private fun landungsart(tags: JSONObject): LandingKind? {
         val wild = tags.optString("whitewater")
-        val ein = wild.contains("put_in") || tags.optString("canoe") == "put_in"
-        val aus = wild.contains("egress")
+        // `canoe` wie `whitewater`, auch zusammen als `put_in;egress`. Ein reiner
+        // `canoe=egress` fiel vorher durch; an der Müritz und bei Porstendorf ist das die
+        // übliche Schreibweise.
+        val kanu = tags.optString("canoe")
+        val ein = wild.contains("put_in") || kanu.contains("put_in")
+        val aus = wild.contains("egress") || kanu.contains("egress")
         return when {
             ein && aus -> LandingKind.PUT_IN_EGRESS
             ein -> LandingKind.PUT_IN
@@ -1177,25 +1319,67 @@ object WaterRouter {
     }
 
     /** Welche Hindernisse dicht genug am Weg liegen, um ihn zu betreffen. */
-    private fun onPath(all: List<Obstacle>, path: List<LatLon>): List<Obstacle> {
+    private fun onPath(
+        all: List<Obstacle>,
+        path: List<LatLon>,
+        /** Die Stücke, auf denen getragen wird. */
+        getragen: List<List<LatLon>> = emptyList(),
+    ): List<Obstacle> {
         // Erst grob die Umgebung, dann zusammenlegen, dann fein prüfen. Andersherum fielen
         // Tore und Kammerflächen neben der Route vorher heraus, und das Symbol der Route
         // säße woanders als das der Karte.
-        val nah = all.filter { abstandZurLinie(LatLon(it.lat, it.lon), path) <= OBSTACLE_UMGEBUNG_M }
+        //
+        // Die Strecke bekommt dafür ein Raster. Vorher wurde jedes Hindernis mit jedem
+        // ihrer Stücke verglichen, bei Kahla nach Lübeck 10.600 mal 5.100.
+        val strecke = StreckenRaster(path)
+        val nah = all.filter { strecke.abstand(LatLon(it.lat, it.lon), OBSTACLE_UMGEBUNG_M) <= OBSTACLE_UMGEBUNG_M }
             .distinctBy { "%.5f,%.5f".format(it.lat, it.lon) }
         // Zur **Strecke**, nicht zu ihren Stützpunkten: Das Symbol sitzt in der Mitte der
         // Kammer, bei 225 m Länge über 100 m von jedem Punkt entfernt.
-        return zusammenlegen(nah).filter { o ->
-            val nahGenug = abstandZurLinie(LatLon(o.lat, o.lon), path) <= OBSTACLE_NEAR_M ||
-                o.line.any { abstandZurLinie(it, path) <= OBSTACLE_NEAR_M }
-            // **Ein Wehr zählt nur, wenn die Strecke es kreuzt.** Vierzig Meter Nähe
-            // reichen dafür nicht: Wo umtragen wird, liegt das Wehr daneben, und es als
-            // Hindernis zu melden hieße, vor etwas zu warnen, an dem man vorbeigeht.
+        val gefunden = zusammenlegen(nah).filter { o ->
+            val nahGenug = strecke.abstand(LatLon(o.lat, o.lon), OBSTACLE_NEAR_M) <= OBSTACLE_NEAR_M ||
+                o.line.any { strecke.abstand(it, OBSTACLE_NEAR_M) <= OBSTACLE_NEAR_M }
+            // **Ein Wehr zählt, wenn man durch muss oder drumherum trägt.** Nicht, wenn die
+            // Strecke nur daran vorbeiführt, etwa auf dem Fluss neben einem Wehr im
+            // Seitenarm oder durch die Schleuse daneben. Vierzig Meter Nähe allein sagen
+            // darüber nichts.
             if (o.kind == ObstacleKind.WEIR || o.kind == ObstacleKind.DAM) {
-                nahGenug && kreuzt(o, path)
+                (nahGenug && kreuzt(o, strecke)) || umgetragen(o, getragen)
             } else {
                 nahGenug
             }
+        }
+        // **Ein Wehr, eine Zahl.** In OSM steht dasselbe Wehr oft mehrfach: als Weg und als
+        // Knoten, oder in zwei Hälften. In Kahla und Porstendorf zählte es dadurch doppelt.
+        val (wehre, rest) = gefunden.partition { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
+        return rest + gruppieren(wehre) { a, b -> wehrAbstand(a, b) <= WEHR_DOPPELT_M }.map { gruppe ->
+            // Der Ort bleibt der eines Teils, nicht die Mitte: Die läge leicht neben dem Wasser.
+            val ort = gruppe.firstOrNull { it.name != null } ?: gruppe.first()
+            zuEiner(gruppe).copy(lat = ort.lat, lon = ort.lon, line = ort.line)
+        }
+    }
+
+    /** Wehrteile, die näher beieinanderliegen, sind ein Wehr. */
+    private const val WEHR_DOPPELT_M = 60.0
+
+    /** Der kleinste Abstand zwischen zwei Wehren, ihre Linien eingeschlossen. */
+    private fun wehrAbstand(a: Obstacle, b: Obstacle): Double {
+        val pa = a.line.ifEmpty { listOf(LatLon(a.lat, a.lon)) }
+        val pb = b.line.ifEmpty { listOf(LatLon(b.lat, b.lon)) }
+        val ab = if (pb.size >= 2) pa.minOf { abstandZurLinie(it, pb) } else pa.minOf { distanceM(it, pb[0]) }
+        val ba = if (pa.size >= 2) pb.minOf { abstandZurLinie(it, pa) } else pb.minOf { distanceM(it, pa[0]) }
+        return minOf(ab, ba)
+    }
+
+    /** So nah muss eine Umtragung an einem Wehr liegen, um ihm zu gelten. */
+    private const val UMGETRAGEN_M = 80.0
+
+    /** Ob eines der getragenen Stücke an diesem Wehr vorbeiführt. */
+    private fun umgetragen(o: Obstacle, getragen: List<List<LatLon>>): Boolean {
+        if (getragen.isEmpty()) return false
+        val punkte = o.line.ifEmpty { listOf(LatLon(o.lat, o.lon)) }
+        return getragen.any { zug ->
+            zug.size >= 2 && punkte.any { abstandZurLinie(it, zug) <= UMGETRAGEN_M }
         }
     }
 
@@ -1207,18 +1391,78 @@ object WaterRouter {
      * umträgt, kommt dem Wehr nahe, ohne hindurchzufahren; deshalb zählen nur wenige
      * Meter als Berührung.
      */
-    private fun kreuzt(o: Obstacle, path: List<LatLon>): Boolean {
+    private fun kreuzt(o: Obstacle, strecke: StreckenRaster): Boolean {
         if (o.line.size >= 2) {
-            if (o.line.any { abstandZurLinie(it, path) <= WEHR_BERUEHRT_M }) return true
+            if (o.line.any { strecke.abstand(it, WEHR_BERUEHRT_M) <= WEHR_BERUEHRT_M }) return true
             for ((a, b) in o.line.zipWithNext()) {
-                for ((c, d) in path.zipWithNext()) {
+                for ((c, d) in strecke.stueckeNahe(a, b)) {
                     if (kreuzen(a, b, c, d)) return true
                 }
             }
             return false
         }
         // Ein Wehr als einzelner Punkt hat keine Linie; dann zählt die Nähe zur Strecke.
-        return abstandZurLinie(LatLon(o.lat, o.lon), path) <= WEHR_AUF_STRECKE_M
+        return strecke.abstand(LatLon(o.lat, o.lon), WEHR_AUF_STRECKE_M) <= WEHR_AUF_STRECKE_M
+    }
+
+    /**
+     * Die Stücke einer Strecke in Zellen, damit die Frage „wie weit liegt dieser Punkt
+     * davon" nicht jedes Stück abgehen muss. Die Zellen sind klein; lange Stücke, etwa die
+     * Luftlinie am Anfang, stehen in jeder Zelle, die sie überspannen.
+     */
+    private class StreckenRaster(private val path: List<LatLon>) {
+        private val zellen = HashMap<Long, MutableList<Int>>()
+
+        init {
+            for (i in 0 until path.size - 1) {
+                val a = path[i]
+                val b = path[i + 1]
+                for (y in zeile(minOf(a.lat, b.lat))..zeile(maxOf(a.lat, b.lat))) {
+                    for (x in spalte(minOf(a.lon, b.lon))..spalte(maxOf(a.lon, b.lon))) {
+                        zellen.getOrPut(schluessel(y, x)) { mutableListOf() }.add(i)
+                    }
+                }
+            }
+        }
+
+        /** Kürzester Abstand von [p] zur Strecke; weiter als [grenze] zählt als „weit". */
+        fun abstand(p: LatLon, grenze: Double): Double {
+            var best = Double.MAX_VALUE
+            for (i in stueckeUm(p, grenze)) {
+                best = minOf(best, abstandZurLinie(p, listOf(path[i], path[i + 1])))
+            }
+            return best
+        }
+
+        /** Die Stücke der Strecke in der Nähe der Linie [a]–[b]. */
+        fun stueckeNahe(a: LatLon, b: LatLon): List<Pair<LatLon, LatLon>> {
+            val mitte = LatLon((a.lat + b.lat) / 2, (a.lon + b.lon) / 2)
+            val grenze = distanceM(a, b) / 2 + 10.0
+            return stueckeUm(mitte, grenze).map { path[it] to path[it + 1] }
+        }
+
+        private fun stueckeUm(p: LatLon, grenze: Double): Set<Int> {
+            val dy = kotlin.math.ceil(grenze / (ZELLE * 111_320.0)).toInt()
+            val dx = kotlin.math.ceil(
+                grenze / (ZELLE * 111_320.0 * kotlin.math.cos(Math.toRadians(p.lat))),
+            ).toInt()
+            val y0 = zeile(p.lat)
+            val x0 = spalte(p.lon)
+            val raus = HashSet<Int>()
+            for (y in y0 - dy..y0 + dy) {
+                for (x in x0 - dx..x0 + dx) zellen[schluessel(y, x)]?.let { raus.addAll(it) }
+            }
+            return raus
+        }
+
+        private fun zeile(lat: Double) = kotlin.math.floor(lat / ZELLE).toInt()
+        private fun spalte(lon: Double) = kotlin.math.floor(lon / ZELLE).toInt()
+        private fun schluessel(y: Int, x: Int) = y.toLong() * 10_000_000L + x
+
+        private companion object {
+            /** Kantenlänge einer Zelle in Grad, rund 500 m. */
+            const val ZELLE = 0.005
+        }
     }
 
     /** So nah heißt: Die Strecke führt durch das Wehr, nicht daran vorbei. */
@@ -1353,12 +1597,13 @@ object WaterRouter {
     }
 
     /**
-     * Punkte, an denen das Netz aufgetrennt wird: Wehre und Dämme sind nicht passierbar,
-     * ebenso ein Einfahrtsverbot. Schleusentore gehören **nicht** dazu — durch eine
+     * Punkte, die teuer sind: Wehre und Dämme, ebenso ein Einfahrtsverbot. Getrennt wird
+     * an ihnen nicht mehr, sie kosten einen Aufschlag, damit jede Schleuse, jeder Umweg
+     * und jede Umtragung gewinnt. Schleusentore gehören **nicht** dazu — durch eine
      * Schleuse kommt man, sie kostet nur Zeit.
      */
-    private fun barrierNodes(json: String): Set<Node> = runCatching {
-        val elements = JSONObject(json).optJSONArray("elements") ?: return@runCatching emptySet()
+    private fun barrierNodes(elements: JSONArray?): Set<Node> = runCatching {
+        if (elements == null) return@runCatching emptySet()
         (0 until elements.length()).mapNotNull<Int, List<Node>> { i ->
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags") ?: return@mapNotNull null
@@ -1466,6 +1711,9 @@ object WaterRouter {
         kraftwerke: List<List<Node>> = emptyList(),
         kanal: Set<Kante> = emptySet(),
         kanalFaktor: Double = 1.0,
+        wasserRaster: Map<Long, MutableList<Pair<Node, Node>>>? = null,
+        bruecken: List<List<Node>> = emptyList(),
+        werkkanal: Set<Kante> = emptySet(),
     ): Graph {
         val g = HashMap<Node, MutableList<Pair<Node, Double>>>()
         val kraftPunkte = if (kraftwerke.isEmpty()) null else raster(kraftwerke.flatten())
@@ -1474,6 +1722,11 @@ object WaterRouter {
         // gesperrt war dort gar nichts: Die Strecke fuhr mitten hindurch, und die
         // Umtragung daneben blieb ungenutzt.
         val wehrLinien = if (sperrwege.isEmpty()) null else segmentRaster(sperrwege, emptySet())
+        // **Wo überhaupt etwas zu prüfen ist.** Die genaue Prüfung auf Wehr und Turbine
+        // kostet gut fünfzig Nachschlagen je Kante, und von über einer halben Million
+        // Kanten liegt kaum eine in der Nähe von beidem. Vorab werden die Zellen um jedes
+        // Wehr und jedes Kraftwerk markiert; anderswo entfällt die Prüfung ganz.
+        val heiss = heisseZellen(sperrwege + kraftwerke)
         val kraftUmrisse =
             if (kraftwerke.isEmpty()) null else segmentRaster(kraftwerke.filter { it.size >= 2 }, emptySet())
         /**
@@ -1488,15 +1741,24 @@ object WaterRouter {
          * Zehnfache — über ein Wehr kommt man notfalls, durch eine Turbine niemand.
          */
         fun wasserkosten(a: Node, b: Node): Double {
-            var d = distanceM(a.toLatLon(), b.toLatLon())
+            val laenge = distanceM(a.toLatLon(), b.toLatLon())
+            var d = laenge
             if (a in eingeschraenkt && b in eingeschraenkt) d *= RESTRICTED_COST
             if (kanalFaktor != 1.0 && Kante(a, b) in kanal) d *= kanalFaktor
+            if (Kante(a, b) in werkkanal) d *= WERKKANAL_KOSTEN
             // **Ohne Rand.** Ein Wehr trifft den Fluss oft genau in einem seiner Punkte;
             // am Burgauer Wehr liegt der Schnitt 30 cm hinter dem Kantenanfang. Die
             // Toleranz, die einen Anschluss an seinem Ende erlaubt, verschluckte das.
-            val ueberWehr = wehrLinien != null && kreuztWasser(wehrLinien, a, b, 0.0)
+            // Lange Kanten werden immer genau geprüft: Sie könnten eine markierte Zelle
+            // überspannen, ohne mit einem Ende darin zu liegen.
+            val genau = heiss.isNotEmpty() && (
+                laenge > HEISS_LANGE_KANTE_M ||
+                    zelle(a.lat / RASTER, a.lon / RASTER) in heiss ||
+                    zelle(b.lat / RASTER, b.lon / RASTER) in heiss
+                )
+            val ueberWehr = genau && wehrLinien != null && kreuztWasser(wehrLinien, a, b, 0.0)
             if (a in barriers || b in barriers || ueberWehr) d += SPERRE_AUFSCHLAG_M
-            if (kraftPunkte != null && durchKraftwerk(kraftPunkte, kraftUmrisse, a, b)) {
+            if (genau && kraftPunkte != null && durchKraftwerk(kraftPunkte, kraftUmrisse, a, b)) {
                 d += KRAFTWERK_AUFSCHLAG_M
             }
             return d
@@ -1509,7 +1771,7 @@ object WaterRouter {
                 g.getOrPut(b) { mutableListOf() }.add(a to d)
             }
         }
-        if (umtrage.isEmpty() || g.isEmpty()) return Graph(g)
+        if ((umtrage.isEmpty() && bruecken.isEmpty()) || g.isEmpty()) return Graph(g)
 
         val kanten = HashSet<Kante>()
         fun verbinde(a: Node, b: Node, faktor: Double = UMTRAGE_KOSTEN) {
@@ -1521,13 +1783,16 @@ object WaterRouter {
             kanten.add(Kante(b, a))
         }
         // Das Wasser **vor** den Umtragewegen: Sonst hinge der Anschluss an ihnen selbst.
-        val wasser = segmentRaster(ways, barriers)
-        // Geprüft wird gegen das **Wasser**. Nicht gegen das Wehr: An Reschwitz und
+        // Geprüft wird auch nur gegen das Wasser, nicht gegen das Wehr: An Reschwitz und
         // Fischersdorf liegen Aus- und Einstieg am selben Ufer, und jede Verbindung
-        // dorthin streift das Wehr an seinem Ende — genau dort, wo man vorbeiträgt.
-        val verboten = segmentRaster(ways, emptySet())
-        for (weg in umtrage) {
-            for ((a, b) in weg.zipWithNext()) verbinde(a, b)
+        // dorthin streift das Wehr an seinem Ende, genau dort, wo man vorbeiträgt.
+        val wasser = wasserRaster ?: segmentRaster(ways, emptySet())
+        // **Eingetragen vor erfunden.** Die Linie von Anleger zu Anleger kostete wie ein
+        // eingetragener Umtrageweg, war aber gerade und damit kürzer. Am Burgauer Wehr
+        // gewann sie so gegen 259 m gepflegten Pfad und lief dabei über das Wehr.
+        val alle = umtrage.map { it to UMTRAGE_KOSTEN } + bruecken.map { it to ERFUNDEN_KOSTEN }
+        for ((weg, faktor) in alle) {
+            for ((a, b) in weg.zipWithNext()) verbinde(a, b, faktor)
             for (ende in listOf(weg.first(), weg.last())) {
                 // Angeschlossen wird an den nächsten Punkt **auf der Linie**, nicht an den
                 // nächsten eingetragenen Punkt, und an jedes Gewässer in Reichweite. Am
@@ -1535,6 +1800,8 @@ object WaterRouter {
                 // von ihrem nächsten Punkt: Über Punkte hingen beide Enden unterhalb des
                 // Wehrs, und die Route brach dort ab.
                 for ((a, b) in segmenteNah(wasser, ende, UMTRAGE_ANSCHLUSS_M)) {
+                    // Ein Stück zwischen zwei Sperrpunkten führt nirgendwohin.
+                    if (a in barriers && b in barriers) continue
                     // **Nicht auf die Sperre selbst.** Oberhalb des Wehrs Kahla beginnt
                     // die Saale genau im gesperrten Punkt; der nächste Punkt der Linie
                     // ist er selbst, und der Anschluss fiel jedes Mal weg. Ein Stück
@@ -1552,7 +1819,13 @@ object WaterRouter {
                     // Der Anschluss darf das Wasser nur an seinem Ende berühren. Quert er
                     // es, liefe die Umtragung quer über den Fluss — genau das sah auf der
                     // Karte bei Kahla aus wie ein Sprung über das Wehr.
-                    if (kreuztWasser(verboten, ende, auf)) continue
+                    if (kreuztWasser(wasser, ende, auf)) continue
+                    // **Ein Anleger wird nicht über das Wehr angeschlossen**, auch nicht knapp
+                    // um sein Ende herum. Bei Dorndorf liegt der Ausstieg 30 m vom Wasser
+                    // unterhalb; der Anschluss dorthin lief 1,4 m am Wehr vorbei, ließ den
+                    // Einstieg aus, und die Route meldete das Wehr. Nur für die Linien von Anleger zu
+                    // Anleger: Ein eingetragener Pfad endet, wo er endet.
+                    if (faktor == ERFUNDEN_KOSTEN && wehrLinien != null && amWehr(wehrLinien, ende, auf)) continue
                     // **Über die Sperre führt nichts.** Das Stück Saale oberhalb des Wehrs
                     // Kahla hängt am gesperrten Punkt; angeschlossen wird es trotzdem,
                     // aber nur an seinem freien Ende. Sonst wäre der Anschluss zugleich
@@ -1570,18 +1843,35 @@ object WaterRouter {
         // **Bruchstücke zusammenhalten.** In Bad Kösen liegt der Umtrageweg in zwei
         // Teilen, dazwischen 38 m gewöhnlicher Fußweg, den wir nicht laden. Ohne diesen
         // Lückenschluss endet die Umtragung im Nichts.
-        val enden = umtrage.flatMap { listOf(it.first() to it, it.last() to it) }
-        for (i in enden.indices) {
-            for (j in i + 1 until enden.size) {
-                val (a, wegA) = enden[i]
-                val (b, wegB) = enden[j]
-                if (wegA === wegB || a == b) continue
-                if (distanceM(a.toLatLon(), b.toLatLon()) > UMTRAGE_LUECKE_M) continue
-                if (kreuztWasser(verboten, a, b)) continue
-                verbinde(a, b, ERFUNDEN_KOSTEN)
-            }
+        val enden = (umtrage + bruecken).flatMap { listOf(it.first() to it, it.last() to it) }
+        for ((i, j) in paareInDerNaehe(enden.map { it.first.toLatLon() }, UMTRAGE_LUECKE_M)) {
+            val (a, wegA) = enden[i]
+            val (b, wegB) = enden[j]
+            if (wegA === wegB || a == b) continue
+            if (kreuztWasser(wasser, a, b)) continue
+            verbinde(a, b, ERFUNDEN_KOSTEN)
         }
         return Graph(g, kanten)
+    }
+
+    /** So nah darf der Anschluss eines Anlegers an einem Wehr vorbeiführen. */
+    private const val ANLEGER_WEHR_ABSTAND_M = 5.0
+
+    /** Ob die Strecke [von]–[bis] ein Wehr quert oder ihm näher als [ANLEGER_WEHR_ABSTAND_M] kommt. */
+    private fun amWehr(wehre: Map<Long, MutableList<Pair<Node, Node>>>, von: Node, bis: Node): Boolean {
+        if (kreuztWasser(wehre, von, bis, 0.0)) return true
+        val a = von.toLatLon()
+        val b = bis.toLatLon()
+        val laenge = distanceM(a, b)
+        val schritte = (laenge / 2.0).toInt() + 1
+        for (i in 0..schritte) {
+            val t = i.toDouble() / schritte
+            // Der Anleger selbst darf dicht am Wehr liegen, dafür ist er da.
+            if (t * laenge < ANLEGER_WEHR_ABSTAND_M) continue
+            val p = Node.of(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t)
+            if (segmenteNah(wehre, p, ANLEGER_WEHR_ABSTAND_M).isNotEmpty()) return true
+        }
+        return false
     }
 
     /**
@@ -1660,6 +1950,72 @@ object WaterRouter {
      * Wehr vorbei und war damit der kürzere Weg — genau das soll er nie sein.
      */
     private const val KRAFTWERK_AUFSCHLAG_M = 1_000_000.0
+
+    /** Ab dieser Länge wird eine Kante auch außerhalb markierter Zellen genau geprüft. */
+    private const val HEISS_LANGE_KANTE_M = 150.0
+
+    /**
+     * Die Rasterzellen, in denen eine Wasserkante ein Wehr kreuzen oder an einem
+     * Kraftwerk liegen kann: jede Zelle, die eine dieser Linien berührt, samt ihren
+     * Nachbarn. Lange Stücke werden alle 50 m abgetastet, damit keine Zelle dazwischen
+     * fehlt.
+     */
+    private fun heisseZellen(linien: List<List<Node>>): Set<Long> {
+        val raus = HashSet<Long>()
+        fun markiere(lat: Double, lon: Double) {
+            val n = Node.of(lat, lon)
+            val y = n.lat / RASTER
+            val x = n.lon / RASTER
+            for (dy in -1..1) for (dx in -1..1) raus.add(zelle(y + dy, x + dx))
+        }
+        for (linie in linien) {
+            if (linie.size == 1) {
+                linie[0].toLatLon().let { markiere(it.lat, it.lon) }
+                continue
+            }
+            for ((a, b) in linie.zipWithNext()) {
+                val pa = a.toLatLon()
+                val pb = b.toLatLon()
+                val schritte = (distanceM(pa, pb) / 50.0).toInt() + 1
+                for (i in 0..schritte) {
+                    val t = i.toDouble() / schritte
+                    markiere(pa.lat + (pb.lat - pa.lat) * t, pa.lon + (pb.lon - pa.lon) * t)
+                }
+            }
+        }
+        return raus
+    }
+
+    /**
+     * Was ein Kraftwerkskanal im Kanu kostet, zusätzlich zum Kanal. Er führt zur Turbine,
+     * und man trägt dort um; der Fluss daneben mit seinem Wehr ist die Fahrt, die man
+     * will. Bei Dorndorf nahm die Route den Kanal ohne jede Angabe und trug am Kraftwerk
+     * um, statt auf der Saale mit `canoe=yes` zu bleiben und am Wehr umzutragen.
+     */
+    private const val WERKKANAL_KOSTEN = 20.0
+
+    /** So nah an einer Wasserkraftanlage muss ein Kanal vorbeiführen, um ihr zu dienen. */
+    private const val WERKKANAL_NAH_M = 60.0
+
+    /**
+     * Die Kanten der Kanäle, die an einer Wasserkraftanlage vorbeiführen, und zwar der
+     * **ganzen** Wege. Der Kanal bei Dorndorf ist 360 m lang und kommt der Anlage erst an
+     * seinem Ende nahe; nur dieses Ende zu verteuern ließe ihn bis dorthin billig.
+     * Schleusenkanäle zählen nicht, sie stehen gar nicht erst in [kanalWege].
+     */
+    private fun werkkanaele(kanalWege: List<List<Node>>, kraftwerke: List<List<Node>>): Set<Kante> {
+        if (kanalWege.isEmpty() || kraftwerke.isEmpty()) return emptySet()
+        val punkte = raster(kraftwerke.flatten())
+        val out = HashSet<Kante>()
+        for (weg in kanalWege) {
+            if (weg.none { naechster(punkte, it, WERKKANAL_NAH_M) != null }) continue
+            for ((a, b) in weg.zipWithNext()) {
+                out.add(Kante(a, b))
+                out.add(Kante(b, a))
+            }
+        }
+        return out
+    }
 
     /** So nah an einer Wasserkraftanlage führt das Wasser durch sie hindurch. */
     private const val KRAFTWERK_NAH_M = 25.0

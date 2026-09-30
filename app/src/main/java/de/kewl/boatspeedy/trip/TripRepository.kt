@@ -53,7 +53,15 @@ object TripRepository {
     private var lastLon: Double? = null
 
     // Track-Aufzeichnung.
-    private val points = ArrayList<TrackPoint>()
+    private val points = TrackBuffer(MAX_POINTS)
+
+    /**
+     * Zeit des zuletzt verarbeiteten Fixes. Der Dienst meldet sich bei jeder Änderung von
+     * GPS, Batterie oder Einstellungen, und jedes Mal kam dieselbe Position erneut an: In
+     * einer Aufzeichnung vom 27.09. war jeder zweite Punkt eine exakte Wiederholung, und
+     * die Grenze der Punkte war nach anderthalb statt nach drei Stunden erreicht.
+     */
+    private var lastFixNanos: Long? = null
     private var tripStartEpoch = 0L
     private var tripStartRealtime = 0L
     private var lastSoc = -1
@@ -82,7 +90,19 @@ object TripRepository {
     @Volatile private var lastSpeedMs: Float = 0f
     /** zuletzt gemessener Strom – für sofortige Neubewertung beim Umschalten. */
     @Volatile private var lastAmps: Float = 0f
-    private const val MAX_POINTS = 10_000      // Obergrenze der Track-Punkte
+
+    /** Letzte Bank-Werte für den Track und wann sie kamen (elapsedRealtime, 0 = nie). */
+    @Volatile private var trackAmps: Float = Float.NaN
+    @Volatile private var trackWatts: Float = Float.NaN
+    @Volatile private var trackSampleTs = 0L
+    /**
+     * Obergrenze der Track-Punkte; darüber wird ausgedünnt, siehe [TrackBuffer]. Bei einem
+     * Fix je Sekunde reicht das für knapp 14 Stunden am Stück in voller Auflösung.
+     */
+    private const val MAX_POINTS = 50_000
+
+    /** So alt darf ein Bank-Wert sein, um noch in den Track zu kommen. */
+    private const val BANK_FRISCH_MS = 30_000L
     private const val MIN_SAVE_DISTANCE_M = 10.0
     private const val MIN_SAVE_DURATION_MS = 10_000L
 
@@ -95,10 +115,14 @@ object TripRepository {
         lastLat = null
         lastLon = null
         points.clear()
+        lastFixNanos = null
         _livePoints.value = emptyList()
         _autoPauseOverride.value = false
         lastSpeedMs = 0f
         lastAmps = 0f
+        trackAmps = Float.NaN
+        trackWatts = Float.NaN
+        trackSampleTs = 0L
         lastSoc = -1
         tripStartEpoch = System.currentTimeMillis()
         tripStartRealtime = SystemClock.elapsedRealtime()
@@ -155,8 +179,12 @@ object TripRepository {
         if (accOk) lastSpeedMs = speed ?: 0f
         if (speed != null && accOk && speed > maxSpeedMs) maxSpeedMs = speed
 
+        // Nur ein neuer Fix zählt; eine Wiederholung derselben Position ist keiner.
+        val neuerFix = gps.fixNanos == null || gps.fixNanos != lastFixNanos
+        if (neuerFix) lastFixNanos = gps.fixNanos
+
         // Distanz nur zählen, wenn nicht pausiert.
-        if (running && speed != null) {
+        if (running && speed != null && neuerFix) {
             val acc = gps.accuracyM ?: Float.MAX_VALUE
             val lat = gps.latitude
             val lon = gps.longitude
@@ -171,19 +199,21 @@ object TripRepository {
                 }
                 lastLat = lat
                 lastLon = lon
-                if (points.size < MAX_POINTS) {
-                    points.add(
-                        TrackPoint(
-                            lat = lat,
-                            lon = lon,
-                            tMs = SystemClock.elapsedRealtime() - tripStartRealtime,
-                            speedMs = speed ?: 0f,
-                            soc = lastSoc,
-                            chargeAh = chargeAh,
-                        ),
-                    )
-                    _livePoints.value = points.toList()
-                }
+                val aufgenommen = points.add(
+                    TrackPoint(
+                        lat = lat,
+                        lon = lon,
+                        tMs = SystemClock.elapsedRealtime() - tripStartRealtime,
+                        speedMs = speed,
+                        soc = lastSoc,
+                        chargeAh = chargeAh,
+                        // Nur frische Werte: Reißt die Verbindung zur Batterie ab, steht
+                        // sonst minutenlang der letzte Strom im Track.
+                        currentA = if (bankFrisch()) trackAmps else Float.NaN,
+                        powerW = if (bankFrisch()) trackWatts else Float.NaN,
+                    ),
+                )
+                if (aufgenommen) _livePoints.value = points.toList()
             }
         }
         evaluateAutoPause(SystemClock.elapsedRealtime())
@@ -199,6 +229,9 @@ object TripRepository {
         if (!_tracking.value) return
         val now = SystemClock.elapsedRealtime()
         lastAmps = amps
+        trackAmps = kotlin.math.abs(amps)
+        trackWatts = kotlin.math.abs(watts)
+        trackSampleTs = now
         evaluateAutoPause(now)
 
         if (running) {
@@ -213,6 +246,10 @@ object TripRepository {
         }
         emit()
     }
+
+    /** Ob der letzte Bank-Wert jünger als [BANK_FRISCH_MS] ist. */
+    private fun bankFrisch(): Boolean =
+        trackSampleTs != 0L && SystemClock.elapsedRealtime() - trackSampleTs <= BANK_FRISCH_MS
 
     /**
      * Schlaue Auto-Pause: pausiert nur, wenn wenig Strom fließt UND das Boot steht.

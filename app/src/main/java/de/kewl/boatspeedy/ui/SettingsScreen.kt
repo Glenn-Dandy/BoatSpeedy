@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -176,7 +177,9 @@ fun DashboardSettingsScreen(
     onShowBatteryTile: (Boolean) -> Unit,
     onShowRangeTile: (Boolean) -> Unit,
     onShowMapTile: (Boolean) -> Unit,
+    onShowTripTile: (Boolean) -> Unit,
     onShowSatDetails: (Boolean) -> Unit,
+    onResetLayout: () -> Unit,
     onBack: () -> Unit,
 ) {
     SettingsScaffold(stringResource(R.string.group_dashboard), Icons.AutoMirrored.Filled.ArrowBack, onBack) {
@@ -227,8 +230,18 @@ fun DashboardSettingsScreen(
         SwitchRow(stringResource(R.string.tile_battery), settings.showBatteryTile, onShowBatteryTile)
         SwitchRow(stringResource(R.string.tile_range), settings.showRangeTile, onShowRangeTile)
         SwitchRow(stringResource(R.string.tile_map), settings.showMapTile, onShowMapTile)
+        SwitchRow(stringResource(R.string.tile_trip), settings.showTripTile, onShowTripTile)
         SwitchRow(stringResource(R.string.show_sat_details), settings.showSatDetails, onShowSatDetails)
-
+        Text(
+            stringResource(R.string.dashboard_edit_how),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(vertical = 4.dp),
+        )
+        // Alle Kacheln wieder da, in der Reihenfolge ab Werk, Karte in mittlerer Größe.
+        OutlinedButton(onClick = onResetLayout, modifier = Modifier.padding(top = 4.dp)) {
+            Text(stringResource(R.string.dashboard_reset))
+        }
     }
 }
 
@@ -410,6 +423,7 @@ fun NavigationSettingsScreen(
     onCraft: (Craft) -> Unit,
     onSeamarks: (Boolean) -> Unit,
     onMapOrientation: (MapOrientation) -> Unit,
+    onBoatMarker: (Boolean) -> Unit,
     onMapData: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -441,6 +455,8 @@ fun NavigationSettingsScreen(
             onSelect = onMapOrientation,
         )
         HintText(stringResource(R.string.map_orientation_hint))
+        SwitchRow(stringResource(R.string.boat_marker), settings.boatMarker, onBoatMarker)
+        HintText(stringResource(R.string.boat_marker_hint))
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
         SwitchRow(stringResource(R.string.nav_seamarks), settings.seamarks, onSeamarks)
         HintText(stringResource(R.string.nav_seamarks_hint))

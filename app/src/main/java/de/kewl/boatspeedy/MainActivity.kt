@@ -2,7 +2,6 @@ package de.kewl.boatspeedy
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -23,6 +22,7 @@ import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
@@ -49,6 +49,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableIntStateOf
+import de.kewl.boatspeedy.ui.RouteDetailScreen
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,7 +91,7 @@ import de.kewl.boatspeedy.ui.theme.BoatSpeedyTheme
 import de.kewl.boatspeedy.util.LanguageHelper
 import kotlinx.coroutines.launch
 
-private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_NAV, SETTINGS_MAPDATA, SETTINGS_APPEARANCE, SETTINGS_DEV, WEATHER, ABOUT }
+private enum class Screen { SPEED, LIVE_MAP, TRIPS, TRIP_DETAIL, TRIP_MAP, ROUTE_DETAIL, ROUTE_MAP, BATTERY, ANCHOR, SETTINGS, SETTINGS_DASHBOARD, SETTINGS_NOTIF, SETTINGS_GENERAL, SETTINGS_TRACKS, SETTINGS_GPS, SETTINGS_NAV, SETTINGS_MAPDATA, SETTINGS_APPEARANCE, SETTINGS_DEV, WEATHER, ABOUT }
 
 class MainActivity : ComponentActivity() {
     // Von außen zum Import übergebene GPX-Datei (Öffnen-mit / Teilen an BoatSpeedy).
@@ -157,9 +159,11 @@ private fun BoatSpeedyApp(
                 )
             }
 
+            // Genau und grob **zusammen**, wie Android es seit Version 12 verlangt.
+            // Gebraucht wird der genaue; der grobe allein heißt „Ungefähr" gewählt.
             val permissionLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission(),
-            ) { granted -> hasPermission = granted }
+                ActivityResultContracts.RequestMultiplePermissions(),
+            ) { result -> hasPermission = result[Manifest.permission.ACCESS_FINE_LOCATION] == true }
 
             // **Die Sperre steht vor dem Tacho, nicht vor der App.**
             //
@@ -199,8 +203,7 @@ private fun BoatSpeedyApp(
             // sie nicht. Der Vordergrunddienst läuft auch ohne sie, die Aufzeichnung ist
             // also nicht in Gefahr — es fehlt dann nur die Anzeige im Schirmrand.
             fun fragNachMeldungen() {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(
+                if (ContextCompat.checkSelfPermission(
                         context, Manifest.permission.POST_NOTIFICATIONS,
                     ) != PackageManager.PERMISSION_GRANTED
                 ) {
@@ -223,14 +226,22 @@ private fun BoatSpeedyApp(
             val trips by vm.trips.collectAsStateWithLifecycle()
             val livePoints by vm.livePoints.collectAsStateWithLifecycle()
             val anchor by vm.anchor.collectAsStateWithLifecycle()
+            val routes by vm.routes.collectAsStateWithLifecycle()
             var selectedTrip by remember { mutableStateOf<SavedTrip?>(null) }
+            var selectedRouteId by remember { mutableStateOf<Long?>(null) }
+            var tripsTab by rememberSaveable { mutableIntStateOf(0) }
 
-            LaunchedEffect(screen) { if (screen == Screen.TRIPS) vm.refreshTrips() }
+            LaunchedEffect(screen) {
+                if (screen == Screen.TRIPS) {
+                    vm.refreshTrips()
+                    vm.refreshRoutes()
+                }
+            }
 
             // Von außen geöffnete GPX-Datei importieren und zu den Fahrten wechseln.
             LaunchedEffect(pendingGpx) {
                 val uri = pendingGpx ?: return@LaunchedEffect
-                vm.importGpx(uri) { ok ->
+                vm.importGpx(uri, onRoutes = { tripsTab = 1 }) { ok ->
                     android.widget.Toast.makeText(
                         context,
                         context.getString(if (ok) R.string.import_ok else R.string.import_failed),
@@ -296,8 +307,9 @@ private fun BoatSpeedyApp(
             BackHandler(enabled = !drawerState.isOpen && screen != Screen.SPEED) {
                 screen = when (screen) {
                     Screen.SETTINGS_DASHBOARD, Screen.SETTINGS_NOTIF, Screen.SETTINGS_GENERAL, Screen.SETTINGS_TRACKS, Screen.SETTINGS_GPS, Screen.SETTINGS_APPEARANCE, Screen.SETTINGS_DEV -> Screen.SETTINGS
-                    Screen.TRIP_DETAIL -> Screen.TRIPS
+                    Screen.TRIP_DETAIL, Screen.ROUTE_DETAIL -> Screen.TRIPS
                     Screen.TRIP_MAP -> Screen.TRIP_DETAIL
+                    Screen.ROUTE_MAP -> Screen.ROUTE_DETAIL
                     else -> Screen.SPEED
                 }
             }
@@ -317,7 +329,8 @@ private fun BoatSpeedyApp(
                         )
                         HorizontalDivider()
                         DrawerItem(R.string.nav_speed, Icons.Filled.Speed, screen == Screen.SPEED) { goTo(Screen.SPEED) }
-                        DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen.name.startsWith("TRIP")) { goTo(Screen.TRIPS) }
+                        DrawerItem(R.string.live_map, Icons.Filled.Map, screen == Screen.LIVE_MAP) { goTo(Screen.LIVE_MAP) }
+                        DrawerItem(R.string.nav_trips, Icons.Filled.Route, screen.name.startsWith("TRIP") || screen.name.startsWith("ROUTE")) { goTo(Screen.TRIPS) }
                         DrawerItem(R.string.nav_battery, Icons.Filled.BatteryFull, screen == Screen.BATTERY) { goTo(Screen.BATTERY) }
                         DrawerItem(R.string.nav_anchor, Icons.Filled.Anchor, screen == Screen.ANCHOR) { goTo(Screen.ANCHOR) }
                         DrawerItem(R.string.nav_weather, Icons.Filled.Cloud, screen == Screen.WEATHER) { goTo(Screen.WEATHER) }
@@ -358,6 +371,8 @@ private fun BoatSpeedyApp(
                         onShowBatteryTile = vm::setShowBatteryTile,
                         onShowRangeTile = vm::setShowRangeTile,
                         onShowMapTile = vm::setShowMapTile,
+                        onShowTripTile = vm::setShowTripTile,
+                        onResetLayout = { vm.resetDashboardLayout() },
                         onShowSatDetails = vm::setShowSatDetails,
                         onBack = { screen = Screen.SETTINGS },
                     )
@@ -408,6 +423,7 @@ private fun BoatSpeedyApp(
                         onCraft = vm::setCraft,
                         onSeamarks = vm::setSeamarks,
                         onMapOrientation = vm::setMapOrientation,
+                        onBoatMarker = vm::setBoatMarker,
                         onMapData = { screen = Screen.SETTINGS_MAPDATA },
                         onBack = { screen = Screen.SETTINGS },
                     )
@@ -415,6 +431,8 @@ private fun BoatSpeedyApp(
                     Screen.SETTINGS_MAPDATA -> MapDataScreen(
                         lat = gps.latitude,
                         lon = gps.longitude,
+                        server = settings.mapServer,
+                        onServerChange = vm::setMapServer,
                         onBack = { screen = Screen.SETTINGS_NAV },
                     )
 
@@ -441,7 +459,7 @@ private fun BoatSpeedyApp(
                             }
                         },
                         onImport = { uri ->
-                            vm.importGpx(uri) { ok ->
+                            vm.importGpx(uri, onRoutes = { tripsTab = 1 }) { ok ->
                                 android.widget.Toast.makeText(
                                     context,
                                     context.getString(if (ok) R.string.import_ok else R.string.import_failed),
@@ -450,10 +468,16 @@ private fun BoatSpeedyApp(
                             }
                         },
                         onOpenMenu = { openDrawer() },
+                        routes = routes,
+                        onOpenRoute = { r -> selectedRouteId = r.id; screen = Screen.ROUTE_DETAIL },
+                        tab = tripsTab,
+                        onTab = { tripsTab = it },
+                        onDeleteRoutes = vm::deleteRoutes,
                     )
 
                     Screen.TRIP_DETAIL -> {
-                        val trip = selectedTrip
+                        // Aus der Liste, damit ein neuer Name gleich zu sehen ist.
+                        val trip = selectedTrip?.let { t -> trips.firstOrNull { it.id == t.id } ?: t }
                         if (trip == null) {
                             screen = Screen.TRIPS
                         } else {
@@ -462,6 +486,55 @@ private fun BoatSpeedyApp(
                                 settings = settings,
                                 onShowMap = { screen = Screen.TRIP_MAP },
                                 onBack = { screen = Screen.TRIPS },
+                                onRename = { name -> vm.renameTrip(trip.id, name) },
+                                onNavigate = {
+                                    vm.navigateTrip(trip.id) { ok ->
+                                        if (ok) {
+                                            screen = Screen.LIVE_MAP
+                                        } else {
+                                            android.widget.Toast.makeText(
+                                                context, context.getString(R.string.no_track), android.widget.Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                    }
+                                },
+                            )
+                        }
+                    }
+
+                    Screen.ROUTE_DETAIL -> {
+                        val route = routes.firstOrNull { it.id == selectedRouteId }
+                        if (route == null) {
+                            screen = Screen.TRIPS
+                        } else {
+                            RouteDetailScreen(
+                                route = route,
+                                settings = settings,
+                                onNavigate = {
+                                    vm.navigateRoute(route)
+                                    screen = Screen.LIVE_MAP
+                                },
+                                onRecalc = { done -> vm.recalcRoute(route, done) },
+                                onRename = { name -> vm.renameRoute(route.id, name) },
+                                onDelete = {
+                                    vm.deleteRoutes(setOf(route.id))
+                                    screen = Screen.TRIPS
+                                },
+                                onBack = { screen = Screen.TRIPS },
+                                onShowMap = { screen = Screen.ROUTE_MAP },
+                            )
+                        }
+                    }
+
+                    Screen.ROUTE_MAP -> {
+                        val route = routes.firstOrNull { it.id == selectedRouteId }
+                        if (route == null) {
+                            screen = Screen.TRIPS
+                        } else {
+                            de.kewl.boatspeedy.ui.RouteMapScreen(
+                                route = route,
+                                settings = settings,
+                                onBack = { screen = Screen.ROUTE_DETAIL },
                             )
                         }
                     }
@@ -506,6 +579,7 @@ private fun BoatSpeedyApp(
                         tripChargeAh = tripStats.chargeAh,
                         onMapOrientation = vm::setMapOrientation,
                         onCraft = vm::setCraft,
+                        onSaveRoute = { t, name -> vm.saveRoute(t, name) },
                         onBack = { screen = Screen.SPEED },
                     )
 
@@ -542,7 +616,12 @@ private fun BoatSpeedyApp(
                             nurGrob = grobErlaubt,
                             onOpenMenu = { openDrawer() },
                             onRequest = {
-                                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                permissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                                    ),
+                                )
                             },
                         )
                     } else {
@@ -574,6 +653,10 @@ private fun BoatSpeedyApp(
                             onStopTrip = vm::stopTrip,
                             onOpenMenu = { openDrawer() },
                             onOpenMap = { screen = Screen.LIVE_MAP },
+                            onHideTile = { vm.setTileVisible(it, false) },
+                            onShowTile = { vm.setTileVisible(it, true) },
+                            onOrderChange = vm::setDashboardOrder,
+                            onMapSizeChange = vm::setMapTileSize,
                         )
                     }
                 }

@@ -20,6 +20,9 @@ object NavRepository {
      */
     const val ARRIVE_M = 10.0
 
+    /** So nah am Start oder an der Strecke endet die Anfahrt einer gespeicherten Route. */
+    const val ANFAHRT_M = 30.0
+
     private val _target = MutableStateFlow<NavTarget?>(null)
     val target: StateFlow<NavTarget?> = _target.asStateFlow()
 
@@ -36,7 +39,6 @@ object NavRepository {
     val planStart: StateFlow<LatLon?> = _planStart.asStateFlow()
 
     fun setPlanStart(at: LatLon) { _planStart.value = at }
-    fun clearPlanStart() { _planStart.value = null }
 
     /**
      * Unterhalb dieser Fahrt liefert das GPS keinen brauchbaren Kurs mehr, sondern
@@ -91,6 +93,27 @@ object NavRepository {
         // nicht beim Fahren und verschwindet nicht, wenn man zufällig am Ziel vorbeikommt.
         if (t.plannedFrom != null) return false
         val here = LatLon(lat, lon)
+        // **Nachfahren** einer gespeicherten Route oder Fahrt: erst die Anfahrt zum Start,
+        // dann vorwärts der Strecke folgen.
+        if (t.folge != null) {
+            var ab = t.folge
+            if (t.anfahrt != null) {
+                val einstieg = if (distanceM(here, t.anfahrt) <= ANFAHRT_M) 0 else einstieg(t.path, here, ANFAHRT_M)
+                if (einstieg == null) {
+                    _target.value = t.copy(distanceM = distanceM(here, t.anfahrt) + pathLengthM(t.path))
+                    return false
+                }
+                ab = einstieg
+            }
+            val stand = folgen(t.path, ab, here, ARRIVE_M)
+            if (stand.angekommen) {
+                _target.value = null
+                _arrived.value = _arrived.value + 1
+                return true
+            }
+            _target.value = t.copy(anfahrt = null, folge = stand.index, distanceM = stand.restM)
+            return false
+        }
         if (distanceM(here, t.target) <= ARRIVE_M) {
             _target.value = null
             _arrived.value = _arrived.value + 1

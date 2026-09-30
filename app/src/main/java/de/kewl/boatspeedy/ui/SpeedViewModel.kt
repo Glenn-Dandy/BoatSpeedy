@@ -45,8 +45,11 @@ import de.kewl.boatspeedy.trip.TripStore
 import de.kewl.boatspeedy.util.Notifier
 import de.kewl.boatspeedy.weather.WeatherRepository
 import de.kewl.boatspeedy.weather.WeatherWarning
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -68,6 +71,10 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _trips = MutableStateFlow<List<SavedTrip>>(emptyList())
     val trips: StateFlow<List<SavedTrip>> = _trips.asStateFlow()
+
+    private val routeStore = de.kewl.boatspeedy.nav.RouteStore(app)
+    private val _routes = MutableStateFlow<List<de.kewl.boatspeedy.nav.SavedRoute>>(emptyList())
+    val routes: StateFlow<List<de.kewl.boatspeedy.nav.SavedRoute>> = _routes.asStateFlow()
 
     val settings: StateFlow<Settings> =
         settingsRepo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
@@ -150,6 +157,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             settings.collect {
                 TripRepository.autoPauseAmps = if (it.autoPauseOn) it.autoPauseAmps else 0f
                 TripRepository.autoPauseSpeedMs = it.autoPauseSpeedMs
+                // Der Kartenserver gilt für jeden Download, egal von welchem Bildschirm.
+                de.kewl.boatspeedy.nav.MapTiles.base = it.mapServer
             }
         }
         // SoC-Alarm-Ton bei fallender Flanke unter die Schwelle.
@@ -327,13 +336,131 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         onDone(true)
     }
 
+    /** Einer Fahrt nachträglich einen Namen geben; leer entfernt ihn wieder. */
+    fun renameTrip(id: Long, name: String) = viewModelScope.launch {
+        val t = tripStore.get(id) ?: return@launch
+        tripStore.save(t.copy(name = name.trim().takeIf { it.isNotEmpty() }))
+        _trips.value = tripStore.list()
+    }
+
+    /**
+     * Eine aufgezeichnete Fahrt nachfahren: Der Track wird zur Route, erst mit Anfahrt vom
+     * Boot zum Start. Hindernisse kommen aus den Kacheln, soweit sie auf dem Gerät sind.
+     */
+    fun navigateTrip(id: Long, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val t = tripStore.get(id)
+        val pfad = t?.let { ausduennen(it.points.map { p -> de.kewl.boatspeedy.nav.LatLon(p.lat, p.lon) }) }
+        if (pfad == null || pfad.size < 2) { onDone(false); return@launch }
+        val hindernisse = withContext(Dispatchers.Default) {
+            de.kewl.boatspeedy.nav.WaterRouter.obstaclesAlong(
+                de.kewl.boatspeedy.nav.MapTiles.dir(getApplication<Application>().filesDir), pfad,
+            )
+        }
+        de.kewl.boatspeedy.nav.NavRepository.set(
+            de.kewl.boatspeedy.nav.NavTarget(
+                target = pfad.last(),
+                mode = de.kewl.boatspeedy.nav.NavMode.ROUTE,
+                path = pfad,
+                distanceM = de.kewl.boatspeedy.nav.pathLengthM(pfad),
+                water = pfad,
+                obstacles = hindernisse,
+                anfahrt = pfad.first(),
+                folge = 0,
+            ),
+        )
+        onDone(true)
+    }
+
+    /** Punkte näher als 10 m am vorigen weglassen: Zum Nachfahren reicht das, und es zeichnet sich schneller. */
+    private fun ausduennen(p: List<de.kewl.boatspeedy.nav.LatLon>): List<de.kewl.boatspeedy.nav.LatLon> {
+        if (p.size < 3) return p
+        val out = arrayListOf(p.first())
+        for (i in 1 until p.lastIndex) {
+            if (de.kewl.boatspeedy.nav.distanceM(out.last(), p[i]) >= 10.0) out.add(p[i])
+        }
+        out.add(p.last())
+        return out
+    }
+
+    fun refreshRoutes() = viewModelScope.launch { _routes.value = routeStore.list() }
+
+    /** Die gerade gerechnete Route speichern. */
+    fun saveRoute(t: de.kewl.boatspeedy.nav.NavTarget, name: String, onDone: (Boolean) -> Unit = {}) =
+        viewModelScope.launch {
+            val r = de.kewl.boatspeedy.nav.SavedRoute.aus(t, settings.value.craft, System.currentTimeMillis(), name)
+            if (r == null) { onDone(false); return@launch }
+            routeStore.save(r)
+            _routes.value = routeStore.list()
+            onDone(true)
+        }
+
+    fun renameRoute(id: Long, name: String) = viewModelScope.launch {
+        val r = _routes.value.firstOrNull { it.id == id } ?: return@launch
+        routeStore.save(r.copy(name = name.trim().takeIf { it.isNotEmpty() }))
+        _routes.value = routeStore.list()
+    }
+
+    fun deleteRoutes(ids: Set<Long>) = viewModelScope.launch {
+        routeStore.delete(ids)
+        _routes.value = routeStore.list()
+    }
+
+    fun navigateRoute(r: de.kewl.boatspeedy.nav.SavedRoute) = de.kewl.boatspeedy.nav.NavRepository.set(r.alsZiel())
+
+    /**
+     * Eine gespeicherte Route mit dem eingestellten Fahrzeug und den aktuellen Kartendaten
+     * neu rechnen. Name und Platz in der Liste bleiben. [onDone] bekommt den Fehler oder null.
+     */
+    fun recalcRoute(r: de.kewl.boatspeedy.nav.SavedRoute, onDone: (de.kewl.boatspeedy.nav.RouteError?) -> Unit) =
+        viewModelScope.launch {
+            val craft = settings.value.craft
+            val res = withContext(Dispatchers.IO) {
+                de.kewl.boatspeedy.nav.WaterRouter.route(
+                    r.start, r.target, craft,
+                    de.kewl.boatspeedy.nav.MapTiles.dir(getApplication<Application>().filesDir),
+                )
+            }
+            when (res) {
+                is de.kewl.boatspeedy.nav.RouteResult.Ok -> {
+                    routeStore.save(
+                        r.copy(
+                            craft = craft, path = res.path, water = res.water, obstacles = res.obstacles,
+                            restrictedM = res.restrictedM, restricted = res.restricted,
+                            upstreamM = res.upstreamM, downstreamM = res.downstreamM,
+                            portageM = res.portageM, portage = res.portage,
+                        ),
+                    )
+                    _routes.value = routeStore.list()
+                    onDone(null)
+                }
+                is de.kewl.boatspeedy.nav.RouteResult.Failed -> onDone(res.reason)
+            }
+        }
+
     fun deleteTrips(ids: Set<Long>) = viewModelScope.launch {
         tripStore.delete(ids)
         _trips.value = tripStore.list()
     }
 
     /** Eine GPX-Datei importieren; ruft [onDone] mit true/false (Erfolg) auf dem Main-Thread. */
-    fun importGpx(uri: android.net.Uri, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+    fun importGpx(uri: android.net.Uri, onRoutes: () -> Unit = {}, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        // Eine Datei mit Route (ohne Track) wird zur Route, alles andere zur Fahrt.
+        val routen = withContext(Dispatchers.IO) {
+            runCatching {
+                getApplication<Application>().contentResolver.openInputStream(uri)?.use {
+                    de.kewl.boatspeedy.nav.RouteGpx.parse(
+                        it, android.util.Xml.newPullParser(), settings.value.craft, System.currentTimeMillis(),
+                    )
+                }
+            }.getOrNull().orEmpty()
+        }
+        if (routen.isNotEmpty()) {
+            routen.forEach { routeStore.save(it) }
+            _routes.value = routeStore.list()
+            onRoutes()
+            onDone(true)
+            return@launch
+        }
         val trip = de.kewl.boatspeedy.trip.GpxImport.import(getApplication(), uri, tripStore)
         if (trip != null) _trips.value = tripStore.list()
         onDone(trip != null)
@@ -357,15 +484,27 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Tickt jede Sekunde, damit ein veralteter Fix auch ohne neue Meldung auffällt. */
+    private val sekundentakt = flow {
+        while (true) {
+            emit(Unit)
+            delay(1000)
+        }
+    }
+
     // Gleitender Mittelwert der rohen Geschwindigkeit (m/s).
     private val speedWindow = ArrayDeque<Float>()
     // A+D: letzten Anzeigewert halten und schlechte Fixes fürs Tempo ignorieren.
     private var lastDisplayMs: Float? = null
-    private var badTicks = 0
+    /** Zeit des letzten brauchbaren Fixes; bis [HALTEN_NS] danach bleibt sein Wert stehen. */
+    private var lastGoodNanos: Long? = null
+    /** Zuletzt eingerechneter Fix: jeder zählt nur einmal, nicht bei jeder Satellitenmeldung. */
+    private var lastUsedFixNanos: Long? = null
 
     /** Fertig formatierter Anzeigewert (bereits geglättet & umgerechnet). Im Lademodus „--". */
     val displaySpeed: StateFlow<String> =
-        combine(_gps, settings, _charge) { gps, settings, charge ->
+        // Der Sekundentakt prüft das Alter auch dann, wenn gar nichts mehr kommt.
+        combine(_gps, settings, _charge, sekundentakt) { gps, settings, charge, _ ->
             if (charge.charging) NO_FIX else smoothAndFormat(gps, settings)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, NO_FIX)
 
@@ -393,7 +532,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         if (collectJob?.isActive == true) return
         speedWindow.clear()
         lastDisplayMs = null
-        badTicks = 0
+        lastGoodNanos = null
+        lastUsedFixNanos = null
         collectJob = viewModelScope.launch {
             locationProvider.state.collect { g ->
                 _gps.value = g
@@ -429,9 +569,29 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowBatteryTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowBatteryTile(v) }
     fun setShowRangeTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowRangeTile(v) }
     fun setShowMapTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowMapTile(v) }
+    fun setShowTripTile(v: Boolean) = viewModelScope.launch { settingsRepo.setShowTripTile(v) }
+    fun setDashboardOrder(v: String) = viewModelScope.launch { settingsRepo.setDashboardOrder(v) }
+    fun setMapTileSize(v: Int) = viewModelScope.launch { settingsRepo.setMapTileSize(v) }
+
+    /** Eine Dashboard-Kachel ein- oder ausblenden. Die GPS-Kachel hängt am Schalter für Satelliten-Details. */
+    fun setTileVisible(tile: DashboardTile, sichtbar: Boolean) = when (tile) {
+        DashboardTile.RANGE -> setShowRangeTile(sichtbar)
+        DashboardTile.BATTERY -> setShowBatteryTile(sichtbar)
+        DashboardTile.MAP -> setShowMapTile(sichtbar)
+        DashboardTile.TRIP -> setShowTripTile(sichtbar)
+        DashboardTile.GPS -> setShowSatDetails(sichtbar)
+    }
+
+    /** Anordnung ab Werk: alle Kacheln sichtbar, Standardreihenfolge, Karte in mittlerer Größe. */
+    fun resetDashboardLayout() = viewModelScope.launch {
+        DashboardTile.entries.forEach { setTileVisible(it, true) }
+        settingsRepo.setDashboardOrder("")
+        settingsRepo.setMapTileSize(1)
+    }
     fun setTrackColor(v: de.kewl.boatspeedy.data.TrackColor) = viewModelScope.launch { settingsRepo.setTrackColor(v) }
     fun setTrackWidth(v: de.kewl.boatspeedy.data.TrackWidth) = viewModelScope.launch { settingsRepo.setTrackWidth(v) }
     fun setTrackArrows(v: Boolean) = viewModelScope.launch { settingsRepo.setTrackArrows(v) }
+    fun setMapServer(v: String) = viewModelScope.launch { settingsRepo.setMapServer(v) }
     fun setAutoPauseAmps(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseAmps(v) }
     fun setAutoPauseOn(v: Boolean) = viewModelScope.launch { settingsRepo.setAutoPauseOn(v) }
     fun setAutoPauseSpeedMs(v: Float) = viewModelScope.launch { settingsRepo.setAutoPauseSpeedMs(v) }
@@ -470,6 +630,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setCraft(v: de.kewl.boatspeedy.data.Craft) = viewModelScope.launch { settingsRepo.setCraft(v) }
     fun setDevUpdates(v: Boolean) = viewModelScope.launch { settingsRepo.setDevUpdates(v) }
     fun setSeamarks(v: Boolean) = viewModelScope.launch { settingsRepo.setSeamarks(v) }
+    fun setBoatMarker(v: Boolean) = viewModelScope.launch { settingsRepo.setBoatMarker(v) }
     fun setMapOrientation(v: de.kewl.boatspeedy.data.MapOrientation) =
         viewModelScope.launch { settingsRepo.setMapOrientation(v) }
     fun setWeatherSound(v: AlarmSound) = viewModelScope.launch { settingsRepo.setWeatherSound(v) }
@@ -491,7 +652,6 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun testAnchorSound() = AlarmPlayer.play(getApplication(), settings.value.anchorSound, loop = false)
     fun testSocSound() = AlarmPlayer.play(getApplication(), settings.value.socSound, loop = false)
-    fun setBms(v: BmsType) = viewModelScope.launch { settingsRepo.setBatteryBms(v) }
     fun setBankMode(v: BankMode) = viewModelScope.launch { settingsRepo.setBankMode(v) }
     fun setDashboardBattery(v: String) = viewModelScope.launch { settingsRepo.setDashboardBattery(v) }
 
@@ -592,14 +752,19 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     private fun smoothAndFormat(gps: GpsState, settings: Settings): String {
         val raw = gps.speedMs
         val acc = gps.accuracyM
+        val jetzt = SystemClock.elapsedRealtimeNanos()
+        // **Nur ein frischer Fix zählt.** Drinnen kommen keine neuen Positionen, die
+        // Satellitenmeldungen schicken aber die alte immer wieder durch; ihr Tempo stand
+        // dann fest auf dem Tacho, als wäre es gerade gemessen.
+        val frisch = gps.fixNanos?.let { jetzt - it <= HALTEN_NS } ?: false
         // D: nur Fixes mit brauchbarer Genauigkeit fürs Tempo verwenden.
-        val good = raw != null && (acc == null || acc <= MAX_ACCURACY_M)
+        val good = frisch && raw != null && (acc == null || acc <= MAX_ACCURACY_M)
 
         if (!good) {
             // A: kurze Aussetzer/schlechte Fixes überbrücken – letzten Wert halten,
-            // erst nach längerem Verlust auf „--" fallen.
-            badTicks++
-            if (badTicks > MAX_HOLD_TICKS) {
+            // erst nach [HALTEN_NS] ohne brauchbaren Fix auf „--" fallen.
+            val seit = lastGoodNanos?.let { jetzt - it }
+            if (seit == null || seit > HALTEN_NS) {
                 speedWindow.clear()
                 lastDisplayMs = null
                 return NO_FIX
@@ -607,10 +772,13 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             return lastDisplayMs?.let { formatMs(it, settings) } ?: NO_FIX
         }
 
-        badTicks = 0
-        val window = settings.smoothing.window
-        speedWindow.addLast(raw!!)
-        while (speedWindow.size > window) speedWindow.removeFirst()
+        lastGoodNanos = gps.fixNanos
+        if (gps.fixNanos != lastUsedFixNanos) {
+            lastUsedFixNanos = gps.fixNanos
+            val window = settings.smoothing.window
+            speedWindow.addLast(raw!!)
+            while (speedWindow.size > window) speedWindow.removeFirst()
+        }
         val avgMs = speedWindow.average().toFloat()
         lastDisplayMs = avgMs
         return formatMs(avgMs, settings)
@@ -626,7 +794,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         const val NO_FIX = "--"
         private const val MAX_ACCURACY_M = 25f  // schlechtere Fixes fürs Tempo ignorieren (D)
-        private const val MAX_HOLD_TICKS = 5    // so viele schlechte Fixes den letzten Wert halten (A)
+        /** So lange nach dem letzten brauchbaren Fix bleibt sein Wert stehen, danach „--". */
+        private const val HALTEN_NS = 5_000_000_000L
         private const val CHARGE_ON_A = 0.5f    // ab diesem positiven Strom gilt „lädt"
         private const val CHARGE_FULL_A = 0.1f  // darunter: Strom abgeklungen → voll
         private const val FULL_SOC_MIN = 90     // „voll" nur ab diesem Ladestand melden

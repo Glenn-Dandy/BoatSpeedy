@@ -39,6 +39,7 @@ fun mergeTrips(trips: List<SavedTrip>): SavedTrip? {
         totalMs = total,
         avgSpeedMs = avg,
         maxSpeedMs = sorted.maxOf { it.maxSpeedMs },
+        name = sorted.firstNotNullOfOrNull { it.name },
         energyWh = sorted.map { it.energyWh }.sum(),
         chargeAh = sorted.map { it.chargeAh }.sum(),
         points = points,

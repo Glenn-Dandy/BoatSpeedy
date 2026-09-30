@@ -42,7 +42,14 @@ class TripStore(context: Context) {
         for (p in t.points) {
             pts.put(
                 JSONArray().put(p.lat).put(p.lon).put(p.tMs)
-                    .put(p.speedMs.toDouble()).put(p.soc).put(p.chargeAh.toDouble()),
+                    .put(p.speedMs.toDouble()).put(p.soc).put(p.chargeAh.toDouble())
+                    .apply {
+                        // Strom und Leistung nur, wenn eine Batterie dabei war.
+                        if (!p.currentA.isNaN() && !p.powerW.isNaN()) {
+                            put(Math.round(p.currentA * 100) / 100.0)
+                            put(Math.round(p.powerW * 10) / 10.0)
+                        }
+                    },
             )
         }
         return JSONObject()
@@ -56,6 +63,7 @@ class TripStore(context: Context) {
             .put("energyWh", t.energyWh.toDouble())
             .put("chargeAh", t.chargeAh.toDouble())
             .put("points", pts)
+            .apply { t.name?.let { put("name", it) } }
             .toString()
     }
 
@@ -73,6 +81,8 @@ class TripStore(context: Context) {
                     speedMs = if (a.length() > 3) a.getDouble(3).toFloat() else 0f,
                     soc = if (a.length() > 4) a.getInt(4) else -1,
                     chargeAh = if (a.length() > 5) a.getDouble(5).toFloat() else 0f,
+                    currentA = if (a.length() > 7) a.getDouble(6).toFloat() else Float.NaN,
+                    powerW = if (a.length() > 7) a.getDouble(7).toFloat() else Float.NaN,
                 ),
             )
         }
@@ -87,6 +97,7 @@ class TripStore(context: Context) {
             energyWh = o.getDouble("energyWh").toFloat(),
             chargeAh = o.getDouble("chargeAh").toFloat(),
             points = pts,
+            name = o.optString("name").takeIf { it.isNotBlank() },
         )
     }
 }

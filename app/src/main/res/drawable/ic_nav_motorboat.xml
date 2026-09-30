@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Positionsmarker Motorboot, von oben: Bug oben, damit die Drehung um den Mittelpunkt
+     dem Kurs entspricht. Weißer Rand wie beim Pfeil, damit es auf jeder Kartenfarbe
+     sichtbar bleibt; der graue Außenborder hinten macht die Richtung zusätzlich klar. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#37474F"
+        android:pathData="M21,43 L27,43 L27,47.5 L21,47.5 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,1 C32,8 36,18 36,28 L36,41 C36,43 35,44 33,44 L15,44 C13,44 12,43 12,41 L12,28 C12,18 16,8 24,1 Z" />
+    <path
+        android:fillColor="#1E88E5"
+        android:pathData="M24,5 C30.5,11 33,19 33,28 L33,40 C33,41 32.5,41.5 31.5,41.5 L16.5,41.5 C15.5,41.5 15,41 15,40 L15,28 C15,19 17.5,11 24,5 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M18,23 C21,20.5 27,20.5 30,23 L30,26 C27,24 21,24 18,26 Z" />
+    <path
+        android:fillColor="#0D47A1"
+        android:pathData="M18.5,29 L29.5,29 L29.5,37 L18.5,37 Z" />
+</vector>

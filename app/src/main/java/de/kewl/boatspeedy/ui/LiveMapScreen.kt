@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.BookmarkAdded
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
@@ -135,6 +137,8 @@ fun LiveMapScreen(
     onMapOrientation: (de.kewl.boatspeedy.data.MapOrientation) -> Unit = {},
     /** Fahrzeug umstellen — der Knopf oben links auf der Karte. */
     onCraft: (Craft) -> Unit = {},
+    /** Die gerechnete Route unter einem Namen speichern; leer heißt ohne Namen. */
+    onSaveRoute: (NavTarget, String) -> Unit = { _, _ -> },
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -168,6 +172,21 @@ fun LiveMapScreen(
     // Luftlinie nehmen kann, ohne noch einmal zu zielen.
     var navTargetFallback by remember { mutableStateOf<LatLon?>(null) }
     val navTarget by NavRepository.target.collectAsStateWithLifecycle()
+    var askSaveName by remember { mutableStateOf<NavTarget?>(null) }
+    var savedTargets by remember { mutableStateOf(emptyList<List<LatLon>>()) }
+    askSaveName?.let { t ->
+        NameDialog(
+            title = stringResource(R.string.route_save),
+            initial = "",
+            onDismiss = { askSaveName = null },
+            onConfirm = { name ->
+                onSaveRoute(t, name)
+                savedTargets = savedTargets + listOf(t.water)
+                askSaveName = null
+                android.widget.Toast.makeText(context, R.string.route_saved, android.widget.Toast.LENGTH_SHORT).show()
+            },
+        )
+    }
     val course by NavRepository.course.collectAsStateWithLifecycle()
     // Aktuelle Lage der nächsten DWD-Station; alle zehn Minuten frisch, das ist der Takt,
     // in dem die Stationen selbst melden.
@@ -223,6 +242,7 @@ fun LiveMapScreen(
                 upstreamM = r.upstreamM, downstreamM = r.downstreamM,
                 portageM = r.portageM, portage = r.portage,
                 plannedFrom = if (planStart != null) from else null,
+                craft = settings.craft,
             ),
         )
     }
@@ -517,6 +537,7 @@ fun LiveMapScreen(
                 currentLat = currentLat,
                 currentLon = currentLon,
                 interactive = true,
+                positionIcon = positionsSymbol(settings),
                 follow = follow && !weatherMode,
                 onUserPan = { follow = false },
                 bubbleText = bubble,
@@ -528,7 +549,19 @@ fun LiveMapScreen(
                 // Route zeichnen. Und die Karte bleibt stehen, wo man sie hingeschoben
                 // hat – sonst zieht sie einem beim Betrachten unter der Hand weg.
                 onLongPress = if (weatherMode) null else { lat, lon -> askTarget = LatLon(lat, lon) },
-                navPath = if (weatherMode) emptyList() else navTarget?.path.orEmpty(),
+                // Beim Nachfahren beginnt die gestrichelte Linie am Boot: erst die
+                // Luftlinie zum Start, dann die Strecke.
+                navPath = if (weatherMode) {
+                    emptyList()
+                } else {
+                    navTarget?.let { t ->
+                        if (t.anfahrt != null && currentLat != null && currentLon != null) {
+                            listOf(LatLon(currentLat, currentLon)) + t.path
+                        } else {
+                            t.path
+                        }
+                    }.orEmpty()
+                },
                 navWaterPath = if (weatherMode) emptyList() else navTarget?.water.orEmpty(),
                 // Die Hindernisse der Route stehen vorn: Bei gleicher Stelle gewinnt der
                 // Eintrag, der zur Fahrt gehört.
@@ -611,7 +644,7 @@ fun LiveMapScreen(
                                         c.deg,
                                         bearingDeg(
                                             LatLon(currentLat, currentLon),
-                                            t.plannedFrom ?: t.target,
+                                            t.plannedFrom ?: t.anfahrt ?: t.target,
                                         ),
                                     ),
                                     stale = c.stale,
@@ -622,7 +655,7 @@ fun LiveMapScreen(
                         // Bei geplanter Strecke zwei Angaben: erst der Weg zum Start,
                         // dann die Strecke selbst. Nur eine Zahl wäre irreführend — sie
                         // beginnt ja nicht dort, wo das Boot liegt.
-                        val zumStart = t.plannedFrom?.let { p ->
+                        val zumStart = (t.plannedFrom ?: t.anfahrt)?.let { p ->
                             if (currentLat != null && currentLon != null) {
                                 distanceM(LatLon(currentLat, currentLon), p)
                             } else {
@@ -640,8 +673,14 @@ fun LiveMapScreen(
                                     )
                                     append(" · ")
                                 }
-                                append(String.format(Locale.getDefault(), "%.2f km", t.distanceM / 1000.0))
-                                val ah = ahPerKm?.let { it * (t.distanceM / 1000.0) }
+                                // Beim Nachfahren enthält die Entfernung die Anfahrt schon.
+                                val strecke = if (t.anfahrt != null && zumStart != null) {
+                                    (t.distanceM - zumStart).coerceAtLeast(0.0)
+                                } else {
+                                    t.distanceM
+                                }
+                                append(String.format(Locale.getDefault(), "%.2f km", strecke / 1000.0))
+                                val ah = ahPerKm?.let { it * (strecke / 1000.0) }
                                 if (ah != null) {
                                     append(" · ~")
                                     append(String.format(Locale.getDefault(), "%.1f Ah", ah))
@@ -649,6 +688,19 @@ fun LiveMapScreen(
                             },
                             fontWeight = FontWeight.SemiBold,
                         )
+                        // Speichern nur für eine frisch gerechnete Route, nicht für eine, die
+                        // gerade nachgefahren wird: die liegt schon in der Ablage.
+                        if (t.mode == NavMode.ROUTE && t.folge == null) {
+                            // Beim Fahren ändert sich die Entfernung und damit das Ziel-Objekt;
+                            // die Strecke selbst bleibt dieselbe Liste.
+                            val gespeichert = savedTargets.any { it === t.water }
+                            IconButton(onClick = { askSaveName = t }, enabled = !gespeichert) {
+                                Icon(
+                                    if (gespeichert) Icons.Filled.BookmarkAdded else Icons.Filled.BookmarkAdd,
+                                    contentDescription = stringResource(R.string.route_save),
+                                )
+                            }
+                        }
                         IconButton(onClick = { NavRepository.clear() }) {
                             Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.nav_clear))
                         }
@@ -658,9 +710,10 @@ fun LiveMapScreen(
 
             // Schleusen und Wehre stehen für sich, nicht neben den Kilometern: dort war
             // nur Platz für eine Zeile, und die zeigte das Wehr statt der Schleuse, durch
-            // die man tatsächlich fährt. Seit die Route an Wehren getrennt wird, kann ein
-            // Wehr gar nicht mehr auf ihr liegen – es steht daneben, meist neben der
-            // Schleuse. Deshalb zwei getrennte Angaben mit unterschiedlichem Gewicht.
+            // die man tatsächlich fährt. Ein Wehr steht nur darin, wenn die Strecke es
+            // kreuzt; wer umträgt oder durch die Schleuse fährt, sieht es auf der Karte,
+            // aber nicht als Hindernis. Deshalb zwei getrennte Angaben mit unterschiedlichem
+            // Gewicht.
             navTarget?.takeIf { !weatherMode && it.mode == NavMode.ROUTE }?.let { t ->
                 val locks = t.obstacles.count { it.kind == ObstacleKind.LOCK || it.kind == ObstacleKind.SLUICE }
                 val weirs = t.obstacles.count { it.kind == ObstacleKind.WEIR || it.kind == ObstacleKind.DAM }
@@ -708,7 +761,7 @@ fun LiveMapScreen(
                                     iconRes = R.drawable.ic_restricted,
                                     text = stringResource(
                                         R.string.nav_restricted,
-                                        if (km < 10) String.format("%.1f", km) else km.roundToInt().toString(),
+                                        if (km < 10) String.format(Locale.getDefault(), "%.1f", km) else km.roundToInt().toString(),
                                     ),
                                     color = MaterialTheme.colorScheme.error,
                                 )
@@ -724,7 +777,7 @@ fun LiveMapScreen(
                             // Gegen die Strömung braucht man länger und mehr Strom — die
                             // Zahl, die man vor dem Ablegen wissen will.
                             if (aufKm != null || abKm != null) {
-                                fun km(v: Double) = if (v < 10) String.format("%.1f", v) else v.roundToInt().toString()
+                                fun km(v: Double) = if (v < 10) String.format(Locale.getDefault(), "%.1f", v) else v.roundToInt().toString()
                                 val teile = listOfNotNull(
                                     aufKm?.let { stringResource(R.string.flow_up, km(it)) },
                                     abKm?.let { stringResource(R.string.flow_down, km(it)) },

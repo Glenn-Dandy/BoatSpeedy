@@ -32,10 +32,13 @@ class SettingsRepository(private val context: Context) {
         val SHOW_BATTERY_TILE = booleanPreferencesKey("show_battery_tile")
         val SHOW_RANGE_TILE = booleanPreferencesKey("show_range_tile")
         val SHOW_MAP_TILE = booleanPreferencesKey("show_map_tile")
+        val SHOW_TRIP_TILE = booleanPreferencesKey("show_trip_tile")
+        val DASHBOARD_ORDER = stringPreferencesKey("dashboard_order")
+        val MAP_TILE_SIZE = intPreferencesKey("map_tile_size")
         val TRACK_COLOR = stringPreferencesKey("track_color")
         val TRACK_WIDTH = stringPreferencesKey("track_width")
         val TRACK_ARROWS = booleanPreferencesKey("track_arrows")
-        val BAT_BMS = stringPreferencesKey("bat_bms")
+        val MAP_SERVER = stringPreferencesKey("map_server")
         val BANK_MODE = stringPreferencesKey("bank_mode")
         val BATTERIES = stringPreferencesKey("batteries") // JSON-Array
         val DASH_BATTERY = stringPreferencesKey("dashboard_battery")
@@ -59,6 +62,7 @@ class SettingsRepository(private val context: Context) {
         val CRAFT = stringPreferencesKey("craft")
         val SEAMARKS = booleanPreferencesKey("seamarks")
         val MAP_ORIENTATION = stringPreferencesKey("map_orientation")
+        val BOAT_MARKER = booleanPreferencesKey("boat_marker")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -74,10 +78,13 @@ class SettingsRepository(private val context: Context) {
             showBatteryTile = p[Keys.SHOW_BATTERY_TILE] ?: true,
             showRangeTile = p[Keys.SHOW_RANGE_TILE] ?: true,
             showMapTile = p[Keys.SHOW_MAP_TILE] ?: true,
+            showTripTile = p[Keys.SHOW_TRIP_TILE] ?: true,
+            dashboardOrder = p[Keys.DASHBOARD_ORDER] ?: "",
+            mapTileSize = p[Keys.MAP_TILE_SIZE] ?: 1,
             trackColor = p[Keys.TRACK_COLOR]?.let { enumOrNull<TrackColor>(it) } ?: TrackColor.BLUE,
             trackWidth = p[Keys.TRACK_WIDTH]?.let { enumOrNull<TrackWidth>(it) } ?: TrackWidth.NORMAL,
             trackArrows = p[Keys.TRACK_ARROWS] ?: true,
-            batteryBms = p[Keys.BAT_BMS]?.let { enumOrNull<BmsType>(it) } ?: BmsType.JBD,
+            mapServer = p[Keys.MAP_SERVER] ?: "",
             bankMode = p[Keys.BANK_MODE]?.let { enumOrNull<BankMode>(it) } ?: BankMode.SINGLE,
             batteries = p[Keys.BATTERIES]?.let { decodeBatteries(it) } ?: emptyList(),
             dashboardBattery = p[Keys.DASH_BATTERY] ?: COMBINED_SELECTION,
@@ -103,6 +110,7 @@ class SettingsRepository(private val context: Context) {
             seamarks = p[Keys.SEAMARKS] ?: true,
             mapOrientation = p[Keys.MAP_ORIENTATION]?.let { enumOrNull<MapOrientation>(it) }
                 ?: MapOrientation.NORTH,
+            boatMarker = p[Keys.BOAT_MARKER] ?: true,
         )
     }
 
@@ -117,10 +125,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun setShowBatteryTile(value: Boolean) = edit { it[Keys.SHOW_BATTERY_TILE] = value }
     suspend fun setShowRangeTile(value: Boolean) = edit { it[Keys.SHOW_RANGE_TILE] = value }
     suspend fun setShowMapTile(value: Boolean) = edit { it[Keys.SHOW_MAP_TILE] = value }
+    suspend fun setShowTripTile(value: Boolean) = edit { it[Keys.SHOW_TRIP_TILE] = value }
+    suspend fun setDashboardOrder(value: String) = edit { it[Keys.DASHBOARD_ORDER] = value }
+    suspend fun setMapTileSize(value: Int) = edit { it[Keys.MAP_TILE_SIZE] = value }
     suspend fun setTrackColor(value: TrackColor) = edit { it[Keys.TRACK_COLOR] = value.name }
     suspend fun setTrackWidth(value: TrackWidth) = edit { it[Keys.TRACK_WIDTH] = value.name }
     suspend fun setTrackArrows(value: Boolean) = edit { it[Keys.TRACK_ARROWS] = value }
-    suspend fun setBatteryBms(value: BmsType) = edit { it[Keys.BAT_BMS] = value.name }
+    suspend fun setMapServer(value: String) = edit { it[Keys.MAP_SERVER] = value }
     suspend fun setBankMode(value: BankMode) = edit { it[Keys.BANK_MODE] = value.name }
     suspend fun setDashboardBattery(value: String) = edit { it[Keys.DASH_BATTERY] = value }
     suspend fun setBatteries(value: List<SavedBattery>) = edit { it[Keys.BATTERIES] = encodeBatteries(value) }
@@ -144,6 +155,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDevUpdates(value: Boolean) = edit { it[Keys.DEV_UPDATES] = value }
     suspend fun setCraft(value: Craft) = edit { it[Keys.CRAFT] = value.name }
     suspend fun setSeamarks(value: Boolean) = edit { it[Keys.SEAMARKS] = value }
+    suspend fun setBoatMarker(value: Boolean) = edit { it[Keys.BOAT_MARKER] = value }
     suspend fun setMapOrientation(value: MapOrientation) =
         edit { it[Keys.MAP_ORIENTATION] = value.name }
     suspend fun setWeatherSound(value: AlarmSound) = edit { it[Keys.WEATHER_SOUND] = value.name }

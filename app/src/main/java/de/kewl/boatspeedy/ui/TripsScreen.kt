@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Merge
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Route
@@ -40,6 +42,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,6 +80,12 @@ fun TripsScreen(
     onMerge: (Set<Long>) -> Unit,
     onImport: (android.net.Uri) -> Unit,
     onOpenMenu: () -> Unit,
+    routes: List<de.kewl.boatspeedy.nav.SavedRoute> = emptyList(),
+    onOpenRoute: (de.kewl.boatspeedy.nav.SavedRoute) -> Unit = {},
+    /** 0 = Fahrten, 1 = Routen. Außen gehalten, damit „zurück" im richtigen Reiter landet. */
+    tab: Int = 0,
+    onTab: (Int) -> Unit = {},
+    onDeleteRoutes: (Set<Long>) -> Unit = {},
 ) {
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var confirmMerge by remember { mutableStateOf(false) }
@@ -98,6 +108,22 @@ fun TripsScreen(
                         }
                     },
                     actions = {
+                        if (tab == 1) {
+                            // Routen: teilen und löschen, zusammenführen gibt es nicht.
+                            IconButton(onClick = {
+                                val chosen = routes.filter { it.id in selection }
+                                scope.launch {
+                                    val uris = withContext(Dispatchers.IO) { GpxExport.writeRoutes(context, chosen) }
+                                    GpxExport.share(context, uris, context.getString(R.string.export))
+                                }
+                            }) {
+                                Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.export))
+                            }
+                            IconButton(onClick = { confirmDelete = true }) {
+                                Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.remove))
+                            }
+                            return@TopAppBar
+                        }
                         // Mehrere Fahrten zu einer zusammenführen.
                         if (selection.size >= 2) {
                             IconButton(onClick = { confirmMerge = true }) {
@@ -147,6 +173,7 @@ fun TripsScreen(
                     },
                 )
             } else {
+                Column {
                 TopAppBar(
                     title = { Text(stringResource(R.string.nav_trips)) },
                     navigationIcon = {
@@ -163,9 +190,30 @@ fun TripsScreen(
                         }
                     },
                 )
+                TabRow(selectedTabIndex = tab) {
+                    Tab(selected = tab == 0, onClick = { selection = emptySet(); onTab(0) }, text = { Text(stringResource(R.string.nav_trips)) })
+                    Tab(selected = tab == 1, onClick = { selection = emptySet(); onTab(1) }, text = { Text(stringResource(R.string.routes)) })
+                }
+                }
             }
         },
     ) { innerPadding ->
+        if (tab == 1) {
+            RouteList(
+                routes = routes,
+                selection = selection,
+                onToggle = { id -> selection = if (id in selection) selection - id else selection + id },
+                onOpen = { r ->
+                    if (selecting) {
+                        selection = if (r.id in selection) selection - r.id else selection + r.id
+                    } else {
+                        onOpenRoute(r)
+                    }
+                },
+                modifier = Modifier.padding(innerPadding),
+            )
+            return@Scaffold
+        }
         if (trips.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize().padding(innerPadding).padding(24.dp),
@@ -227,10 +275,15 @@ fun TripsScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(stringResource(R.string.remove)) },
-            text = { Text(stringResource(R.string.delete_confirm, count)) },
+            text = {
+                Text(
+                    if (tab == 1) stringResource(R.string.routes_delete_confirm, count)
+                    else stringResource(R.string.delete_confirm, count),
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
-                    onDelete(selection)
+                    if (tab == 1) onDeleteRoutes(selection) else onDelete(selection)
                     selection = emptySet()
                     confirmDelete = false
                 }) { Text(stringResource(R.string.delete_do)) }
@@ -251,7 +304,7 @@ private fun TripRow(trip: SavedTrip, selected: Boolean, onToggle: () -> Unit, on
         ) {
             Checkbox(checked = selected, onCheckedChange = { onToggle() })
             Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
-                Text(tripDate(trip.startedAt), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                NameUndDatum(trip.name, trip.startedAt)
                 Text(
                     buildString {
                         append(formatDistance(trip.distanceM))
@@ -277,19 +330,38 @@ private fun TripRow(trip: SavedTrip, selected: Boolean, onToggle: () -> Unit, on
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TripDetailScreen(trip: SavedTrip, settings: Settings, onShowMap: () -> Unit, onBack: () -> Unit) {
+fun TripDetailScreen(
+    trip: SavedTrip,
+    settings: Settings,
+    onShowMap: () -> Unit,
+    onBack: () -> Unit,
+    onRename: (String) -> Unit = {},
+    onNavigate: () -> Unit = {},
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var rename by remember { mutableStateOf(false) }
+    if (rename) {
+        NameDialog(
+            title = stringResource(R.string.rename),
+            initial = trip.name.orEmpty(),
+            onDismiss = { rename = false },
+            onConfirm = { onRename(it); rename = false },
+        )
+    }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(tripDate(trip.startedAt)) },
+                title = { NameUndDatum(trip.name, trip.startedAt, groesse = 20) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
+                    IconButton(onClick = { rename = true }) {
+                        Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.rename))
+                    }
                     if (trip.hasTrack) {
                         IconButton(onClick = {
                             scope.launch {
@@ -362,6 +434,12 @@ fun TripDetailScreen(trip: SavedTrip, settings: Settings, onShowMap: () -> Unit,
                         modifier = Modifier.matchParentSize(),
                     )
                     Box(modifier = Modifier.matchParentSize().clickable(onClick = onShowMap))
+                }
+                // Die Fahrt noch einmal fahren: erst zum Start, dann dem Track nach.
+                Button(onClick = onNavigate, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.Navigation, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.route_navigate))
                 }
             }
         }

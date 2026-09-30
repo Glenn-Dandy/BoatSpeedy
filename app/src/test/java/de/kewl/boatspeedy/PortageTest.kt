@@ -117,16 +117,15 @@ class PortageTest {
     }
 
     /**
-     * Gemeldet wird nur, was auf der Strecke liegt. Wer umträgt, geht am Wehr **vorbei**;
-     * es dann als Hindernis zu nennen hieße, vor etwas zu warnen, das man umgeht. Auf der
-     * Karte steht es trotzdem.
+     * Wer um ein Wehr trägt, bekommt es genau einmal gemeldet: Es ist der Grund für das
+     * Tragen. Auf der Karte steht es ohnehin.
      */
     @Test
-    fun `ein umtragenes Wehr wird nicht als Hindernis gemeldet`() {
+    fun `ein umtragenes Wehr zaehlt einmal`() {
         val r = fahre(Craft.CANOE, fluss, wehr, umtrageweg) as RouteResult.Ok
         assertTrue("getragen wurde nichts", r.portageM > 50)
-        assertTrue("das umgangene Wehr steht als Hindernis: ${r.obstacles}",
-            r.obstacles.none { it.kind == ObstacleKind.WEIR })
+        assertEquals("das umgetragene Wehr: ${r.obstacles}",
+            1, r.obstacles.count { it.kind == ObstacleKind.WEIR })
         val dir = kacheln(fluss, wehr, umtrageweg)
         try {
             val aufKarte = WaterRouter.obstaclesIn(dir, 50.4, 10.9, 50.6, 11.1)

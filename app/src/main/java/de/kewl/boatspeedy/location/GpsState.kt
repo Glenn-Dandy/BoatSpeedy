@@ -13,4 +13,9 @@ data class GpsState(
     val altitudeM: Double? = null,     // Höhe über dem Meeresspiegel in m
     val cn0DbHz: Float? = null,        // Ø Signalstärke der genutzten Satelliten (dB-Hz)
     val constellations: List<String> = emptyList(), // Systeme im Fix (GPS, Galileo, …)
+    /**
+     * Zeit des Fixes seit Systemstart in ns. Gleich heißt: dieselbe Position noch einmal,
+     * weil sich nur Satelliten, Batterie oder Einstellungen geändert haben.
+     */
+    val fixNanos: Long? = null,
 )
