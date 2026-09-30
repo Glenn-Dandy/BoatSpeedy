@@ -37,7 +37,11 @@
 - Im Kanu nahm die Route bei Dorndorf den Kanal zum Wasserkraftwerk, statt auf der Saale zu
   bleiben und am Wehr umzutragen. Ein Kanal, der an einem Kraftwerk vorbeiführt, ist jetzt
   nur noch Notlösung.
-- Ausstiege, die als canoe=egress eingetragen sind, wurden nicht erkannt, nur whitewater=egress.
+- Ausstiege, die als canoe=egress eingetragen sind, wurden nicht erkannt und fehlten auch in
+  den Kartendaten, nur whitewater=egress kam an. Braucht die neuen Kacheln.
+- Im Kanu nahm die Route am Wehr oft eine gerade Linie von Anleger zu Anleger über das Wehr,
+  statt den eingetragenen Umtrageweg, etwa am Burgauer Wehr in Jena. Eingetragene Wege gehen
+  jetzt vor, und umgetragene Wehre werden nicht mehr als Hindernis gemeldet.
 - Routen durch Seen brachen ab, etwa an der Müritz am Ende des Junkerkanals. Der Weg durch
   einen See steht in OSM oft als flowline, und die fehlte in den Kartendaten. Braucht die
   neuen Kacheln.
@@ -90,7 +94,11 @@
 - By canoe, the route at Dorndorf took the canal to the hydro power plant instead of staying
   on the Saale and portaging at the weir. A canal passing a power plant is now only a last
   resort.
-- Egress points tagged canoe=egress were not recognised, only whitewater=egress.
+- Egress points tagged canoe=egress were not recognised and were missing from the map data;
+  only whitewater=egress came through. Needs the new tiles.
+- By canoe, the route often took a straight line from landing to landing across the weir
+  instead of the mapped portage path, for example at the Burgau weir in Jena. Mapped paths
+  now come first, and weirs that are portaged are no longer reported as obstacles.
 - Routes through lakes broke off, for example at the Müritz at the end of the Junkerkanal.
   OSM often maps the course through a lake as a flowline, which was missing from the map
   data. Needs the new tiles.
