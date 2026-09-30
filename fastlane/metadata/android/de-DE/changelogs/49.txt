@@ -1,0 +1,9 @@
+1.5.0
+* Routen speichern, teilen und nachfahren, auch aufgezeichnete Fahrten
+* Fahrten und Routen umbenennen
+* Dashboard frei anordnen, Kacheln ausblenden, Kartengröße ziehen
+* Track zeichnet Strom und Leistung auf
+* Motorboot oder Kanu als Positionssymbol, Kartenserver wählbar
+* Routen durch Seen, Umtragewege vor, Wehre richtig gezählt
+* Ohne Fix keine alte Geschwindigkeit mehr, Track bricht nicht mehr ab
+* Kacheln auffrischen

@@ -5,7 +5,7 @@ Routen entlang der Wasserwege, im Kanu auch ums Wehr herum. Mit Bluetooth-BMS od
 Coulometer am Akku kommen Live-Werte und Reichweite dazu.
 
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
-![Version](https://img.shields.io/badge/version-1.4.3-blue)
+![Version](https://img.shields.io/badge/version-1.5.0-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
 ![targetSdk](https://img.shields.io/badge/targetSdk-35-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -32,7 +32,7 @@ der Wasserwege**, jeweils mit Entfernung und geschätztem Verbrauch in Amperestu
 Kurspfeil zeigt, wie weit zu drehen ist.
 
 **Kartendaten.** Die Wasserwege liegen als Kacheln auf dem Gerät, ein Grad breit und hoch.
-Ganz Europa sind 1376 Kacheln und 174 MB; ein Umkreis von 150 km rund 20 Kacheln und
+Ganz Europa sind 1376 Kacheln und 176 MB; ein Umkreis von 150 km rund 20 Kacheln und
 3,4 MB. Daraus rechnet das Handy die Route selbst, bis 600 km Zielentfernung. Ohne Kacheln
 geht es über die Overpass-Schnittstelle, bis 60 km. Fehlende und veraltete Kacheln bietet
 die App vor einer Route an. Die Karte darunter kommt von OpenStreetMap und braucht Netz.
@@ -63,8 +63,13 @@ Fließrichtung, unten links steht, wie viel der Route flussauf und flussab geht.
 Umtragung gewinnt dagegen, und wo es nichts gibt, führt die Strecke hindurch und sagt es.
 Im Kanu geht die Route ums Wehr herum, über die Umtragewege aus OpenStreetMap oder von
 Anleger zu Anleger, grün gestrichelt und mit Metern unten links. Durch Wasserkraftanlagen
-führt sie nie, und im Kanu zieht sie den Fluss dem Mühlgraben vor. Gezählt werden nur
-Wehre, die die Strecke wirklich kreuzt.
+führt sie nie, und im Kanu zieht sie den Fluss dem Mühl- oder Kraftwerkskanal vor.
+Eingetragene Umtragewege gehen vor. Jedes Wehr zählt einmal, wenn die Strecke hindurch
+führt oder daran vorbeiträgt; nur daneben vorbeifahren zählt nicht.
+
+**Routen speichern und nachfahren.** Eine gerechnete Route lässt sich mit Namen speichern,
+teilen und später nachfahren, ebenso eine aufgezeichnete Fahrt. Eine gestrichelte Linie
+führt vom Boot zum Start, danach geht es der Strecke nach.
 
 **Karte.** Norden oben oder Fahrtrichtung oben, umschaltbar in der Titelzeile. Marker und
 Karte gleiten wie bei einem Navigationsgerät: Aus Fahrt und Kurs wird fortlaufend
@@ -73,7 +78,8 @@ Anzeige, die aufgezeichnete Fahrt bleibt bei den rohen Messwerten.
 
 ## Tempo und Fahrt
 
-- Dashboard mit großer Geschwindigkeit als Hauptkachel
+- Dashboard mit großer Geschwindigkeit als Hauptkachel; die übrigen Kacheln lassen sich
+  anordnen und ausblenden, die Karte in vier Größen ziehen
 - Einheit km/h oder Knoten, Nachkommastellen `xx`, `xx.x`, `xx.xx`
 - Start und Stopp über einen Vordergrunddienst, misst bei ausgeschaltetem Display weiter
 - Trip-Distanz und Statistik (Max, Mittel, Zeit), bleiben nach dem Stopp stehen
@@ -97,8 +103,9 @@ Anzeige, die aufgezeichnete Fahrt bleibt bei den rohen Messwerten.
 ## Fahrten und Wetter
 
 - Fahrtenhistorie mit Distanz, Fahr-, Gesamt- und Pausenzeit, Ah, Wh und Wh/km
-- Track-Karte mit Richtungspfeilen; Track antippen zeigt Tempo, Verbrauch und SoC
-- GPX exportieren und importieren
+- Track-Karte mit Richtungspfeilen; Track antippen zeigt Tempo, Verbrauch, SoC, Strom und
+  Leistung
+- Fahrten und Routen benennen, GPX exportieren und importieren
 - Wetteransicht: DWD-Regenradar (RADOLAN-RV, animiert bis +100 min), Messwerte der
   nächsten Station und die Windrichtung als Pfeil
 - DWD-Wetterwarnungen bei Gewitter und Sturm, mit Benachrichtigung und Banner
@@ -219,7 +226,7 @@ waterways**, each with distance and estimated amp hours. A course arrow shows ho
 turn.
 
 **Map data.** The waterways sit on the device as tiles, one degree wide and tall. All of
-Europe is 1376 tiles and 174 MB; a 150 km radius about 20 tiles and 3.4 MB. The phone
+Europe is 1376 tiles and 176 MB; a 150 km radius about 20 tiles and 3.4 MB. The phone
 computes the route from them itself, up to 600 km. Without tiles it uses the Overpass API,
 up to 60 km. Missing and outdated tiles are offered before a route is computed. The map
 underneath comes from OpenStreetMap and needs a connection. The map server can be changed
@@ -249,8 +256,13 @@ much of the route runs upstream and downstream.
 portage wins against it, and where there is nothing, the route goes through and says so.
 In a canoe the route goes around the weir, along the portage paths from OpenStreetMap or
 from landing to landing, green dashed and with the metres at the bottom left. It never runs
-through a hydro power plant, and in a canoe it prefers the river to the mill race. Only
-weirs the route actually crosses are counted.
+through a hydro power plant, and in a canoe it prefers the river to a mill or power
+canal. Mapped portage paths come first. Each weir counts once if the route goes through it
+or portages around it; merely passing nearby does not count.
+
+**Save and follow routes.** A planned route can be saved with a name, shared and followed
+later, and so can a recorded trip. A dashed line leads from the boat to the start, then you
+follow the course.
 
 **Map.** North up or course up, switched from the title bar. Marker and map glide the way
 a navigation device does: speed and heading are used to compute where the boat is now
@@ -259,7 +271,8 @@ measurements.
 
 ### Speed and trip
 
-- Dashboard with a large speed readout as the main tile
+- Dashboard with a large speed readout as the main tile; the other tiles can be arranged
+  and hidden, the map resized in four steps
 - km/h or knots, decimals `xx`, `xx.x`, `xx.xx`
 - Start and stop through a foreground service, keeps measuring with the screen off
 - Trip distance and stats (max, average, elapsed), kept after stopping
@@ -282,8 +295,8 @@ measurements.
 ### Trips and weather
 
 - Trip history with distance, moving, total and pause time, Ah, Wh and Wh/km
-- Track map with direction arrows; tap the track for speed, draw and SoC
-- GPX export and import
+- Track map with direction arrows; tap the track for speed, draw, SoC, current and power
+- Name trips and routes, GPX export and import
 - Weather screen: DWD rain radar (RADOLAN-RV, animated to +100 min), readings from the
   nearest station and wind direction as an arrow
 - DWD warnings for thunderstorm and storm, with notification and banner

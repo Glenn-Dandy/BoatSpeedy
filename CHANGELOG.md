@@ -2,6 +2,70 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.5.0] - 2026-09-30
+
+### Neu
+- Dashboard anordnen: eine Kachel drei Sekunden ruhig halten, dann verschieben, ausblenden
+  und die Karte in der Größe ziehen. Ausgeblendetes steht grau unter einer Linie und lässt
+  sich dort zurückholen. Das runde Häkchen unten beendet es.
+- Fahrt und GPS sind eigene Kacheln wie Batterie und Reichweite.
+- Anordnung zurücksetzen unter Einstellungen, Dashboard.
+- Auf der Karte zeigt ein Motorboot oder ein Kanu die eigene Position, je nach gewähltem
+  Fahrzeug. Unter Einstellungen, Navigation lässt sich wieder der Pfeil wählen.
+- Navigation im Hauptmenü, direkt unter Dashboard; die Live-Karte heißt jetzt so.
+- Kartenserver wählbar unter Navigation, Kartendaten. Standard bleibt der
+  BoatSpeedy-Server; übernommen wird eine Adresse nur, wenn dort eine index.json liegt.
+- Routen speichern: In der Navigation merkt sich das Lesezeichen an der Routenanzeige die
+  gerechnete Route, auf Wunsch mit Namen. Unter Fahrten, Reiter Routen, steht sie mit
+  Karte, Länge, Schleusen und Fahrzeug. So wie gespeichert wird sie gezeigt; Neu berechnen
+  holt den aktuellen Stand der Kartendaten.
+- Nachfahren: Navigieren bei einer Route oder einer aufgezeichneten Fahrt legt sie in die
+  Navigation. Eine gestrichelte Luftlinie führt vom Boot zum Start und verschwindet dort,
+  danach geht es der Strecke nach. Auch Rundfahrten, die am Start enden.
+- Unter Über heißt der Abschnitt jetzt Daten, Karten & Navigation, mit einem Hinweis, dass
+  Routen ein Vorschlag sind und die Verantwortung für die Fahrt immer bei einem selbst liegt.
+- Fahrten und Routen lassen sich umbenennen, etwa „Alter zur Linkenmühle". Der Name steht
+  groß, Datum und Uhrzeit klein darunter. Der GPX-Export nimmt ihn mit, der Import
+  übernimmt ihn.
+- Routen lassen sich wie Fahrten markieren, teilen und löschen. Geteilt wird als GPX mit
+  der Strecke als Route und Schleusen und Wehren als Wegpunkte. Eine solche Datei landet
+  beim Import wieder unter Routen, ebenso eine Route aus anderen Programmen.
+- Der Track zeichnet jetzt auch Strom und Leistung auf, wenn eine Batterie verbunden ist.
+  Antippen des Tracks zeigt sie mit an, der GPX-Export nimmt sie mit.
+
+### Geändert
+- Die App bleibt im Hochformat und dreht sich nicht mehr ins Querformat.
+- Die Routenberechnung ist etwa doppelt so schnell. Kahla nach Lübeck braucht auf dem
+  Rechner 6,5 statt 11,9 Sekunden, auf dem Handy entsprechend.
+
+### Behoben
+- Schleusen- und Brückensymbole lagen unter der Route oder dem Track. Sie bleiben jetzt obenauf.
+- Im Kanu nahm die Route bei Dorndorf den Kanal zum Wasserkraftwerk, statt auf der Saale zu
+  bleiben und am Wehr umzutragen. Ein Kanal, der an einem Kraftwerk vorbeiführt, ist jetzt
+  nur noch Notlösung.
+- Ausstiege, die als canoe=egress eingetragen sind, wurden nicht erkannt und fehlten auch in
+  den Kartendaten, nur whitewater=egress kam an. Braucht die neuen Kacheln.
+- Im Kanu nahm die Route am Wehr oft eine gerade Linie von Anleger zu Anleger über das Wehr,
+  statt den eingetragenen Umtrageweg, etwa am Burgauer Wehr in Jena. Eingetragene Wege gehen
+  jetzt vor.
+- Die Zahl der Wehre auf der Route stimmt: Jedes Wehr zählt einmal, wenn man durch muss oder
+  daran vorbeiträgt, aber nicht, wenn die Route nur daneben vorbeiführt. Wehre, die in OSM
+  aus mehreren Teilen bestehen, zählten vorher doppelt.
+- Routen durch Seen brachen ab, etwa an der Müritz am Ende des Junkerkanals. Der Weg durch
+  einen See steht in OSM oft als flowline, und die fehlte in den Kartendaten. Braucht die
+  neuen Kacheln.
+- Ohne Fix, etwa drinnen, stand oft eine alte Geschwindigkeit fest auf dem Tacho. Sie kam
+  vom letzten bekannten Standort des Handys, teils Stunden alt. Jetzt steht dort "--".
+- Der Track hörte nach 10.000 Punkten mitten in der Fahrt auf, Zeit und Strecke liefen
+  weiter. Die Grenze liegt jetzt bei 50.000 Punkten, knapp 14 Stunden am Stück; darüber
+  wird ausgedünnt statt aufgehört.
+- Jede Position wurde doppelt aufgezeichnet, sobald sich Batterie oder Satelliten meldeten.
+  Das halbiert Punkte und Dateigröße und verdoppelt die Zeit bis zum Ausdünnen.
+- Nach Export und Import einer Fahrt fehlten Energie und Effizienz. Der Export schrieb die
+  Energie nicht mit; ältere Exporte bringen sie deshalb auch künftig nicht zurück.
+- Der Standortdialog fragt genauen und groben Standort zusammen an, wie Android es seit
+  Version 12 verlangt. „Ungefähr" wird damit richtig erkannt.
+
 ## [1.4.3] - 2026-09-21
 
 ### Neu

@@ -1,0 +1,9 @@
+1.5.0
+* Save, share and follow routes, recorded trips too
+* Rename trips and routes
+* Arrange the dashboard, hide tiles, resize the map
+* The track records current and power
+* Motorboat or canoe as position marker, map server selectable
+* Routes through lakes, mapped portages first, weirs counted right
+* No stale speed without a fix, the track no longer stops
+* Refresh your tiles
