@@ -472,8 +472,22 @@ fun OsmMap(
         mapView.invalidate()
     }
 
+    val signMarkers = remember(mapView) { mutableListOf<Marker>() }
     // Schleusen und Wehre als eigene Marker; Wehre in Rot, weil sie meist das Ende sind.
     val obstacleMarkers = remember(mapView) { mutableListOf<Marker>() }
+
+    /**
+     * Symbole über alle Linien. osmdroid zeichnet in der Reihenfolge des Einhängens, und
+     * die Linien kommen oft später: die Route erst nach dem Rechnen, der Track mit dem
+     * zweiten Punkt, Umtragen und Sperren bei jeder neuen Entfernung. Danach lagen
+     * Schleusen und Brückenhöhen unter der Linie. Also nach jeder Linie wieder nach oben.
+     */
+    fun symboleNachOben() {
+        (signMarkers + obstacleMarkers).forEach {
+            mapView.overlays.remove(it)
+            mapView.overlays.add(it)
+        }
+    }
     LaunchedEffect(obstacles, onObstacle != null) {
         obstacleMarkers.forEach { mapView.overlays.remove(it) }
         obstacleMarkers.clear()
@@ -561,17 +575,13 @@ fun OsmMap(
         // Bei Wettin liegen im Umkreis von 400 m ein Hafen, eine Slipanlage, ein Liegeplatz
         // und eine Tonne — die fingen den Tipp ab, und die Schleuse war kaum zu treffen.
         // Was auf der eigenen Route liegt, hat Vorrang vor dem, was daneben steht.
-        obstacleMarkers.forEach {
-            mapView.overlays.remove(it)
-            mapView.overlays.add(it)
-        }
+        symboleNachOben()
         mapView.invalidate()
         onDispose { }
     }
 
     // Geschwindigkeitszeichen: eigene Marker, weil die Kacheln zwar das Schild zeichnen,
     // aber die Zahl darin frei lassen. Unsere liegen genau darauf und decken es ab.
-    val signMarkers = remember(mapView) { mutableListOf<Marker>() }
     DisposableEffect(speedSigns, showSeamarks) {
         signMarkers.forEach { mapView.overlays.remove(it) }
         signMarkers.clear()
@@ -662,6 +672,7 @@ fun OsmMap(
             navPortageLines.add(linie)
             mapView.overlays.add(linie)
         }
+        symboleNachOben()
         mapView.invalidate()
     }
 
@@ -803,7 +814,10 @@ fun OsmMap(
         val geo = points.map { GeoPoint(it.lat, it.lon) }
         line.setPoints(geo)
         if (geo.size >= 2) {
-            if (!mapView.overlays.contains(line)) mapView.overlays.add(line)
+            if (!mapView.overlays.contains(line)) {
+                mapView.overlays.add(line)
+                symboleNachOben()
+            }
         } else {
             mapView.overlays.remove(line)
         }

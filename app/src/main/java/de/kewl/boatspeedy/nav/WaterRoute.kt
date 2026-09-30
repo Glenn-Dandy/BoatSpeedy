@@ -509,7 +509,7 @@ object WaterRouter {
                 val w = parseWays(el, craft)
                 Quelle(
                     w.ways, parseObstacles(el), barrierNodes(el),
-                    w.eingeschraenkt, w.stromab, w.umtrage, w.kanal,
+                    w.eingeschraenkt, w.stromab, w.umtrage, w.kanal, w.kanalWege,
                 )
             }
             OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
@@ -539,6 +539,7 @@ object WaterRouter {
             quelle.kanal,
             if (craft == Craft.CANOE) KANAL_KOSTEN_KANU else 1.0,
             wasserRaster,
+            if (craft == Craft.CANOE) werkkanaele(quelle.kanalWege, kraftwerke(quelle.obstacles)) else emptySet(),
         )
         if (graph.adj.isEmpty()) return RouteResult.Failed(RouteError.NO_WATERWAYS)
 
@@ -859,6 +860,7 @@ object WaterRouter {
         val umtrage: List<List<Node>> = emptyList(),
         /** Stücke, die zu einem Kanal gehören. */
         val kanal: Set<Kante> = emptySet(),
+        val kanalWege: List<List<Node>> = emptyList(),
     )
 
     /**
@@ -887,6 +889,7 @@ object WaterRouter {
         val stromab = HashSet<Kante>()
         val umtrage = ArrayList<List<Node>>()
         val kanal = HashSet<Kante>()
+        val kanalWege = ArrayList<List<Node>>()
         val ok = MapTiles.forEach(tileDir, ids) { json ->
             // **Einmal lesen, dreimal auswerten.** Vorher las jede der drei Auswertungen
             // die Kachel selbst ein; bei Kahla nach Lübeck waren das 4,6 von 10,6
@@ -898,11 +901,12 @@ object WaterRouter {
             stromab.addAll(w.stromab)
             umtrage.addAll(w.umtrage)
             kanal.addAll(w.kanal)
+            kanalWege.addAll(w.kanalWege)
             obstacles.addAll(parseObstacles(el))
             barriers.addAll(barrierNodes(el))
         }
         return if (ok) {
-            Quelle(ways, obstacles, barriers, eingeschraenkt, stromab, umtrage, kanal)
+            Quelle(ways, obstacles, barriers, eingeschraenkt, stromab, umtrage, kanal, kanalWege)
         } else {
             null
         }
@@ -1100,6 +1104,8 @@ object WaterRouter {
         val umtrage: List<List<Node>> = emptyList(),
         /** Stücke, die zu einem Kanal gehören — für das Kanu ein Umweg zweiter Wahl. */
         val kanal: Set<Kante> = emptySet(),
+        /** Kanäle ohne Schleuse, als ganze Wege: Kandidaten für einen Kraftwerkskanal. */
+        val kanalWege: List<List<Node>> = emptyList(),
     )
 
     /**
@@ -1120,6 +1126,7 @@ object WaterRouter {
         val stromab = HashSet<Kante>()
         val umtrage = ArrayList<List<Node>>()
         val kanal = HashSet<Kante>()
+        val kanalWege = ArrayList<List<Node>>()
         for (i in 0 until elements.length()) {
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags")
@@ -1150,6 +1157,7 @@ object WaterRouter {
             // den Fluss. Ein Kanal ohne Alternative bleibt davon unberührt: Dort ändert
             // ein gleichmäßiger Aufschlag an der Wahl nichts.
             if (tags?.optString("waterway") == "canal") {
+                if (tags.optString("lock") != "yes") kanalWege.add(nodes)
                 for ((a, b) in nodes.zipWithNext()) {
                     if (a == b) continue
                     kanal.add(Kante(a, b))
@@ -1157,7 +1165,7 @@ object WaterRouter {
                 }
             }
         }
-        Wege(ways, eingeschraenkt, stromab, umtrage, kanal)
+        Wege(ways, eingeschraenkt, stromab, umtrage, kanal, kanalWege)
     }.getOrDefault(Wege(emptyList(), emptySet(), emptySet()))
 
     /**
@@ -1292,8 +1300,12 @@ object WaterRouter {
      */
     private fun landungsart(tags: JSONObject): LandingKind? {
         val wild = tags.optString("whitewater")
-        val ein = wild.contains("put_in") || tags.optString("canoe") == "put_in"
-        val aus = wild.contains("egress")
+        // `canoe` wie `whitewater`, auch zusammen als `put_in;egress`. Ein reiner
+        // `canoe=egress` fiel vorher durch; an der Müritz und bei Porstendorf ist das die
+        // übliche Schreibweise.
+        val kanu = tags.optString("canoe")
+        val ein = wild.contains("put_in") || kanu.contains("put_in")
+        val aus = wild.contains("egress") || kanu.contains("egress")
         return when {
             ein && aus -> LandingKind.PUT_IN_EGRESS
             ein -> LandingKind.PUT_IN
@@ -1659,6 +1671,7 @@ object WaterRouter {
         kanal: Set<Kante> = emptySet(),
         kanalFaktor: Double = 1.0,
         wasserRaster: Map<Long, MutableList<Pair<Node, Node>>>? = null,
+        werkkanal: Set<Kante> = emptySet(),
     ): Graph {
         val g = HashMap<Node, MutableList<Pair<Node, Double>>>()
         val kraftPunkte = if (kraftwerke.isEmpty()) null else raster(kraftwerke.flatten())
@@ -1690,6 +1703,7 @@ object WaterRouter {
             var d = laenge
             if (a in eingeschraenkt && b in eingeschraenkt) d *= RESTRICTED_COST
             if (kanalFaktor != 1.0 && Kante(a, b) in kanal) d *= kanalFaktor
+            if (Kante(a, b) in werkkanal) d *= WERKKANAL_KOSTEN
             // **Ohne Rand.** Ein Wehr trifft den Fluss oft genau in einem seiner Punkte;
             // am Burgauer Wehr liegt der Schnitt 30 cm hinter dem Kantenanfang. Die
             // Toleranz, die einen Anschluss an seinem Ende erlaubt, verschluckte das.
@@ -1898,6 +1912,37 @@ object WaterRouter {
             }
         }
         return raus
+    }
+
+    /**
+     * Was ein Kraftwerkskanal im Kanu kostet, zusätzlich zum Kanal. Er führt zur Turbine,
+     * und man trägt dort um; der Fluss daneben mit seinem Wehr ist die Fahrt, die man
+     * will. Bei Dorndorf nahm die Route den Kanal ohne jede Angabe und trug am Kraftwerk
+     * um, statt auf der Saale mit `canoe=yes` zu bleiben und am Wehr umzutragen.
+     */
+    private const val WERKKANAL_KOSTEN = 20.0
+
+    /** So nah an einer Wasserkraftanlage muss ein Kanal vorbeiführen, um ihr zu dienen. */
+    private const val WERKKANAL_NAH_M = 60.0
+
+    /**
+     * Die Kanten der Kanäle, die an einer Wasserkraftanlage vorbeiführen, und zwar der
+     * **ganzen** Wege. Der Kanal bei Dorndorf ist 360 m lang und kommt der Anlage erst an
+     * seinem Ende nahe; nur dieses Ende zu verteuern ließe ihn bis dorthin billig.
+     * Schleusenkanäle zählen nicht, sie stehen gar nicht erst in [kanalWege].
+     */
+    private fun werkkanaele(kanalWege: List<List<Node>>, kraftwerke: List<List<Node>>): Set<Kante> {
+        if (kanalWege.isEmpty() || kraftwerke.isEmpty()) return emptySet()
+        val punkte = raster(kraftwerke.flatten())
+        val out = HashSet<Kante>()
+        for (weg in kanalWege) {
+            if (weg.none { naechster(punkte, it, WERKKANAL_NAH_M) != null }) continue
+            for ((a, b) in weg.zipWithNext()) {
+                out.add(Kante(a, b))
+                out.add(Kante(b, a))
+            }
+        }
+        return out
     }
 
     /** So nah an einer Wasserkraftanlage führt das Wasser durch sie hindurch. */

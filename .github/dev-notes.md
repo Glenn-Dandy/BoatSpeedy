@@ -33,6 +33,11 @@
   Rechner 6,5 statt 11,9 Sekunden, auf dem Handy entsprechend.
 
 **Behoben**
+- Schleusen- und Brückensymbole lagen unter der Route oder dem Track. Sie bleiben jetzt obenauf.
+- Im Kanu nahm die Route bei Dorndorf den Kanal zum Wasserkraftwerk, statt auf der Saale zu
+  bleiben und am Wehr umzutragen. Ein Kanal, der an einem Kraftwerk vorbeiführt, ist jetzt
+  nur noch Notlösung.
+- Ausstiege, die als canoe=egress eingetragen sind, wurden nicht erkannt, nur whitewater=egress.
 - Routen durch Seen brachen ab, etwa an der Müritz am Ende des Junkerkanals. Der Weg durch
   einen See steht in OSM oft als flowline, und die fehlte in den Kartendaten. Braucht die
   neuen Kacheln.
@@ -81,6 +86,11 @@
   seconds on a desktop, and the phone gains accordingly.
 
 **Fixed**
+- Lock and bridge symbols ended up underneath the route or the track. They now stay on top.
+- By canoe, the route at Dorndorf took the canal to the hydro power plant instead of staying
+  on the Saale and portaging at the weir. A canal passing a power plant is now only a last
+  resort.
+- Egress points tagged canoe=egress were not recognised, only whitewater=egress.
 - Routes through lakes broke off, for example at the Müritz at the end of the Junkerkanal.
   OSM often maps the course through a lake as a flowline, which was missing from the map
   data. Needs the new tiles.
