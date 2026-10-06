@@ -441,6 +441,14 @@ object WaterRouter {
      * Einsetzstelle Zeutsch: 44 km Saale allein in der Kachel `n50e011` tragen `boat=no`,
      * nur ein Teil davon zusätzlich `canoe=yes`.
      */
+    /**
+     * Namen von Mühl- und Seitengräben: „Lache", auch als Wortende wie „Mühllache" oder
+     * „Alte Lache", aber nicht „Lachendorf". Englisch „leat" und „mill race".
+     */
+    private val LACHE = Regex("""(lache|\bleat|\bmill ?race)\b""", RegexOption.IGNORE_CASE)
+
+    internal fun istLache(tags: JSONObject): Boolean = LACHE.containsMatchIn(tags.optString("name"))
+
     private fun zugang(tags: JSONObject?, craft: Craft): Zugang {
         if (tags == null) return Zugang.FREI
         // Ein Rohr unter einer Straße ist kein Fahrwasser — daran ändert kein Merkmal etwas.
@@ -460,6 +468,16 @@ object WaterRouter {
                 in VERBOTEN -> sperre = k
                 in ERLAUBT -> sperre = null
             }
+        }
+        // **Lachen sind gesperrt**, außer es steht ausdrücklich eine Erlaubnis daran. Sie
+        // sind in OSM oft `waterway=canal` ohne jedes Merkmal, aber Mühl- und Seitengräben,
+        // in denen kein Boot fährt, und kürzer als der Fluss daneben.
+        if (istLache(tags)) {
+            val ausdruecklich = when (craft) {
+                Craft.MOTORBOAT -> listOf("boat", "motorboat")
+                Craft.CANOE -> listOf("boat", "canoe")
+            }
+            if (ausdruecklich.none { tags.optString(it) in ERLAUBT }) return Zugang.GESPERRT
         }
         return when {
             sperre == null -> Zugang.FREI
