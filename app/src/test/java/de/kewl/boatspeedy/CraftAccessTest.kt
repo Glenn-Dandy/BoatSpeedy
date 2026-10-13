@@ -100,6 +100,39 @@ class CraftAccessTest {
     }
 
     /**
+     * Eine Lache ist ein Mühl- oder Seitengraben, in OSM oft `waterway=canal` ohne jedes
+     * Merkmal. Sie gilt wie `boat=no` und `canoe=no`, für beide Fahrzeuge.
+     */
+    @Test
+    fun `durch eine Lache geht es nicht`() {
+        for (craft in Craft.values()) {
+            val r = fahre(craft, frei, weg(""""waterway":"canal","name":"Mühllache"""", naht.lon, ost.lon))
+            val durch = r is RouteResult.Ok && kotlin.math.abs(r.water.last().lon - ost.lon) < 1e-4
+            assertTrue("$craft fährt durch die Lache: $r", !durch)
+        }
+    }
+
+    @Test
+    fun `eine ausdrueckliche Erlaubnis oeffnet die Lache`() {
+        val r = fahre(Craft.CANOE, frei, weg(""""waterway":"canal","name":"Lache","canoe":"yes"""", naht.lon, ost.lon))
+        assertEquals(ost.lon, (r as RouteResult.Ok).water.last().lon, 1e-4)
+        val m = fahre(Craft.MOTORBOAT, frei, weg(""""waterway":"canal","name":"Lache","canoe":"yes"""", naht.lon, ost.lon))
+        val durch = m is RouteResult.Ok && kotlin.math.abs(m.water.last().lon - ost.lon) < 1e-4
+        assertTrue("canoe=yes erlaubt dem Motorboot nichts: $m", !durch)
+    }
+
+    @Test
+    fun `was als Lache zaehlt`() {
+        fun lache(name: String) = WaterRouter.istLache(org.json.JSONObject().put("name", name))
+        for (n in listOf("Lache", "Mühllache", "Alte Lache", "Mill Leat", "Mill race", "Millrace")) {
+            assertTrue(n, lache(n))
+        }
+        for (n in listOf("Lachendorfer Kanal", "Saale", "Bleatham Canal", "Elbe-Lübeck-Kanal")) {
+            assertTrue(n, !lache(n))
+        }
+    }
+
+    /**
      * Durch einen See steht die Fahrlinie als `waterway=flowline`. An der Müritz ist das die
      * Havel vom Junkerkanal bis Mirow; ohne sie endete das Wasser am Kanal, und der Rest
      * war Luftlinie.

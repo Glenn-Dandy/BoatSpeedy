@@ -1,0 +1,2 @@
+1.5.1
+* Mill and side channels ("Lache", leat, mill race) are closed to routing unless explicitly tagged boat=yes or canoe=yes
