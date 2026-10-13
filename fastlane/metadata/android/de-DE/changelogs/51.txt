@@ -1,0 +1,2 @@
+1.5.1
+* Lachen und Mühlgräben sind für die Route gesperrt, außer sie tragen ausdrücklich boat=yes oder canoe=yes

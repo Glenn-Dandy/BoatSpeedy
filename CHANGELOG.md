@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.5.1] - 2026-10-13
+
+### Geändert
+- **Lachen sind für die Route gesperrt**, für Kanu und Motorboot: Gewässer, die „Lache"
+  heißen oder so enden, etwa „Mühllache". Sie sind Mühl- und Seitengräben, in OSM oft als
+  Kanal ohne jedes Merkmal eingetragen, und waren kürzer als der Fluss daneben. Nur mit
+  ausdrücklichem `boat=yes` oder `canoe=yes` (beim Motorboot `motorboat=yes`) geht es
+  hindurch. Englische Mühlgräben („leat", „mill race") genauso.
+
 ## [1.5.0] - 2026-09-30
 
 ### Neu
