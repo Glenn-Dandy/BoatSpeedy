@@ -449,19 +449,17 @@ object WaterRouter {
 
     internal fun istLache(tags: JSONObject): Boolean = LACHE.containsMatchIn(tags.optString("name"))
 
-    private fun zugang(tags: JSONObject?, craft: Craft): Zugang {
-        if (tags == null) return Zugang.FREI
-        // Ein Rohr unter einer Straße ist kein Fahrwasser — daran ändert kein Merkmal etwas.
-        if (tags.optString("tunnel") in setOf("culvert", "pipe", "building_passage")) {
-            return Zugang.GESPERRT
-        }
+    /**
+     * Welches Merkmal den Weg für [craft] verbietet, oder `null`. Von allgemein nach genau;
+     * das zuletzt gefundene Verbot zählt, eine ausdrückliche Erlaubnis hebt es auf. Werte,
+     * die weder das eine noch das andere sind (`unknown`, `seasonal`), lassen den Stand,
+     * wie er ist.
+     */
+    private fun verbot(tags: JSONObject, craft: Craft): String? {
         val kette = when (craft) {
             Craft.MOTORBOAT -> listOf("access", "boat", "ship", "motorboat")
             Craft.CANOE -> listOf("access", "boat", "canoe")
         }
-        // Von allgemein nach genau; das zuletzt gefundene Verbot zählt, eine ausdrückliche
-        // Erlaubnis hebt es auf. Werte, die weder das eine noch das andere sind
-        // (`unknown`, `seasonal`), lassen den Stand, wie er ist.
         var sperre: String? = null
         for (k in kette) {
             when (tags.optString(k)) {
@@ -469,6 +467,25 @@ object WaterRouter {
                 in ERLAUBT -> sperre = null
             }
         }
+        return sperre
+    }
+
+    /**
+     * Ob der Weg dem Kanu **ausdrücklich** verboten ist, mit `canoe=no` oder `access=no`.
+     * So ein Stück ist für das Umtragen ein Hindernis wie ein Wehr. Ein `boat=no` allein
+     * zählt nicht: Das Kanu fährt dort, nur mit Aufschlag.
+     */
+    private fun kanuVerboten(tags: JSONObject): Boolean =
+        tags.optString("tunnel") !in setOf("culvert", "pipe", "building_passage") &&
+            verbot(tags, Craft.CANOE) in setOf("canoe", "access")
+
+    private fun zugang(tags: JSONObject?, craft: Craft): Zugang {
+        if (tags == null) return Zugang.FREI
+        // Ein Rohr unter einer Straße ist kein Fahrwasser — daran ändert kein Merkmal etwas.
+        if (tags.optString("tunnel") in setOf("culvert", "pipe", "building_passage")) {
+            return Zugang.GESPERRT
+        }
+        val sperre = verbot(tags, craft)
         // **Lachen sind gesperrt**, außer es steht ausdrücklich eine Erlaubnis daran. Sie
         // sind in OSM oft `waterway=canal` ohne jedes Merkmal, aber Mühl- und Seitengräben,
         // in denen kein Boot fährt, und kürzer als der Fluss daneben.
@@ -527,7 +544,7 @@ object WaterRouter {
                 val w = parseWays(el, craft)
                 Quelle(
                     w.ways, parseObstacles(el), barrierNodes(el),
-                    w.eingeschraenkt, w.stromab, w.umtrage, w.kanal, w.kanalWege,
+                    w.eingeschraenkt, w.stromab, w.umtrage, w.kanal, w.kanalWege, w.sperrstuecke,
                 )
             }
             OverpassResult.Busy -> return RouteResult.Failed(RouteError.SERVICE_BUSY)
@@ -545,7 +562,7 @@ object WaterRouter {
         val umtrage = if (craft == Craft.CANOE) quelle.umtrage else emptyList()
         // Die Linien von Anleger zu Anleger getrennt: Sie sind erfunden und kosten mehr.
         val bruecken = if (craft == Craft.CANOE) {
-            uferbruecken(quelle.obstacles, quelle.barriers, wasserRaster!!)
+            uferbruecken(quelle.obstacles, quelle.barriers, quelle.sperrstuecke, wasserRaster!!)
         } else {
             emptyList()
         }
@@ -621,13 +638,19 @@ object WaterRouter {
     private fun uferbruecken(
         obstacles: List<Obstacle>,
         barriers: Set<Node>,
+        sperrstuecke: List<List<Node>>,
         wasser: Map<Long, MutableList<Pair<Node, Node>>>,
     ): List<List<Node>> {
-        if (barriers.isEmpty()) return emptyList()
+        if (barriers.isEmpty() && sperrstuecke.isEmpty()) return emptyList()
         val ufer = obstacles.filter { it.kind == ObstacleKind.LANDING }
             .distinctBy { "%.5f,%.5f".format(it.lat, it.lon) }
         if (ufer.size < 2) return emptyList()
         val sperren = raster(barriers.toList())
+        // **Ein verbotenes Stück Fluss sperrt wie ein Wehr.** Am alten Zeiss-Wehr in Saalfeld
+        // steht kein Wehr mehr in OSM, nur 200 m Saale mit `canoe=no` und an beiden Enden ein
+        // Anleger. Geprüft wird gegen die Linie, nicht gegen ihre Punkte: Das Stück hat nur
+        // drei davon, und keiner liegt nah an der Mitte zwischen den Anlegern.
+        val verboten = if (sperrstuecke.isEmpty()) null else segmentRaster(sperrstuecke, emptySet())
         // Geprüft wird nur gegen das **Wasser**, nicht gegen das Wehr. Am Wehr Reschwitz
         // liegen Aus- und Einstieg beide am selben Ufer, und die Linie zwischen ihnen
         // streift das Wehr an seinem Ende — dort, wo es an Land stößt und wo man
@@ -639,7 +662,9 @@ object WaterRouter {
             val a = lagen[i]
             val b = lagen[j]
             val mitte = Node.of((a.lat + b.lat) / 2, (a.lon + b.lon) / 2)
-            if (naechster(sperren, mitte, SPERRE_DAZWISCHEN_M) == null) continue
+            val gesperrt = naechster(sperren, mitte, SPERRE_DAZWISCHEN_M) != null ||
+                verboten?.let { segmenteNah(it, mitte, SPERRE_DAZWISCHEN_M).isNotEmpty() } == true
+            if (!gesperrt) continue
             val von = Node.of(a.lat, a.lon)
             val nach = Node.of(b.lat, b.lon)
             // Getragen wird an Land. Eine Linie, die den Fluss quert, ist keine
@@ -882,6 +907,8 @@ object WaterRouter {
         /** Stücke, die zu einem Kanal gehören. */
         val kanal: Set<Kante> = emptySet(),
         val kanalWege: List<List<Node>> = emptyList(),
+        /** Wasserwege, die dem Kanu ausdrücklich verboten sind: für das Umtragen ein Wehr. */
+        val sperrstuecke: List<List<Node>> = emptyList(),
     )
 
     /**
@@ -911,6 +938,7 @@ object WaterRouter {
         val umtrage = ArrayList<List<Node>>()
         val kanal = HashSet<Kante>()
         val kanalWege = ArrayList<List<Node>>()
+        val sperrstuecke = ArrayList<List<Node>>()
         val ok = MapTiles.forEach(tileDir, ids) { json ->
             // **Einmal lesen, dreimal auswerten.** Vorher las jede der drei Auswertungen
             // die Kachel selbst ein; bei Kahla nach Lübeck waren das 4,6 von 10,6
@@ -923,11 +951,12 @@ object WaterRouter {
             umtrage.addAll(w.umtrage)
             kanal.addAll(w.kanal)
             kanalWege.addAll(w.kanalWege)
+            sperrstuecke.addAll(w.sperrstuecke)
             obstacles.addAll(parseObstacles(el))
             barriers.addAll(barrierNodes(el))
         }
         return if (ok) {
-            Quelle(ways, obstacles, barriers, eingeschraenkt, stromab, umtrage, kanal, kanalWege)
+            Quelle(ways, obstacles, barriers, eingeschraenkt, stromab, umtrage, kanal, kanalWege, sperrstuecke)
         } else {
             null
         }
@@ -1127,6 +1156,8 @@ object WaterRouter {
         val kanal: Set<Kante> = emptySet(),
         /** Kanäle ohne Schleuse, als ganze Wege: Kandidaten für einen Kraftwerkskanal. */
         val kanalWege: List<List<Node>> = emptyList(),
+        /** Wasserwege, die dem Kanu ausdrücklich verboten sind. Siehe [kanuVerboten]. */
+        val sperrstuecke: List<List<Node>> = emptyList(),
     )
 
     /**
@@ -1148,6 +1179,7 @@ object WaterRouter {
         val umtrage = ArrayList<List<Node>>()
         val kanal = HashSet<Kante>()
         val kanalWege = ArrayList<List<Node>>()
+        val sperrstuecke = ArrayList<List<Node>>()
         for (i in 0 until elements.length()) {
             val el = elements.getJSONObject(i)
             val tags = el.optJSONObject("tags")
@@ -1157,13 +1189,16 @@ object WaterRouter {
             }
             if (tags?.optString("waterway") !in navigableFor(craft)) continue
             val zugang = zugang(tags, craft)
-            if (zugang == Zugang.GESPERRT) continue
             val geom = el.optJSONArray("geometry") ?: continue
             val nodes = (0 until geom.length()).map { g ->
                 val p = geom.getJSONObject(g)
                 Node.of(p.getDouble("lat"), p.getDouble("lon"))
             }
             if (nodes.size < 2) continue
+            if (zugang == Zugang.GESPERRT) {
+                if (craft == Craft.CANOE && tags != null && kanuVerboten(tags)) sperrstuecke.add(nodes)
+                continue
+            }
             ways.add(nodes)
             if (zugang == Zugang.EINGESCHRAENKT) eingeschraenkt.addAll(nodes)
             // **Nur Flüsse haben eine Fließrichtung.** OSM zeichnet sie stromab; bei der
@@ -1186,7 +1221,7 @@ object WaterRouter {
                 }
             }
         }
-        Wege(ways, eingeschraenkt, stromab, umtrage, kanal, kanalWege)
+        Wege(ways, eingeschraenkt, stromab, umtrage, kanal, kanalWege, sperrstuecke)
     }.getOrDefault(Wege(emptyList(), emptySet(), emptySet()))
 
     /**
