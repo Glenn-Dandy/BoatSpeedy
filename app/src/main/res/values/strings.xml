@@ -222,6 +222,8 @@
     <string name="weather_valid_until">valid until %s</string>
     <string name="weather_play">Play/pause</string>
     <string name="radar_now">now</string>
+    <string name="radar_loading">loading</string>
+    <string name="radar_unreachable">Radar not reachable right now</string>
     <string name="lightning_toggle">Lightning</string>
     <string name="weather_radar_source">Data: Deutscher Wetterdienst</string>
 
