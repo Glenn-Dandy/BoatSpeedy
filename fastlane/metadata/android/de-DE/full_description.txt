@@ -1,9 +1,10 @@
 GPS-Bootstacho und Navigation für kleine Boote. Mit Motor, mit Paddel, mit Riemen. Mit Bluetooth-BMS oder Coulometer am Akku kommen Live-Werte und Reichweite dazu.
 
-Navigation
+Navigation: Routenplaner für Kanu und Boot
 * Ziel auf der Karte setzen: Luftlinie oder Route entlang der Wasserwege, mit Entfernung und geschätztem Verbrauch
 * Wasserwege als Kacheln aufs Gerät laden, Routen bis 600 km, Kartenserver wählbar
 * Fahrzeug Motorboot oder Kanu entscheidet, welche Verbote gelten
+* Im Kanu ums Wehr herum: Umtragestellen, Ein- und Ausstiege aus OpenStreetMap
 * Schleusen und Wehre auf der Route, antippbar mit Zeiten, Telefon und Kammermaß
 * Seezeichen antippbar, Geschwindigkeitsschilder zeigen ihren Wert
 * Karte nach Norden oder in Fahrtrichtung, Marker und Karte gleiten
@@ -35,3 +36,5 @@ Womit die App spricht
 * Update-Prüfung bei api.github.com, nur auf Knopfdruck
 
 Frei und quelloffen, ohne Google Play Services. Karten und Wasserwege © OpenStreetMap-Mitwirkende (ODbL), Seezeichen OpenSeaMap (CC BY-SA), Wetter vom Deutschen Wetterdienst (CC BY 4.0).
+
+Website: https://boatspeedy.wozise.de

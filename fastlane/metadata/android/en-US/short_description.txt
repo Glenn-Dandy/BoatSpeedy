@@ -1,1 +1,1 @@
-GPS speedometer and waterway navigation for boats, with battery analytics
+Route planner for canoes and boats, GPS speedometer and battery analytics

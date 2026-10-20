@@ -4,6 +4,9 @@
 Routen entlang der Wasserwege, im Kanu auch ums Wehr herum. Mit Bluetooth-BMS oder
 Coulometer am Akku kommen Live-Werte und Reichweite dazu.
 
+**Website:** [boatspeedy.wozise.de](https://boatspeedy.wozise.de/) · [Kanu-Routenplaner](https://boatspeedy.wozise.de/kanu-routenplaner/) ·
+[Routenplaner für Wasserwege](https://boatspeedy.wozise.de/routenplaner-wasserwege/)
+
 [![Build APK](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml/badge.svg)](https://github.com/Glenn-Dandy/BoatSpeedy/actions/workflows/build.yml)
 ![Version](https://img.shields.io/badge/version-1.5.1-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-33-green)
@@ -212,6 +215,9 @@ MIT, siehe [LICENSE](LICENSE).
 **GPS boat speedometer and navigation for small boats.** Under motor, paddle or oars.
 Routes along the waterways, around the weir by canoe. A Bluetooth BMS or a
 coulometer on the pack adds live values and range.
+
+**Website:** [boatspeedy.wozise.de](https://boatspeedy.wozise.de/en/) · [Canoe route planner](https://boatspeedy.wozise.de/en/canoe-route-planner/) ·
+[Waterway route planner](https://boatspeedy.wozise.de/en/waterway-route-planner/)
 
 ### What it is for
 

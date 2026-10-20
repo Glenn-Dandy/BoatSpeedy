@@ -1,9 +1,10 @@
 GPS boat speedometer and navigation for small boats. Under motor, paddle or oars. A Bluetooth BMS or a coulometer on the pack adds live values and range.
 
-Navigation
+Navigation: route planner for canoes and boats
 * Set a destination on the map: straight line or a route along the waterways, with distance and estimated draw
 * Load the waterways onto the device as tiles, routes up to 600 km, map server selectable
 * Craft type, motorboat or canoe, decides which bans apply
+* Around the weir by canoe: portages, put-ins and egress points from OpenStreetMap
 * Locks and weirs on the route, tap one for hours, phone and chamber size
 * Seamarks are tappable, speed signs show their number
 * Map north up or course up, marker and map glide
@@ -35,3 +36,5 @@ What the app talks to
 * Update check at api.github.com, only when you tap it
 
 Free and open source, without Google Play Services. Maps and waterways © OpenStreetMap contributors (ODbL), seamarks OpenSeaMap (CC BY-SA), weather from the Deutscher Wetterdienst (CC BY 4.0).
+
+Website: https://boatspeedy.wozise.de/en/
