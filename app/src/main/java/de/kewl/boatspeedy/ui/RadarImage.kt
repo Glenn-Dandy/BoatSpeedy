@@ -380,6 +380,7 @@ fun interpolateRadar(
     val sw = grid.width
     val sh = grid.height
     val c = grid.classes
+    if (factor <= 1.0) return nearestRadar(grid, fx0, fy0, factor, ow, oh)
     val xs = IntArray(ow)
     val wx = FloatArray(ow * 4)
     for (x in 0 until ow) {
@@ -420,6 +421,24 @@ fun interpolateRadar(
             val stufe = kotlin.math.floor(v.coerceIn(lo.toFloat(), hi.toFloat()) + 0.5f).toInt()
             out[row + x] = stufe.toByte()
         }
+    }
+    return out
+}
+
+/**
+ * Ohne Vergrößerung genügt die nächste Zelle. In der Übersicht über ganz Deutschland ist
+ * eine Messzelle kaum größer als ein Bildpunkt, runde Umrisse sieht dort niemand. Die Kurve
+ * kostete gerade in diesem Fall am meisten, weil das ganze Raster durchgerechnet wurde.
+ */
+private fun nearestRadar(grid: RadarGrid, fx0: Double, fy0: Double, factor: Double, ow: Int, oh: Int): ByteArray {
+    val sw = grid.width
+    val sh = grid.height
+    val xs = IntArray(ow) { x -> kotlin.math.floor(fx0 + (x + 0.5) / factor).toInt().coerceIn(0, sw - 1) }
+    val out = ByteArray(ow * oh)
+    for (y in 0 until oh) {
+        val r = kotlin.math.floor(fy0 + (y + 0.5) / factor).toInt().coerceIn(0, sh - 1) * sw
+        val row = y * ow
+        for (x in 0 until ow) out[row + x] = grid.classes[r + xs[x]]
     }
     return out
 }

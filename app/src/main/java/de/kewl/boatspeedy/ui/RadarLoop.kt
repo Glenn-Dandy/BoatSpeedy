@@ -49,6 +49,13 @@ private const val RADAR_POLL_MS = 60_000L
 private const val RADAR_PARALLEL = 4
 
 /**
+ * So viele werden gleichzeitig entschlüsselt. Weniger als geholt werden: Der gezeigte Frame
+ * wird auf denselben Rechenkernen aufbereitet und soll nicht hinter der ganzen Schleife
+ * anstehen.
+ */
+private const val RADAR_DECODE_PARALLEL = 2
+
+/**
  * Lädt die Radarschleife, solange [active] ist und die App im Vordergrund steht.
  *
  * **Ein Lauf, nicht eine Uhrzeit.** Vorher wurde jeder Frame ohne Lauf angefragt, und der
@@ -121,6 +128,7 @@ private suspend fun loadRun(
     onFrame: (Int, RadarGrid) -> Unit,
 ) = coroutineScope {
     val gate = Semaphore(RADAR_PARALLEL)
+    val decode = Semaphore(RADAR_DECODE_PARALLEL)
     for (i in run.frames.indices) {
         if (i in skip) continue
         launch {
@@ -132,7 +140,9 @@ private suspend fun loadRun(
                             DWD_RADAR_LAYER, time, RADAR_AREA_GER, RADAR_AREA_W, RADAR_AREA_H, run.refIso,
                         )?.also { writeCachedRadar(cache, DWD_RADAR_LAYER, run.refIso, time, it) }
                 } ?: return@withPermit
-                val grid = withContext(Dispatchers.Default) { decodeRadarGrid(png) } ?: return@withPermit
+                val grid = decode.withPermit {
+                    withContext(Dispatchers.Default) { decodeRadarGrid(png) }
+                } ?: return@withPermit
                 onFrame(i, grid)
             }
         }

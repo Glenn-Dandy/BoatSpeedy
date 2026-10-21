@@ -98,6 +98,16 @@ class RadarLoopTest {
         for (y in 0 until 80) for (x in 0 until 160) assertEquals(0, out[y * 160 + x].toInt())
     }
 
+    /** Ohne Vergrößerung wird jede Zelle genau übernommen, auch mit Versatz. */
+    @Test
+    fun `ohne Vergroesserung steht jede Zelle an ihrem Platz`() {
+        val g = grid(10, 10, Triple(3, 4, 9), Triple(7, 2, 1))
+        val out = interpolateRadar(g, 2.0, 1.0, 1.0, 6, 5)
+        assertEquals(9, out[3 * 6 + 1].toInt())
+        assertEquals(1, out[1 * 6 + 5].toInt())
+        assertEquals(2, out.count { it.toInt() != 0 })
+    }
+
     /** Ein Fenster mitten im Raster greift auf die richtigen Zellen zu. */
     @Test
     fun `Fenster mit Versatz trifft die richtigen Zellen`() {
