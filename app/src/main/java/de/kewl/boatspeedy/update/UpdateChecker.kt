@@ -14,6 +14,8 @@ object Repo {
     const val LATEST_RELEASE_URL = "$URL/releases/latest"
     const val ISSUES_NEW_URL = "$URL/issues/new"
     const val SUPPORT_URL = "https://paypal.me/GlennDandy"
+    const val WEBSITE_LABEL = "wozise.de"
+    const val WEBSITE_URL = "https://$WEBSITE_LABEL"
     private const val API_LATEST = "https://api.github.com/repos/$OWNER/$NAME/releases/latest"
     /**
      * Das eine rollende Vorab-Release. `releases/latest` überspringt Vorabversionen, es

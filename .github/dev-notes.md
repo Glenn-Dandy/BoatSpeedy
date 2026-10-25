@@ -1,5 +1,8 @@
 ## Seit 1.5.1
 
+**Neu**
+- Über: Unten steht jetzt wozise.de, antippen öffnet die Seite.
+
 **Behoben**
 - Kanu: Ein Flussstück mit canoe=no oder access=no zählt beim Umtragen wie ein Wehr. Liegt
   davor und dahinter ein Anleger, trägt die Route von einem zum anderen, auch ohne
@@ -12,6 +15,9 @@
   behalten ihre Stufe.
 
 ## Since 1.5.1
+
+**New**
+- About: wozise.de now sits at the bottom, tap to open the site.
 
 **Fixed**
 - Canoe: a river stretch tagged canoe=no or access=no now counts like a weir for portaging.
