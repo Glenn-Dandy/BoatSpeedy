@@ -25,10 +25,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableLongStateOf
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -77,7 +75,12 @@ fun OsmMap(
     onUserPan: () -> Unit = {},
     bubbleText: ((TrackPoint) -> String)? = null,
     showRadar: Boolean = false,
-    radarTimes: List<String> = emptyList(),
+    /** Die geladenen Frames der Radarschleife, nach ihrer Stelle in der Schleife. */
+    radarGrids: Map<Int, RadarGrid> = emptyMap(),
+    /** Wie viele Frames die Schleife hat, auch die noch nicht geladenen. */
+    radarFrameCount: Int = 0,
+    /** Wechselt mit jedem Vorhersagelauf; dann gilt nichts Gerechnetes mehr. */
+    radarRunKey: Long = 0L,
     radarFrameIndex: Int = 0,
     showLightning: Boolean = false,
     /** Langer Druck auf die Karte – für das Setzen eines Ziels. */
@@ -117,6 +120,13 @@ fun OsmMap(
     speedSigns: List<de.kewl.boatspeedy.nav.SpeedSign> = emptyList(),
     /** Antippbare Seezeichen aus den Kartendaten – die Kacheln selbst sind nur Bilder. */
     seamarks: List<de.kewl.boatspeedy.nav.SeamarkPoi> = emptyList(),
+    /**
+     * Wohin die Karte geht, solange es keine Position gibt, und mit welchem Zoom. `null`
+     * heißt warten. Die Wetteransicht braucht keinen Fix: Ohne Position blieb sie leer, das
+     * Radar erschien nie, und drinnen ohne GPS ist genau dort, wo man nach dem Wetter sieht.
+     */
+    fallbackCenter: LatLon? = null,
+    fallbackZoom: Double = 6.0,
     /** Festgelegter Startpunkt einer geplanten Strecke; null = es wird ab Boot gerechnet. */
     planStart: de.kewl.boatspeedy.nav.LatLon? = null,
     /** Norden oben, oder die Karte in Fahrtrichtung drehen. */
@@ -179,6 +189,19 @@ fun OsmMap(
     }
 
     var centered by remember { mutableStateOf(false) }
+    // Steht die Karte auf dem Ersatzort, weil noch keine Position da war? Dann springt sie
+    // zur ersten Position, solange niemand sie verschoben hat.
+    var onFallback by remember { mutableStateOf(false) }
+    LaunchedEffect(fallbackCenter) {
+        val f = fallbackCenter ?: return@LaunchedEffect
+        delay(FALLBACK_WAIT_MS)
+        if (!centered) {
+            mapView.controller.setZoom(fallbackZoom)
+            mapView.controller.setCenter(GeoPoint(f.lat, f.lon))
+            centered = true
+            onFallback = true
+        }
+    }
     val line = remember(mapView) {
         Polyline(mapView).apply {
             outlinePaint.color = Color.parseColor("#1E88E5")
@@ -253,13 +276,9 @@ fun OsmMap(
     }
     // Ein Overlay für den Regen, eines für die Blitze – jeweils EIN Bild für den
     // ganzen Ausschnitt statt zwanzig Kacheln (siehe RadarImage.kt).
-    val radarOverlay = remember(mapView) { RadarImageOverlay() }
+    val radarOverlay = remember(mapView) { RadarImageOverlay(RADAR_ALPHA) }
     val lightningOverlay = remember(mapView) { RadarImageOverlay() }
 
-    // PNG-Bytes je Frame, immer für das feste Gebiet. Dekodiert wird nur, was gezeigt
-    // wird. Der Ausschnitt spielt hier keine Rolle mehr – deshalb löst Zoomen und
-    // Schwenken auch keinen Abruf mehr aus.
-    val framePngs = remember(radarTimes) { mutableStateMapOf<Int, ByteArray>() }
     var lightningPng by remember { mutableStateOf<ByteArray?>(null) }
     // Zähler für das *Darstellungsfenster*. Steigt, wenn sich der Blick so weit geändert
     // hat, dass neu gerechnet werden soll — ohne Netzverkehr.
@@ -268,14 +287,16 @@ fun OsmMap(
     // Fertig gerechnete Frames für das aktuelle Fenster, mit der Fläche, auf der sie
     // sitzen. Ohne den Zwischenspeicher wird bei jedem Wechsel neu interpoliert – beim
     // Schieben des Reglers reiht sich das auf und ruckelt.
-    val renderedFrames = remember(radarTimes) {
+    val renderedFrames = remember(radarRunKey) {
         mutableMapOf<Int, Triple<Int, android.graphics.Bitmap, org.osmdroid.util.BoundingBox>>()
     }
-    // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner) und zu welchem Fenster.
+    // Welcher Frame gerade als Bild im Overlay liegt (-1 = keiner), zu welchem Fenster und
+    // zu welchem Lauf. Ohne den Lauf blieb nach einem neuen Lauf das alte Bild stehen,
+    // solange man nicht weiterschob: Gleicher Frame, gleiches Fenster, also nichts zu tun.
     var shownFrame by remember { mutableIntStateOf(-1) }
     var shownEpoch by remember { mutableIntStateOf(-1) }
+    var shownRun by remember { mutableLongStateOf(0L) }
     var lightningArea by remember { mutableStateOf<MercatorBox?>(null) }
-    val radarCache = remember(context) { radarCacheDir(context) }
 
     DisposableEffect(Unit) {
         mapView.onResume()
@@ -379,43 +400,20 @@ fun OsmMap(
         }
     }
 
-    // Alle Frames holen – für das **feste Gebiet**, unabhängig vom Ausschnitt, und nur
-    // einmal. Der sichtbare zuerst, damit sofort etwas zu sehen ist, der Rest danach in
-    // kleinen Gruppen. Was auf der Platte liegt, wird nicht noch einmal geholt.
-    LaunchedEffect(showRadar, radarTimes) {
-        if (!showRadar || radarTimes.isEmpty()) return@LaunchedEffect
-        withContext(Dispatchers.IO) { pruneRadarCache(radarCache) }
-
-        suspend fun load(i: Int) {
-            if (framePngs.containsKey(i)) return
-            val time = radarTimes[i]
-            val png = withContext(Dispatchers.IO) {
-                readCachedRadar(radarCache, DWD_RADAR_LAYER, time)
-                    ?: fetchRadarPng(DWD_RADAR_LAYER, time, RADAR_AREA_GER, RADAR_AREA_W, RADAR_AREA_H)
-                        ?.also { writeCachedRadar(radarCache, DWD_RADAR_LAYER, time, it) }
-            }
-            if (png != null) framePngs[i] = png
-        }
-
-        val first = radarFrameIndex.coerceIn(0, radarTimes.lastIndex)
-        load(first)
-        mapView.invalidate()
-        radarTimes.indices.filter { it != first }.chunked(4).forEach { group ->
-            coroutineScope { group.forEach { i -> launch { load(i) } } }
-        }
-    }
-
     // Die Frames für das aktuelle Fenster im Voraus rechnen, solange niemand hinschaut.
     // Sonst rechnet der erste Durchlauf der Schleife bei jedem Wechsel neu und ruckelt.
-    LaunchedEffect(showRadar, radarTimes, framePngs.size, windowEpoch) {
-        if (!showRadar || radarTimes.isEmpty()) return@LaunchedEffect
+    // Vom gezeigten Frame aus vorwärts: in dieser Folge spielt die Schleife sie ab.
+    LaunchedEffect(showRadar, radarRunKey, radarGrids.size, windowEpoch) {
+        if (!showRadar || radarFrameCount == 0) return@LaunchedEffect
         val window = renderWindow ?: return@LaunchedEffect
         val epoch = windowEpoch
-        for (i in radarTimes.indices) {
+        val start = radarFrameIndex.coerceIn(0, radarFrameCount - 1)
+        for (k in 0 until radarFrameCount) {
+            val i = (start + k) % radarFrameCount
             if (renderedFrames[i]?.first == epoch) continue
             if (epoch != windowEpoch) return@LaunchedEffect // Blick hat sich weitergedreht
-            val png = framePngs[i] ?: continue
-            val made = withContext(Dispatchers.Default) { buildFrame(png, window) } ?: continue
+            val grid = radarGrids[i] ?: continue
+            val made = withContext(Dispatchers.Default) { buildFrame(grid, window) } ?: continue
             renderedFrames[i] = Triple(epoch, made.first, made.second)
             trimRendered(renderedFrames, shownFrame)
         }
@@ -438,10 +436,14 @@ fun OsmMap(
     // Frame noch, bleibt das bisherige Bild stehen – sonst blinkt die Schleife leer. Weil
     // Bild und Fläche zusammengehören, werden sie immer gemeinsam gesetzt: getrennt zeigt
     // das Overlay zwischendurch das alte Bild auf der neuen Fläche und springt.
-    LaunchedEffect(showRadar, radarFrameIndex, framePngs.size, windowEpoch) {
-        if (!showRadar) { shownFrame = -1; return@LaunchedEffect }
-        val idx = radarFrameIndex.coerceIn(0, (radarTimes.size - 1).coerceAtLeast(0))
-        if (idx == shownFrame && shownEpoch == windowEpoch && radarOverlay.image != null) {
+    // Neu angestoßen wird nur, wenn der **gezeigte** Frame ankommt, nicht bei jedem anderen.
+    // Sonst brach jeder ankommende Frame das Rechnen des ersten ab, und „jetzt" erschien
+    // erst, wenn das Laden zur Ruhe kam.
+    val shownReady = radarGrids.containsKey(radarFrameIndex)
+    LaunchedEffect(showRadar, radarFrameIndex, shownReady, windowEpoch, radarRunKey) {
+        if (!showRadar || radarFrameCount == 0) { shownFrame = -1; return@LaunchedEffect }
+        val idx = radarFrameIndex.coerceIn(0, radarFrameCount - 1)
+        if (idx == shownFrame && shownEpoch == windowEpoch && shownRun == radarRunKey && radarOverlay.image != null) {
             return@LaunchedEffect
         }
         val window = renderWindow ?: return@LaunchedEffect
@@ -452,17 +454,20 @@ fun OsmMap(
             radarOverlay.setImage(bmp, box)
             shownFrame = idx
             shownEpoch = windowEpoch
+            shownRun = radarRunKey
             mapView.invalidate()
             return@LaunchedEffect
         }
 
-        val png = framePngs[idx] ?: return@LaunchedEffect
-        val made = withContext(Dispatchers.Default) { buildFrame(png, window) } ?: return@LaunchedEffect
+        val grid = radarGrids[idx] ?: return@LaunchedEffect
+        val run = radarRunKey
+        val made = withContext(Dispatchers.Default) { buildFrame(grid, window) } ?: return@LaunchedEffect
         renderedFrames[idx] = Triple(windowEpoch, made.first, made.second)
         trimRendered(renderedFrames, idx)
         radarOverlay.setImage(made.first, made.second)
         shownFrame = idx
         shownEpoch = windowEpoch
+        shownRun = run
         mapView.invalidate()
     }
 
@@ -680,7 +685,10 @@ fun OsmMap(
     LaunchedEffect(interactive) {
         if (interactive) {
             mapView.setOnTouchListener { _, ev ->
-                if (ev.actionMasked == MotionEvent.ACTION_MOVE) onPan.value()
+                if (ev.actionMasked == MotionEvent.ACTION_MOVE) {
+                    onPan.value()
+                    onFallback = false
+                }
                 false
             }
         }
@@ -835,10 +843,11 @@ fun OsmMap(
         // Nur das erste Einmitten passiert hier. Danach führt der Bildlauf oben die Karte
         // an der geglätteten Position nach – zwei Stellen, die zentrieren, kämen sich in
         // die Quere und ergäben genau das Ruckeln, das wir loswerden wollen.
-        if (target != null && !centered) {
+        if (target != null && (!centered || onFallback)) {
             mapView.controller.setZoom(zoom)
             mapView.controller.setCenter(target)
             centered = true
+            onFallback = false
         }
         mapView.invalidate()
     }
@@ -920,25 +929,17 @@ private fun radarPixels(box: MercatorBox, centerLat: Double): Pair<Int, Int> {
     return w to h
 }
 
-/**
- * Bereitet einen Frame für das Fenster auf: Bild dekodieren, den sichtbaren Teil
- * herausrechnen und vergrößern. Lohnt die Vergrößerung nicht — weil ohnehin etwa ein
- * Bildpunkt je Rasterzelle bliebe —, wird das Deutschlandbild unverändert genommen und
- * die Filterung beim Zeichnen erledigt den Rest.
- */
+/** Bereitet einen Frame für das Fenster auf: den sichtbaren Teil herausrechnen und vergrößern. */
 private fun buildFrame(
-    png: ByteArray,
+    grid: RadarGrid,
     window: MercatorBox,
 ): Pair<android.graphics.Bitmap, org.osmdroid.util.BoundingBox>? {
-    val src = decodeRadar(png) ?: return null
-    val zoomed = runCatching { renderRadarWindow(src, RADAR_AREA_GER, window) }.getOrNull()
-    return if (zoomed != null) {
-        src.recycle()
-        zoomed to renderedWindowBox(RADAR_AREA_GER, window).toBoundingBox()
-    } else {
-        src to RADAR_AREA_GER.toBoundingBox()
-    }
+    val bmp = runCatching { renderRadarWindow(grid, RADAR_AREA_GER, window) }.getOrNull() ?: return null
+    return bmp to renderedWindowBox(RADAR_AREA_GER, window).toBoundingBox()
 }
+
+/** So lange wird auf eine Position gewartet, bevor die Karte auf den Ersatzort geht. */
+private const val FALLBACK_WAIT_MS = 1_500L
 
 /** Rand um den sichtbaren Ausschnitt – so viel Schwenk verträgt der Blitz-Abruf. */
 private const val RADAR_PAD = 1.8

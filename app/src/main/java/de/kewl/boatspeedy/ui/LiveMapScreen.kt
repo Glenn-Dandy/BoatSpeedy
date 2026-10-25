@@ -3,6 +3,7 @@ package de.kewl.boatspeedy.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,6 +56,7 @@ import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.BookmarkAdded
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.rememberCoroutineScope
@@ -149,19 +151,10 @@ fun LiveMapScreen(
     // Hintergrund; „Play" läuft dann sofort flüssig.
     var playing by remember { mutableStateOf(false) }
     var frameIndex by remember { mutableIntStateOf(0) }
-    // Die Frame-Liste altert: bleibt die Karte offen, zeigt „jetzt" sonst irgendwann den
-    // Stand von vor einer halben Stunde. Deshalb im 5-Minuten-Takt neu bilden – das ist
-    // genau der Takt, in dem der DWD neue Daten veröffentlicht.
-    var framesEpoch by remember { mutableIntStateOf(0) }
-    LaunchedEffect(showWeather) {
-        while (showWeather) {
-            val now = System.currentTimeMillis()
-            delay(5 * 60_000L - (now % (5 * 60_000L)) + 20_000L) // kurz nach dem Wechsel
-            framesEpoch++
-        }
-    }
-    val frames = remember(framesEpoch) { radarFrames() }
-    val radarTimes = remember(frames) { frames.map { it.timeIso } }
+    // Die Schleife gehört zu einem Vorhersagelauf des DWD und wechselt mit ihm. So altert
+    // „jetzt" nicht, und die Frames einer Schleife passen zueinander.
+    val radar = rememberRadarLoop(showWeather)
+    val frames = radar.run?.frames.orEmpty()
     val bubble: (TrackPoint) -> String = { p -> buildTrackBubble(context, settings, p) }
 
     // --- Ziel setzen (langer Druck auf die Karte) ---
@@ -456,8 +449,8 @@ fun LiveMapScreen(
     }
 
     // Vorhersage-Schleife (jetzt → +2 h), solange „Abspielen" aktiv.
-    LaunchedEffect(showWeather, playing) {
-        if (showWeather && playing) {
+    LaunchedEffect(showWeather, playing, frames.size) {
+        if (showWeather && playing && frames.isNotEmpty()) {
             while (true) {
                 delay(if (frameIndex == frames.lastIndex) 1400 else 550)
                 frameIndex = (frameIndex + 1) % frames.size
@@ -542,8 +535,10 @@ fun LiveMapScreen(
                 onUserPan = { follow = false },
                 bubbleText = bubble,
                 showRadar = showWeather,
-                radarTimes = radarTimes,
-                radarFrameIndex = frameIndex.coerceIn(0, frames.lastIndex),
+                radarGrids = radar.grids,
+                radarFrameCount = frames.size,
+                radarRunKey = radar.run?.refMs ?: 0L,
+                radarFrameIndex = frameIndex.coerceIn(0, (frames.size - 1).coerceAtLeast(0)),
                 showLightning = showWeather && showLightning,
                 // In der Wetteransicht wird nicht navigiert: kein Ziel setzen, keine
                 // Route zeichnen. Und die Karte bleibt stehen, wo man sie hingeschoben
@@ -590,6 +585,11 @@ fun LiveMapScreen(
                     settings.mapOrientation
                 },
                 onViewport = { box, zoom -> mapBox = box; zoomLevel = zoom },
+                // Regen sieht man in der Fläche, nicht auf der Straße: Auf Zoom 16 zeigte
+                // das Radar ein, zwei Messzellen über den ganzen Bildschirm, also eine
+                // Farbe oder gar nichts. Auf 8 sind es rund 150 km.
+                zoom = if (weatherMode) WEATHER_ZOOM else 16.0,
+                fallbackCenter = if (weatherMode) GERMANY_CENTER else null,
                 mapRotation = mapRotation,
                 recenterKey = recenterKey,
                 modifier = Modifier.fillMaxSize(),
@@ -820,25 +820,30 @@ fun LiveMapScreen(
                         .padding(start = 12.dp, end = 12.dp, bottom = 84.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    val frame = frames.getOrNull(frameIndex.coerceIn(0, (frames.size - 1).coerceAtLeast(0)))
+                    // Der Ladebalken liegt im Rahmen des Reglers, nicht darunter: Sonst
+                    // rutschte der Regler hoch und wieder runter, sobald er verschwindet.
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
                                 MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                                 RoundedCornerShape(24.dp),
-                            )
+                            ),
+                    ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     ) {
-                        IconButton(onClick = { playing = !playing }) {
+                        IconButton(onClick = { playing = !playing }, enabled = frames.isNotEmpty()) {
                             Icon(
                                 if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                                 contentDescription = stringResource(R.string.weather_play),
                             )
                         }
-                        val frame = frames[frameIndex.coerceIn(0, frames.lastIndex)]
-                        // feste Breite → der Regler bleibt immer gleich lang
                         // Feste Breite hält den Regler gleich lang. 64 dp reichten für
                         // „+100 min" nicht – die Beschriftung brach um.
                         Column(
@@ -846,12 +851,16 @@ fun LiveMapScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                frame.clock,
+                                frame?.clock ?: "--:--",
                                 fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center,
                             )
                             Text(
-                                frame.label.ifBlank { stringResource(R.string.radar_now) },
+                                when {
+                                    frame != null -> frame.label.ifBlank { stringResource(R.string.radar_now) }
+                                    radar.unreachable -> "–"
+                                    else -> stringResource(R.string.radar_loading)
+                                },
                                 fontSize = 11.sp,
                                 maxLines = 1,
                                 softWrap = false,
@@ -861,14 +870,42 @@ fun LiveMapScreen(
                         }
                         Slider(
                             value = frameIndex.toFloat(),
-                            onValueChange = { playing = false; frameIndex = it.roundToInt().coerceIn(0, frames.lastIndex) },
-                            valueRange = 0f..frames.lastIndex.toFloat(),
+                            onValueChange = {
+                                playing = false
+                                frameIndex = it.roundToInt().coerceIn(0, (frames.size - 1).coerceAtLeast(0))
+                            },
+                            valueRange = 0f..(frames.size - 1).coerceAtLeast(1).toFloat(),
                             steps = (frames.size - 2).coerceAtLeast(0),
+                            enabled = frames.isNotEmpty(),
                             modifier = Modifier.weight(1f),
                         )
                         FilledIconToggleButton(checked = showLightning, onCheckedChange = { showLightning = it }) {
                             Icon(Icons.Filled.FlashOn, contentDescription = stringResource(R.string.lightning_toggle))
                         }
+                    }
+                    if (frames.isNotEmpty() && radar.grids.size < frames.size) {
+                        LinearProgressIndicator(
+                            progress = { radar.grids.size / frames.size.toFloat() },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp)
+                                .height(2.dp),
+                        )
+                    }
+                    }
+                    if (radar.unreachable) {
+                        Text(
+                            stringResource(R.string.radar_unreachable),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                    RoundedCornerShape(6.dp),
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
                     }
                     Text(
                         stringResource(R.string.weather_radar_source),
@@ -1197,6 +1234,12 @@ private fun ObstacleLine(iconRes: Int, text: String, color: androidx.compose.ui.
         Text(text, fontSize = 13.sp, color = color)
     }
 }
+
+/** Start-Zoom der Wetterkarte: rund 150 km Blickbreite, so weit sieht man Regen kommen. */
+private const val WEATHER_ZOOM = 8.0
+
+/** Wohin die Wetterkarte ohne Position geht: Deutschland, das Gebiet des Radars. */
+private val GERMANY_CENTER = LatLon(51.2, 10.4)
 
 /** Darunter stehen zu viele Zeichen zu dicht, um eines gezielt zu treffen. */
 private const val SEAMARK_MIN_ZOOM = 13.0

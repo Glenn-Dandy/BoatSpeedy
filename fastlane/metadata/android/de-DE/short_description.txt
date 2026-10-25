@@ -1,1 +1,1 @@
-GPS-Tacho und Wasserweg-Navigation für Boote, mit Batterie-Auswertung
+Routenplaner für Kanu und Boot, GPS-Tacho und Batterie-Auswertung

@@ -51,21 +51,48 @@ class DwdWmsTileSource(
     }
 }
 
-/** Frames von jetzt bis +100 Min in 5-Min-Schritten (RV-Nowcast-Raster PT5M). */
-fun radarFrames(): List<RadarFrame> {
-    val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+/** Abstand der Frames: das Raster der RV-Vorhersage (PT5M). */
+const val RADAR_STEP_MIN = 5
+
+/** So weit reicht ein Vorhersagelauf: zwei Stunden ab seiner Bezugszeit. */
+const val RADAR_RANGE_MIN = 120
+
+private const val STEP_MS = RADAR_STEP_MIN * 60_000L
+
+/** Zeitpunkt in der Schreibweise des WMS, in UTC. */
+fun radarIso(ms: Long): String =
+    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
-    }
+    }.format(Date(ms))
+
+/**
+ * Mögliche Bezugszeiten des neuesten Laufs, neueste zuerst: die Uhrzeit auf fünf Minuten
+ * abgerundet und von dort eine halbe Stunde zurück. Ein Lauf erscheint beim DWD einige
+ * Minuten nach seiner Bezugszeit, der abgerundete Zeitpunkt selbst ist meist noch nicht da.
+ */
+fun radarRunCandidates(nowMs: Long, count: Int = 7): List<Long> {
+    val base = nowMs - (nowMs % STEP_MS)
+    return (0 until count).map { base - it * STEP_MS }
+}
+
+/**
+ * Die Frames eines Vorhersagelaufs: die Messung zu seiner Bezugszeit, danach die
+ * Vorhersage in Fünf-Minuten-Schritten bis +2 h.
+ *
+ * Vorher entstand die Liste aus der Uhrzeit, auf fünf Minuten abgerundet. Der neueste Lauf
+ * ist aber meist einen Schritt älter, und dann gab es den letzten Frame bei ihm noch gar
+ * nicht: +120 min blieb leer und fiel deshalb weg. Gerechnet ab dem Lauf selbst ist jeder
+ * Frame vorhanden.
+ */
+fun radarFramesFor(refMs: Long): List<RadarFrame> {
     // Ortszeit zum Ablesen – ein „+30 min" allein sagt nichts, wenn die Liste älter ist
     // als der Blick auf den Bildschirm.
     val clockFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-    val now = System.currentTimeMillis()
-    val base = now - (now % (5 * 60_000L)) // auf 5 Min abrunden
-    return (0..20).map { i ->
-        val offMin = i * 5
-        val at = base + offMin * 60_000L
+    return (0..RADAR_RANGE_MIN / RADAR_STEP_MIN).map { i ->
+        val offMin = i * RADAR_STEP_MIN
+        val at = refMs + offMin * 60_000L
         RadarFrame(
-            timeIso = fmt.format(Date(at)),
+            timeIso = radarIso(at),
             label = if (offMin == 0) "" else "+$offMin min",
             clock = clockFmt.format(Date(at)),
         )

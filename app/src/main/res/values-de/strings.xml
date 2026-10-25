@@ -220,6 +220,8 @@
     <string name="weather_valid_until">gültig bis %s</string>
     <string name="weather_play">Abspielen/Pause</string>
     <string name="radar_now">jetzt</string>
+    <string name="radar_loading">lädt</string>
+    <string name="radar_unreachable">Radar gerade nicht erreichbar</string>
     <string name="lightning_toggle">Blitze</string>
     <string name="weather_radar_source">Datenbasis: Deutscher Wetterdienst</string>
 

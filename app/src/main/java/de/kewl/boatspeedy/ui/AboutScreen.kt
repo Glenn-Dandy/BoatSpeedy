@@ -246,11 +246,19 @@ fun AboutScreen(
             }
             Spacer(Modifier.size(24.dp))
 
-            Text(
-                "${stringResource(R.string.license_value)} · © ${Repo.OWNER}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${stringResource(R.string.license_value)} · © ${Repo.OWNER} · ",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                )
+                Text(
+                    Repo.WEBSITE_LABEL,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { openUrl(Repo.WEBSITE_URL) },
+                )
+            }
             Spacer(Modifier.size(24.dp))
         }
     }
