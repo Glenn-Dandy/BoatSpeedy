@@ -2,6 +2,24 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.5.2] - 2026-10-25
+
+### Neu
+- **wozise.de auf der Über-Seite:** unten neben dem Copyright, antippen öffnet die Seite.
+
+### Behoben
+- **Regenradar überarbeitet.** Die Wetterkarte öffnet auf rund 150 km statt auf
+  Straßenzoom. Ohne GPS-Position zeigt sie Deutschland, vorher blieb sie leer. Jede
+  Schleife gehört zu genau einem Vorhersagelauf des DWD und reicht bis +2 h, der Regen
+  springt beim Abspielen nicht mehr. Ein neuer Lauf wird im Hintergrund geladen und erst
+  getauscht, wenn er da ist, auch bei angehaltener Schleife. Lädt schneller, mit
+  Ladebalken. Der Regen ist leicht durchsichtig und hat runde Umrisse, starke Zellen
+  behalten ihre Stufe.
+- **Kanu: gesperrte Flussstücke werden umtragen.** Ein Stück mit `canoe=no` oder
+  `access=no` zählt wie ein Wehr. Liegt davor und dahinter ein Anleger, trägt die Route
+  von einem zum anderen, auch ohne eingetragenen Umtrageweg. Vorher endete sie dort als
+  Luftlinie, etwa am alten Zeiss-Wehr in Saalfeld. `boat=no` allein zählt nicht.
+
 ## [1.5.1] - 2026-10-13
 
 ### Geändert

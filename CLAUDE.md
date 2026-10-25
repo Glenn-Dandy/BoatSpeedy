@@ -83,6 +83,9 @@ das merkt man erst auf dem Wasser.
 
 ## Erledigt
 
+- **1.5.2** (versionCode 53, 25.10.2026): Regenradar neu (fester Vorhersagelauf, Zoom 8,
+  ohne GPS Deutschland, Ladebalken, runde Umrisse), Kanu umträgt `canoe=no`-Stücke wie ein
+  Wehr (Zeiss-Wehr Saalfeld), wozise.de-Link auf der Über-Seite.
 - **1.5.1** (versionCode 51, 13.10.2026): Lachen und Mühlgräben (`lache`, `leat`,
   `mill race` im Namen) gelten als gesperrt, außer `boat`/`canoe`/`motorboat` erlauben
   sie ausdrücklich.
@@ -94,7 +97,9 @@ das merkt man erst auf dem Wasser.
   über ein Wehr; Hinweis zur Navigation unter „Über → Daten, Karten & Navigation";
   Symbole wieder über der Route. F-Droid hat 1.5.0 aufgenommen.
 - Ältere Versionen siehe `CHANGELOG.md`.
-- `dev` steht auf **1.5.2 / versionCode 52**, dev-notes leer.
+- `dev` steht nach dem Release noch auf **1.5.2 / versionCode 53** (auf Wunsch nicht
+  weitergezählt). Vor der nächsten Änderung auf 1.5.3 / 54 öffnen, sonst lehnt Android die
+  Dev-Builds als Downgrade bzw. gleiche Version ab.
 
 ## Wichtige Entscheidungen
 

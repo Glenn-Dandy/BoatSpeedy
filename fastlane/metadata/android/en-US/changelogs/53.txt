@@ -1,0 +1,4 @@
+1.5.2
+* Rain radar reworked: opens at about 150 km, shows Germany without GPS, rain no longer jumps, loads faster
+* Canoe: river stretches tagged canoe=no are portaged like a weir
+* wozise.de on the About page

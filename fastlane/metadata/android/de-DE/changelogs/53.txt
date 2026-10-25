@@ -1,0 +1,4 @@
+1.5.2
+* Regenradar überarbeitet: öffnet auf rund 150 km, zeigt ohne GPS Deutschland, Regen springt nicht mehr, lädt schneller
+* Kanu: Flussstücke mit canoe=no werden wie ein Wehr umtragen
+* wozise.de auf der Über-Seite
