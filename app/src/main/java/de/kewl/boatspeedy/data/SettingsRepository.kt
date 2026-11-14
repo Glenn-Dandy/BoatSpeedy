@@ -61,6 +61,7 @@ class SettingsRepository(private val context: Context) {
         val DEV_UPDATES = booleanPreferencesKey("dev_updates")
         val CRAFT = stringPreferencesKey("craft")
         val SEAMARKS = booleanPreferencesKey("seamarks")
+        val WATER_INFO = booleanPreferencesKey("water_info")
         val MAP_ORIENTATION = stringPreferencesKey("map_orientation")
         val BOAT_MARKER = booleanPreferencesKey("boat_marker")
     }
@@ -108,6 +109,7 @@ class SettingsRepository(private val context: Context) {
             devUpdates = p[Keys.DEV_UPDATES] ?: false,
             craft = p[Keys.CRAFT]?.let { enumOrNull<Craft>(it) } ?: Craft.MOTORBOAT,
             seamarks = p[Keys.SEAMARKS] ?: true,
+            waterInfo = p[Keys.WATER_INFO] ?: true,
             mapOrientation = p[Keys.MAP_ORIENTATION]?.let { enumOrNull<MapOrientation>(it) }
                 ?: MapOrientation.NORTH,
             boatMarker = p[Keys.BOAT_MARKER] ?: true,
@@ -155,6 +157,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDevUpdates(value: Boolean) = edit { it[Keys.DEV_UPDATES] = value }
     suspend fun setCraft(value: Craft) = edit { it[Keys.CRAFT] = value.name }
     suspend fun setSeamarks(value: Boolean) = edit { it[Keys.SEAMARKS] = value }
+    suspend fun setWaterInfo(value: Boolean) = edit { it[Keys.WATER_INFO] = value }
     suspend fun setBoatMarker(value: Boolean) = edit { it[Keys.BOAT_MARKER] = value }
     suspend fun setMapOrientation(value: MapOrientation) =
         edit { it[Keys.MAP_ORIENTATION] = value.name }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Schifffahrtsmeldung von ELWIS, die nur einschränkt: Warndreieck in Bernstein.
+
+     48 dp groß wie die anderen Kartensymbole, das Zeichen darin 26 dp, der Rand ist
+     Trefferfläche. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="44" android:viewportHeight="44">
+    <group android:translateX="10" android:translateY="10">
+        <path android:fillColor="#FFFFFF" android:pathData="M12,0.5 L24,22.5 H0 Z" />
+        <path android:fillColor="#F9A825" android:pathData="M12,3.6 L21.4,20.8 H2.6 Z" />
+        <path android:fillColor="#1A1A1A" android:pathData="M11,8.5 h2 v6.5 h-2 Z M11,16.6 h2 v2 h-2 Z" />
+    </group>
+</vector>

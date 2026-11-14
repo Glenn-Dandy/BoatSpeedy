@@ -287,6 +287,10 @@ object MapTiles {
         }.getOrNull()
     }
 
+    /** Eine weitere Datei vom Kachelserver, etwa `nts.json`. */
+    fun fetchFile(name: String, readMs: Int = 30_000): ByteArray? =
+        get(base + name, CONNECT_MS, readMs)
+
     private fun get(
         url: String,
         connectMs: Int = CONNECT_MS,

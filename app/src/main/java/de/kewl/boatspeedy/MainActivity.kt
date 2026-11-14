@@ -422,6 +422,7 @@ private fun BoatSpeedyApp(
                         settings = settings,
                         onCraft = vm::setCraft,
                         onSeamarks = vm::setSeamarks,
+                        onWaterInfo = vm::setWaterInfo,
                         onMapOrientation = vm::setMapOrientation,
                         onBoatMarker = vm::setBoatMarker,
                         onMapData = { screen = Screen.SETTINGS_MAPDATA },

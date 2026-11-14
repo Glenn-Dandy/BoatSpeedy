@@ -120,6 +120,12 @@ fun OsmMap(
     speedSigns: List<de.kewl.boatspeedy.nav.SpeedSign> = emptyList(),
     /** Antippbare Seezeichen aus den Kartendaten – die Kacheln selbst sind nur Bilder. */
     seamarks: List<de.kewl.boatspeedy.nav.SeamarkPoi> = emptyList(),
+    /** Pegel der WSV mit Wasserstand. */
+    gauges: List<de.kewl.boatspeedy.nav.Gauge> = emptyList(),
+    onGauge: ((de.kewl.boatspeedy.nav.Gauge) -> Unit)? = null,
+    /** Schifffahrtsmeldungen von ELWIS. */
+    notices: List<de.kewl.boatspeedy.nav.WaterNotice> = emptyList(),
+    onNotice: ((de.kewl.boatspeedy.nav.WaterNotice) -> Unit)? = null,
     /**
      * Wohin die Karte geht, solange es keine Position gibt, und mit welchem Zoom. `null`
      * heißt warten. Die Wetteransicht braucht keinen Fix: Ohne Position blieb sie leer, das
@@ -480,6 +486,8 @@ fun OsmMap(
     val signMarkers = remember(mapView) { mutableListOf<Marker>() }
     // Schleusen und Wehre als eigene Marker; Wehre in Rot, weil sie meist das Ende sind.
     val obstacleMarkers = remember(mapView) { mutableListOf<Marker>() }
+    // Pegel und Schifffahrtsmeldungen der WSV.
+    val waterMarkers = remember(mapView) { mutableListOf<Marker>() }
 
     /**
      * Symbole über alle Linien. osmdroid zeichnet in der Reihenfolge des Einhängens, und
@@ -488,30 +496,54 @@ fun OsmMap(
      * Schleusen und Brückenhöhen unter der Linie. Also nach jeder Linie wieder nach oben.
      */
     fun symboleNachOben() {
-        (signMarkers + obstacleMarkers).forEach {
+        // **Die Seezeichen über die Linien.** Sonst deckt die Route das Schild mit der
+        // Brückenhöhe zu, und bei eingeschalteten Seezeichen zeichnen wir an Brücken kein
+        // eigenes mehr. Der Positionspfeil bleibt darüber.
+        if (mapView.overlays.remove(seamarkOverlay)) {
+            val nachLinien = mapView.overlays.indexOfLast { it is Polyline } + 1
+            mapView.overlays.add(nachLinien, seamarkOverlay)
+            val pfeil = mapView.overlays.indexOf(marker)
+            if (pfeil in 0 until nachLinien) {
+                mapView.overlays.remove(marker)
+                mapView.overlays.add(mapView.overlays.indexOf(seamarkOverlay) + 1, marker)
+            }
+        }
+        // Pegel und Meldungen zuoberst: Sie tragen ihre Auskunft sichtbar, die Brücke darunter
+        // ist bei eingeschalteten Seezeichen nur eine unsichtbare Fläche und fing sonst den
+        // Tipp auf das Pegelschild ab.
+        (signMarkers + obstacleMarkers + waterMarkers).forEach {
             mapView.overlays.remove(it)
             mapView.overlays.add(it)
         }
     }
-    LaunchedEffect(obstacles, onObstacle != null) {
+    LaunchedEffect(obstacles, onObstacle != null, showSeamarks) {
         obstacleMarkers.forEach { mapView.overlays.remove(it) }
         obstacleMarkers.clear()
         obstacles.forEach { o ->
             val m = Marker(mapView).apply {
                 position = GeoPoint(o.lat, o.lon)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                icon = ContextCompat.getDrawable(
-                    context,
-                    when (o.kind) {
-                        de.kewl.boatspeedy.nav.ObstacleKind.WEIR,
-                        de.kewl.boatspeedy.nav.ObstacleKind.DAM,
-                        -> R.drawable.ic_marker_weir
-                        de.kewl.boatspeedy.nav.ObstacleKind.BRIDGE -> R.drawable.ic_marker_bridge
-                        de.kewl.boatspeedy.nav.ObstacleKind.LANDING -> R.drawable.ic_marker_landing
-                        de.kewl.boatspeedy.nav.ObstacleKind.POWER -> R.drawable.ic_marker_power
-                        else -> R.drawable.ic_marker_lock
-                    },
-                )
+                val bruecke = o.kind == de.kewl.boatspeedy.nav.ObstacleKind.BRIDGE
+                icon = when {
+                    // **Eine Brücke, ein Schild.** OpenSeaMap zeichnet die Höhe schon in
+                    // die Kachel; ein eigenes Symbol daneben war doppelt. Dann bleibt nur
+                    // die Fläche zum Antippen.
+                    bruecke && showSeamarks -> seamarkHitArea(context)
+                    // Ohne Seezeichen trägt unser Symbol die Höhe selbst.
+                    bruecke && o.clearanceHeightM != null -> bridgeHeightDrawable(context, o.clearanceHeightM)
+                    else -> ContextCompat.getDrawable(
+                        context,
+                        when (o.kind) {
+                            de.kewl.boatspeedy.nav.ObstacleKind.WEIR,
+                            de.kewl.boatspeedy.nav.ObstacleKind.DAM,
+                            -> R.drawable.ic_marker_weir
+                            de.kewl.boatspeedy.nav.ObstacleKind.BRIDGE -> R.drawable.ic_marker_bridge
+                            de.kewl.boatspeedy.nav.ObstacleKind.LANDING -> R.drawable.ic_marker_landing
+                            de.kewl.boatspeedy.nav.ObstacleKind.POWER -> R.drawable.ic_marker_power
+                            else -> R.drawable.ic_marker_lock
+                        },
+                    )
+                }
                 title = o.name
                 // Nur was zu sagen hat, wird antippbar. Ein Tor ohne Merkmale würde nur
                 // eine leere Blase öffnen und den Eindruck erwecken, es sei etwas kaputt.
@@ -524,6 +556,43 @@ fun OsmMap(
             obstacleMarkers.add(m)
             mapView.overlays.add(m)
         }
+        // Auch beim Umschalten der Seezeichen: Deren Ebene kommt dabei ganz nach unten
+        // und muss wieder über die Linien.
+        symboleNachOben()
+        mapView.invalidate()
+    }
+
+    // Pegel mit ihrem Wasserstand und Meldungen von ELWIS.
+    LaunchedEffect(gauges, notices) {
+        waterMarkers.forEach { mapView.overlays.remove(it) }
+        waterMarkers.clear()
+        gauges.forEach { g ->
+            waterMarkers.add(
+                Marker(mapView).apply {
+                    position = GeoPoint(g.lat, g.lon)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    icon = gaugeDrawable(context, g.valueCm, g.level)
+                    title = g.name
+                    setOnMarkerClickListener { _, _ -> onGauge?.invoke(g); onGauge != null }
+                },
+            )
+        }
+        notices.forEach { n ->
+            waterMarkers.add(
+                Marker(mapView).apply {
+                    position = GeoPoint(n.anchor.lat, n.anchor.lon)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    icon = ContextCompat.getDrawable(
+                        context,
+                        if (n.isClosure) R.drawable.ic_marker_notice_closed else R.drawable.ic_marker_notice,
+                    )
+                    title = n.places.first().name
+                    setOnMarkerClickListener { _, _ -> onNotice?.invoke(n); onNotice != null }
+                },
+            )
+        }
+        waterMarkers.forEach { mapView.overlays.add(it) }
+        symboleNachOben()
         mapView.invalidate()
     }
 

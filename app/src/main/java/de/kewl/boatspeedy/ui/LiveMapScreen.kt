@@ -70,6 +70,7 @@ import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.nav.LandingKind
 import de.kewl.boatspeedy.nav.LatLon
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import de.kewl.boatspeedy.nav.MapTiles
 import de.kewl.boatspeedy.nav.NavMode
 import de.kewl.boatspeedy.nav.NavRepository
@@ -82,6 +83,10 @@ import de.kewl.boatspeedy.nav.SpeedSignSource
 import de.kewl.boatspeedy.nav.RouteError
 import de.kewl.boatspeedy.nav.RouteResult
 import de.kewl.boatspeedy.nav.WaterRouter
+import de.kewl.boatspeedy.nav.Gauge
+import de.kewl.boatspeedy.nav.Gauges
+import de.kewl.boatspeedy.nav.WaterNotice
+import de.kewl.boatspeedy.nav.WaterNotices
 import de.kewl.boatspeedy.nav.bearingDeg
 import de.kewl.boatspeedy.nav.distanceM
 import de.kewl.boatspeedy.nav.relativeBearing
@@ -201,6 +206,8 @@ fun LiveMapScreen(
     var craftHint by remember { mutableStateOf<CraftHint?>(null) }
     // Angetippte Schleuse — Öffnungszeiten, Telefon, Maße.
     var obstacleInfo by remember { mutableStateOf<de.kewl.boatspeedy.nav.Obstacle?>(null) }
+    var gaugeInfo by remember { mutableStateOf<Gauge?>(null) }
+    var noticeInfo by remember { mutableStateOf<List<WaterNotice>?>(null) }
     val scope = rememberCoroutineScope()
 
     // Verbrauch je Kilometer aus der laufenden Fahrt; erst ab etwas Strecke sinnvoll.
@@ -399,6 +406,58 @@ fun LiveMapScreen(
         }
     }
 
+    // **Pegel und Schifffahrtsmeldungen der WSV.** Beide gelten für ganz Deutschland und
+    // sind klein genug, um sie am Stück zu halten: Pegel direkt von PEGELONLINE, die
+    // Meldungen von ELWIS über den Kachelserver. Nur im Vordergrund nachgefragt.
+    var allGauges by remember { mutableStateOf<List<Gauge>>(emptyList()) }
+    var allNotices by remember { mutableStateOf<List<WaterNotice>>(emptyList()) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(settings.waterInfo) {
+        if (!settings.waterInfo) {
+            allGauges = emptyList()
+            allNotices = emptyList()
+            return@LaunchedEffect
+        }
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                allGauges = withContext(Dispatchers.IO) { Gauges.load(context.cacheDir) }
+                allNotices = withContext(Dispatchers.IO) { WaterNotices.load(context.cacheDir) }
+                delay(WATER_INFO_REFRESH_MS)
+            }
+        }
+    }
+    // Was heute und in den nächsten Tagen gilt. Eine Anordnung, die erst nächste Woche
+    // beginnt, stört die Fahrt von heute nicht.
+    val activeNotices = remember(allNotices) {
+        val heute = java.time.LocalDate.now()
+        allNotices.filter { WaterNotices.activeBetween(it, heute, heute.plusDays(NOTICE_DAYS_AHEAD)) }
+    }
+    val visibleGauges = remember(allGauges, mapBox, zoomLevel, weatherMode) {
+        val box = mapBox
+        if (weatherMode || box == null || zoomLevel < WATER_INFO_MIN_ZOOM) {
+            emptyList()
+        } else {
+            Gauges.inBox(allGauges, box.latSouth, box.lonWest, box.latNorth, box.lonEast).take(MAX_WATER_MARKERS)
+        }
+    }
+    // Was an der Route liegt, steht immer auf der Karte, auch weit herausgezoomt.
+    val routeNotices = remember(activeNotices, navTarget) {
+        navTarget?.takeIf { it.mode == NavMode.ROUTE }?.let { t ->
+            WaterNotices.alongRoute(activeNotices, t.water.ifEmpty { t.path })
+        }.orEmpty()
+    }
+    val visibleNotices = remember(activeNotices, routeNotices, mapBox, zoomLevel, weatherMode) {
+        val box = mapBox
+        when {
+            weatherMode -> emptyList()
+            box == null || zoomLevel < WATER_INFO_MIN_ZOOM -> routeNotices
+            else -> (
+                routeNotices + WaterNotices.inBox(activeNotices, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
+                    .take(MAX_WATER_MARKERS)
+                ).distinctBy { it.id }
+        }
+    }
+
     // **Fließrichtung erst ab Zoomstufe 14.** Weiter draußen liegen die Flüsse so dicht,
     // dass die Winkel zu einem Muster verschwimmen, das niemand mehr liest. Geholt wird
     // auch hier nichts; gezeigt wird, was in den Kacheln liegt.
@@ -576,6 +635,10 @@ fun LiveMapScreen(
                 showSeamarks = settings.seamarks && !weatherMode,
                 speedSigns = speedSigns,
                 seamarks = seamarks,
+                gauges = visibleGauges,
+                onGauge = { gaugeInfo = it },
+                notices = visibleNotices,
+                onNotice = { noticeInfo = listOf(it) },
                 planStart = if (weatherMode) null else planStart,
                 // In der Wetteransicht bleibt Norden oben: dort betrachtet man Regen,
                 // man fährt nicht.
@@ -728,8 +791,10 @@ fun LiveMapScreen(
                 // Umtragen steht in Metern: Es sind selten mehr als ein paar hundert, und
                 // gerundete Kilometer würden daraus eine Null machen.
                 val umtragenM = t.portageM.takeIf { it >= 1.0 }?.roundToInt()
+                val sperrungen = routeNotices.count { it.isClosure }
+                val meldungen = routeNotices.size - sperrungen
                 if (locks > 0 || weirs > 0 || restrictedKm != null || aufKm != null ||
-                    abKm != null || umtragenM != null
+                    abKm != null || umtragenM != null || routeNotices.isNotEmpty()
                 ) {
                     Surface(
                         modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 16.dp),
@@ -764,6 +829,26 @@ fun LiveMapScreen(
                                         if (km < 10) String.format(Locale.getDefault(), "%.1f", km) else km.roundToInt().toString(),
                                     ),
                                     color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                            // Meldungen von ELWIS: Sperrungen in Rot, der Rest zum Nachlesen.
+                            // Antippen zeigt alle im Wortlaut.
+                            if (sperrungen > 0) {
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_marker_notice_closed,
+                                    text = if (sperrungen == 1) stringResource(R.string.nav_notices_closed_one)
+                                    else stringResource(R.string.nav_notices_closed, sperrungen),
+                                    color = MaterialTheme.colorScheme.error,
+                                    onClick = { noticeInfo = routeNotices },
+                                )
+                            }
+                            if (meldungen > 0) {
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_marker_notice,
+                                    text = if (meldungen == 1) stringResource(R.string.nav_notices_other_one)
+                                    else stringResource(R.string.nav_notices_other, meldungen),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    onClick = { noticeInfo = routeNotices },
                                 )
                             }
                             // Umtragen ist kein Hindernis, sondern der Weg daran vorbei.
@@ -1048,6 +1133,9 @@ fun LiveMapScreen(
     // Auskunft zu einer angetippten Schleuse. Die Angaben stehen so da, wie OSM sie führt
     // — die Öffnungszeiten zu übersetzen hieße, sie zu raten, und davor steht man dann am
     // geschlossenen Tor.
+    gaugeInfo?.let { g -> GaugeDialog(g) { gaugeInfo = null } }
+    noticeInfo?.let { n -> NoticeDialog(n) { noticeInfo = null } }
+
     obstacleInfo?.let { o ->
         AlertDialog(
             onDismissRequest = { obstacleInfo = null },
@@ -1222,8 +1310,16 @@ private fun InfoZeile(label: String, wert: String) {
 
 /** Eine Zeile im Hinderniskasten: Symbol plus Anzahl. */
 @Composable
-private fun ObstacleLine(iconRes: Int, text: String, color: androidx.compose.ui.graphics.Color) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 1.dp)) {
+private fun ObstacleLine(
+    iconRes: Int,
+    text: String,
+    color: androidx.compose.ui.graphics.Color,
+    onClick: (() -> Unit)? = null,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = (if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 1.dp),
+    ) {
         Icon(
             painterResource(iconRes),
             contentDescription = null,
@@ -1243,6 +1339,21 @@ private val GERMANY_CENTER = LatLon(51.2, 10.4)
 
 /** Darunter stehen zu viele Zeichen zu dicht, um eines gezielt zu treffen. */
 private const val SEAMARK_MIN_ZOOM = 13.0
+
+/**
+ * Ab hier Pegel und Meldungen im Blickfeld. Sie sind dünn gesät, an der Elbe etwa alle
+ * 20 km ein Pegel, und auf rund 60 km Blickbreite will man sie schon sehen.
+ */
+private const val WATER_INFO_MIN_ZOOM = 10.0
+
+/** Höchstens so viele Pegel und so viele Meldungen auf einmal. */
+private const val MAX_WATER_MARKERS = 40
+
+/** PEGELONLINE meldet alle 15 Minuten, der Kachelserver holt ELWIS alle 30. */
+private const val WATER_INFO_REFRESH_MS = 15 * 60_000L
+
+/** Meldungen, die heute oder in den nächsten zwei Tagen gelten. */
+private const val NOTICE_DAYS_AHEAD = 2L
 
 /**
  * Ab hier werden Schleusen und Wehre im Blickfeld gezeigt. Etwas früher als bei den
