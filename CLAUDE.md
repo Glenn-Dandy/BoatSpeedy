@@ -97,9 +97,7 @@ das merkt man erst auf dem Wasser.
   über ein Wehr; Hinweis zur Navigation unter „Über → Daten, Karten & Navigation";
   Symbole wieder über der Route. F-Droid hat 1.5.0 aufgenommen.
 - Ältere Versionen siehe `CHANGELOG.md`.
-- `dev` steht nach dem Release noch auf **1.5.2 / versionCode 53** (auf Wunsch nicht
-  weitergezählt). Vor der nächsten Änderung auf 1.5.3 / 54 öffnen, sonst lehnt Android die
-  Dev-Builds als Downgrade bzw. gleiche Version ab.
+- `dev` steht auf **1.5.3 / versionCode 54** (seit 25.10., wozise-Logo auf der Über-Seite).
 
 ## Wichtige Entscheidungen
 

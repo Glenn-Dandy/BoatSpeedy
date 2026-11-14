@@ -1,5 +1,6 @@
 package de.kewl.boatspeedy.nav
 
+import de.kewl.boatspeedy.BuildConfig
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -64,6 +65,9 @@ object MapTiles {
 
     private const val CONNECT_MS = 10_000
     private const val READ_MS = 60_000
+
+    /** Mit Version, damit der Kachelserver in seiner Statistik sieht, welche Fassungen noch laden. */
+    private const val USER_AGENT = "BoatSpeedy/${BuildConfig.VERSION_NAME}"
 
     /* ------------------------------ Geometrie ------------------------------ */
 
@@ -291,7 +295,7 @@ object MapTiles {
         val c = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = connectMs
             readTimeout = readMs
-            setRequestProperty("User-Agent", "BoatSpeedy")
+            setRequestProperty("User-Agent", USER_AGENT)
         }
         try {
             if (c.responseCode != 200) return@runCatching null
