@@ -188,10 +188,15 @@ object WaterNotices {
     }
 
     private fun touches(p: NoticePlace, path: List<LatLon>): Boolean {
-        if (p.points.any { pt -> distanceToPathM(pt, path) <= ROUTE_RADIUS_M }) return true
-        if (!p.section || p.points.size < 2) return false
+        val nah = { pt: LatLon -> distanceToPathM(pt, path) <= ROUTE_RADIUS_M }
+        if (!p.section || p.points.size < 2) return p.points.any(nah)
         val a = p.points.first()
         val b = p.points.last()
+        // **Ein Ende an der Route reicht nicht.** Landwehrkanal und Charlottenburger
+        // Verbindungskanal beginnen an der Spree; wer auf der Spree vorbeifährt, kam
+        // sonst an ihren Sperrungen vorbei, ohne je hineinzufahren. Die Route muss durch
+        // den Abschnitt führen: beide Enden an ihr, oder Start oder Ziel liegen darin.
+        if (nah(a) && nah(b)) return true
         val slack = ROUTE_RADIUS_M + (distanceM(a, b) * 0.1).coerceAtMost(SECTION_SLACK_MAX_M)
         // Anfang oder Ende der Fahrt liegen im Abschnitt.
         return listOf(path.first(), path.last()).any { q ->

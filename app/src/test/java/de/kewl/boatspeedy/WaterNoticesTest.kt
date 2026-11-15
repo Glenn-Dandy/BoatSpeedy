@@ -89,6 +89,33 @@ class WaterNoticesTest {
         assertTrue(WaterNotices.alongRoute(all, parallel).isEmpty())
     }
 
+    /**
+     * Die Sperrung des Landwehrkanals vom 15.11.2026. Sein westliches Ende liegt 45 m neben
+     * der Spree. Eine Fahrt auf der Spree daran vorbei bekam die Sperrung trotzdem.
+     * Der Weg ist das echte Stück Spree aus den Kartendaten (Charlottenburg, Mündung des
+     * Landwehrkanals, Moabit).
+     */
+    @Test
+    fun `ein Kanal, der an der Route beginnt, zaehlt nur, wenn man hineinfaehrt`() {
+        val all = WaterNotices.parse(
+            """
+            {"messages":[{"id":"2026-362","subject":"ANNOUN","from":"2026-01-01","to":"2027-03-31",
+              "places":[{"name":"Landwehrkanal","type":"FWY","fairway":"Landwehrkanal","section":true,
+                "points":[[52.5203,13.3177],[52.5114,13.3363]],"limits":[{"code":"OBSTRU"}]}]}]}
+            """.trimIndent(),
+        )
+        val lwk = all.single()
+        val spree = listOf(LatLon(52.5265, 13.2905), LatLon(52.5214, 13.3150), LatLon(52.5207, 13.3174),
+            LatLon(52.5212, 13.3250), LatLon(52.5230, 13.3400))
+        assertFalse(lwk in WaterNotices.alongRoute(all, spree))
+        // Durch den Kanal hindurch: beide Enden an der Route.
+        val hinein = spree.take(3) + listOf(LatLon(52.5160, 13.3270), LatLon(52.5114, 13.3363), LatLon(52.5080, 13.3450))
+        assertTrue(lwk in WaterNotices.alongRoute(all, hinein))
+        // Im Kanal endet die Fahrt: das Ziel liegt im Abschnitt.
+        val bisMitte = spree.take(3) + listOf(LatLon(52.5160, 13.3270))
+        assertTrue(lwk in WaterNotices.alongRoute(all, bisMitte))
+    }
+
     @Test
     fun `Ausschnitt nach Lage`() {
         assertEquals(listOf("2026-3164"), WaterNotices.inBox(all, 52.5, 13.2, 52.6, 13.4).map { it.id })
