@@ -401,10 +401,13 @@ fun LiveMapScreen(
             // Gedeckelt: Am Elbe-Lübeck-Kanal stehen allein in einer Kachel 146 Brücken
             // mit Höhenangabe. Auf Zoomstufe 11 wäre der halbe Bildschirm voller Symbole.
             WaterRouter.obstaclesIn(dir, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
-                // Nur Brücken schon von weitem. Alles andere erst näher dran: Anleger
-                // sind viele, und OSM kennt Wehre an jedem Bach und Graben, auch wo nie
-                // ein Boot fährt. In Berlin stand sonst ein Dutzend roter Zeichen da.
-                .filter { it.kind == ObstacleKind.BRIDGE || zoomLevel >= OBSTACLE_DETAIL_MIN_ZOOM }
+                // Brücken und Anleger schon von weitem, alles andere erst näher dran: OSM
+                // kennt Wehre an jedem Bach und Graben, auch wo nie ein Boot fährt. In
+                // Berlin stand sonst ein Dutzend roter Zeichen da.
+                .filter {
+                    it.kind == ObstacleKind.BRIDGE || it.kind == ObstacleKind.LANDING ||
+                        zoomLevel >= OBSTACLE_DETAIL_MIN_ZOOM
+                }
                 .take(MAX_OBSTACLES)
         }
     }
@@ -1398,10 +1401,10 @@ private const val WATER_INFO_REFRESH_MS = 15 * 60_000L
 /** Meldungen, die heute oder in den nächsten zwei Tagen gelten. */
 private const val NOTICE_DAYS_AHEAD = 2L
 
-/** Ab hier werden Brücken im Blickfeld gezeigt, etwas früher als alles andere. */
+/** Ab hier werden Brücken und Anleger im Blickfeld gezeigt, etwas früher als der Rest. */
 private const val OBSTACLE_MIN_ZOOM = 11.0
 
-/** Ab hier auch Schleusen, Wehre, Kraftwerke und Anleger, zusammen mit den Seezeichen. */
+/** Ab hier auch Schleusen, Wehre und Kraftwerke, zusammen mit den Seezeichen. */
 private const val OBSTACLE_DETAIL_MIN_ZOOM = 13.0
 
 /** Ab hier zeigen Winkel auf den Flüssen die Fließrichtung. */

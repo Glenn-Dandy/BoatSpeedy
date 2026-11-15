@@ -25,7 +25,7 @@
 - Karte: Der Zoom rastet auf ganze Stufen ein. Zwischenstufen vergrößerten die Kacheln
   zusätzlich, die Karte wurde unscharf.
 - Karte: Schleusen, Wehre und Kraftwerke erscheinen erst beim Hineinzoomen, zusammen
-  mit Anlegern und Seezeichen. Nur Brücken kommen weiter früher.
+  mit den Seezeichen. Anleger kommen früher, gleich mit den Brücken.
 
 ## Since 1.5.2
 
@@ -53,5 +53,5 @@
   to it.
 - Map: zoom snaps to whole levels. In-between levels scaled the tiles up further and
   made the map blurry.
-- Map: locks, weirs and power plants appear only when zoomed in, together with
-  landings and sea marks. Only bridges still show up earlier.
+- Map: locks, weirs and power plants appear only when zoomed in, together with the
+  sea marks. Landings show up earlier, together with bridges.
