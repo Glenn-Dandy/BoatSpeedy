@@ -50,6 +50,7 @@ fun TrackMap(
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(interactive)
             setTilesScaledToDpi(true)
+            setZoomRounding(true)
             zoomController.setVisibility(
                 if (interactive) CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT
                 else CustomZoomButtonsController.Visibility.NEVER,
@@ -146,7 +147,7 @@ fun TrackMap(
             })
 
             mapView.post {
-                runCatching { mapView.zoomToBoundingBox(BoundingBox.fromGeoPointsSafe(geo), false, 48) }
+                runCatching { mapView.zoomToWholeLevel(BoundingBox.fromGeoPointsSafe(geo), 48) }
             }
         } else if (geo.size == 1) {
             mapView.controller.setZoom(16.0)

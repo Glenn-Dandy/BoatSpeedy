@@ -422,6 +422,7 @@ fun NavigationSettingsScreen(
     settings: Settings,
     onCraft: (Craft) -> Unit,
     onSeamarks: (Boolean) -> Unit,
+    onWaterInfo: (Boolean) -> Unit,
     onMapOrientation: (MapOrientation) -> Unit,
     onBoatMarker: (Boolean) -> Unit,
     onMapData: () -> Unit,
@@ -462,6 +463,9 @@ fun NavigationSettingsScreen(
         HintText(stringResource(R.string.nav_seamarks_hint))
         // Der Hinweis stammt von OpenSeaMap selbst und gehört sichtbar in die App.
         HintText(stringResource(R.string.nav_seamarks_disclaimer))
+        HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+        SwitchRow(stringResource(R.string.nav_water_info), settings.waterInfo, onWaterInfo)
+        HintText(stringResource(R.string.nav_water_info_hint))
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
         CategoryRow(
             Icons.Filled.Download,

@@ -630,6 +630,7 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
     fun setCraft(v: de.kewl.boatspeedy.data.Craft) = viewModelScope.launch { settingsRepo.setCraft(v) }
     fun setDevUpdates(v: Boolean) = viewModelScope.launch { settingsRepo.setDevUpdates(v) }
     fun setSeamarks(v: Boolean) = viewModelScope.launch { settingsRepo.setSeamarks(v) }
+    fun setWaterInfo(v: Boolean) = viewModelScope.launch { settingsRepo.setWaterInfo(v) }
     fun setBoatMarker(v: Boolean) = viewModelScope.launch { settingsRepo.setBoatMarker(v) }
     fun setMapOrientation(v: de.kewl.boatspeedy.data.MapOrientation) =
         viewModelScope.launch { settingsRepo.setMapOrientation(v) }

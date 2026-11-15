@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Schifffahrtsmeldung von ELWIS mit Sperrung: rote Scheibe mit weißem Balken, wie das
+     Zeichen für „Einfahrt verboten“. Bewusst anders als das Wehr, das rot mit
+     Ausrufezeichen ist.
+
+     48 dp groß wie die anderen Kartensymbole, das Zeichen darin 26 dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="44" android:viewportHeight="44">
+    <group android:translateX="10" android:translateY="10">
+        <path android:fillColor="#FFFFFF" android:pathData="M12,1 A11,11 0 1,1 11.99,1 Z" />
+        <path android:fillColor="#C62828" android:pathData="M12,3 A9,9 0 1,1 11.99,3 Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M6,10.6 h12 v2.8 h-12 Z" />
+    </group>
+</vector>

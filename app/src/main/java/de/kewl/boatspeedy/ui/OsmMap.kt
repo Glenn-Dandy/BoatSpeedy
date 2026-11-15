@@ -61,6 +61,23 @@ import java.io.File
  * Position. [interactive]=false → schwenkfrei (für die Mini-Kachel; Tap/​Scroll regelt
  * ein Overlay in der aufrufenden UI).
  */
+/**
+ * Die Kacheln sind Bilder für ganze Zoomstufen. Auf einer Zwischenstufe wie 9,4 werden
+ * die Kacheln der Stufe 9 zusätzlich vergrößert, und die Karte wird unscharf. Deshalb
+ * rasten alle Karten auf ganze Stufen ein (`setZoomRounding`), auch beim Einpassen eines
+ * Bereichs: abgerundet, damit er ganz sichtbar bleibt.
+ */
+internal fun MapView.zoomToWholeLevel(box: BoundingBox, borderPx: Int) {
+    zoomToBoundingBox(box, false, borderPx)
+    controller.setZoom(kotlin.math.floor(zoomLevelDouble))
+}
+
+/** Eine Stelle, zu der die Karte einmal hinschieben soll. */
+data class FocusRequest(val key: Int, val lat: Double, val lon: Double)
+
+/** So weit wird hineingezoomt, wenn die Karte zu einer Stelle springt. */
+private const val FOCUS_ZOOM = 14.0
+
 @Composable
 fun OsmMap(
     points: List<TrackPoint>,
@@ -114,12 +131,27 @@ fun OsmMap(
     flowRivers: List<List<LatLon>> = emptyList(),
     /** Antippen eines Hindernisses — für die Auskunft zu einer Schleuse. */
     onObstacle: ((de.kewl.boatspeedy.nav.Obstacle) -> Unit)? = null,
+    /** Hindernisse mit Meldungen, die auch ohne eigene Angaben antippbar sind. */
+    obstaclesWithNotices: Set<de.kewl.boatspeedy.nav.Obstacle> = emptySet(),
     /** Tonnen, Baken und Hinweiszeichen von OpenSeaMap einblenden. */
     showSeamarks: Boolean = false,
     /** Geschwindigkeitszeichen mit ihrem Wert; die Kacheln zeigen nur das leere Schild. */
     speedSigns: List<de.kewl.boatspeedy.nav.SpeedSign> = emptyList(),
     /** Antippbare Seezeichen aus den Kartendaten – die Kacheln selbst sind nur Bilder. */
     seamarks: List<de.kewl.boatspeedy.nav.SeamarkPoi> = emptyList(),
+    /** Antippen eines Seezeichens. Ohne ist es nicht antippbar. */
+    onSeamark: ((de.kewl.boatspeedy.nav.SeamarkInfo) -> Unit)? = null,
+    /** Pegel der WSV mit Wasserstand. */
+    gauges: List<de.kewl.boatspeedy.nav.Gauge> = emptyList(),
+    onGauge: ((de.kewl.boatspeedy.nav.Gauge) -> Unit)? = null,
+    /** Schifffahrtsmeldungen von ELWIS. */
+    notices: List<de.kewl.boatspeedy.nav.WaterNotice> = emptyList(),
+    onNotice: ((de.kewl.boatspeedy.nav.WaterNotice) -> Unit)? = null,
+    /**
+     * Einmal zu einer Stelle schieben, etwa zu einer Meldung. Jede neue Anfrage (neuer
+     * [FocusRequest.key]) schiebt einmal, unter Zoom 14 wird dabei hineingezoomt.
+     */
+    focus: FocusRequest? = null,
     /**
      * Wohin die Karte geht, solange es keine Position gibt, und mit welchem Zoom. `null`
      * heißt warten. Die Wetteransicht braucht keinen Fix: Ohne Position blieb sie leer, das
@@ -164,6 +196,7 @@ fun OsmMap(
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(interactive)
             setTilesScaledToDpi(true)
+            setZoomRounding(true)
             zoomController.setVisibility(
                 if (interactive) CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT
                 else CustomZoomButtonsController.Visibility.NEVER,
@@ -480,6 +513,8 @@ fun OsmMap(
     val signMarkers = remember(mapView) { mutableListOf<Marker>() }
     // Schleusen und Wehre als eigene Marker; Wehre in Rot, weil sie meist das Ende sind.
     val obstacleMarkers = remember(mapView) { mutableListOf<Marker>() }
+    // Pegel und Schifffahrtsmeldungen der WSV.
+    val waterMarkers = remember(mapView) { mutableListOf<Marker>() }
 
     /**
      * Symbole über alle Linien. osmdroid zeichnet in der Reihenfolge des Einhängens, und
@@ -488,34 +523,58 @@ fun OsmMap(
      * Schleusen und Brückenhöhen unter der Linie. Also nach jeder Linie wieder nach oben.
      */
     fun symboleNachOben() {
-        (signMarkers + obstacleMarkers).forEach {
+        // **Die Seezeichen über die Linien.** Sonst deckt die Route das Schild mit der
+        // Brückenhöhe zu, und bei eingeschalteten Seezeichen zeichnen wir an Brücken kein
+        // eigenes mehr. Der Positionspfeil bleibt darüber.
+        if (mapView.overlays.remove(seamarkOverlay)) {
+            val nachLinien = mapView.overlays.indexOfLast { it is Polyline } + 1
+            mapView.overlays.add(nachLinien, seamarkOverlay)
+            val pfeil = mapView.overlays.indexOf(marker)
+            if (pfeil in 0 until nachLinien) {
+                mapView.overlays.remove(marker)
+                mapView.overlays.add(mapView.overlays.indexOf(seamarkOverlay) + 1, marker)
+            }
+        }
+        // Pegel und Meldungen zuoberst: Sie tragen ihre Auskunft sichtbar, die Brücke darunter
+        // ist bei eingeschalteten Seezeichen nur eine unsichtbare Fläche und fing sonst den
+        // Tipp auf das Pegelschild ab.
+        (signMarkers + obstacleMarkers + waterMarkers).forEach {
             mapView.overlays.remove(it)
             mapView.overlays.add(it)
         }
     }
-    LaunchedEffect(obstacles, onObstacle != null) {
+    LaunchedEffect(obstacles, onObstacle != null, showSeamarks, obstaclesWithNotices) {
         obstacleMarkers.forEach { mapView.overlays.remove(it) }
         obstacleMarkers.clear()
         obstacles.forEach { o ->
             val m = Marker(mapView).apply {
                 position = GeoPoint(o.lat, o.lon)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                icon = ContextCompat.getDrawable(
-                    context,
-                    when (o.kind) {
-                        de.kewl.boatspeedy.nav.ObstacleKind.WEIR,
-                        de.kewl.boatspeedy.nav.ObstacleKind.DAM,
-                        -> R.drawable.ic_marker_weir
-                        de.kewl.boatspeedy.nav.ObstacleKind.BRIDGE -> R.drawable.ic_marker_bridge
-                        de.kewl.boatspeedy.nav.ObstacleKind.LANDING -> R.drawable.ic_marker_landing
-                        de.kewl.boatspeedy.nav.ObstacleKind.POWER -> R.drawable.ic_marker_power
-                        else -> R.drawable.ic_marker_lock
-                    },
-                )
+                val bruecke = o.kind == de.kewl.boatspeedy.nav.ObstacleKind.BRIDGE
+                icon = when {
+                    // **Eine Brücke, ein Schild.** OpenSeaMap zeichnet die Höhe schon in
+                    // die Kachel; ein eigenes Symbol daneben war doppelt. Dann bleibt nur
+                    // die Fläche zum Antippen.
+                    bruecke && showSeamarks -> seamarkHitArea(context)
+                    // Ohne Seezeichen trägt unser Symbol die Höhe selbst.
+                    bruecke && o.clearanceHeightM != null -> bridgeHeightDrawable(context, o.clearanceHeightM)
+                    else -> ContextCompat.getDrawable(
+                        context,
+                        when (o.kind) {
+                            de.kewl.boatspeedy.nav.ObstacleKind.WEIR,
+                            de.kewl.boatspeedy.nav.ObstacleKind.DAM,
+                            -> R.drawable.ic_marker_weir
+                            de.kewl.boatspeedy.nav.ObstacleKind.BRIDGE -> R.drawable.ic_marker_bridge
+                            de.kewl.boatspeedy.nav.ObstacleKind.LANDING -> R.drawable.ic_marker_landing
+                            de.kewl.boatspeedy.nav.ObstacleKind.POWER -> R.drawable.ic_marker_power
+                            else -> R.drawable.ic_marker_lock
+                        },
+                    )
+                }
                 title = o.name
                 // Nur was zu sagen hat, wird antippbar. Ein Tor ohne Merkmale würde nur
                 // eine leere Blase öffnen und den Eindruck erwecken, es sei etwas kaputt.
-                if (onObstacle != null && o.hasInfo) {
+                if (onObstacle != null && (o.hasInfo || o in obstaclesWithNotices)) {
                     setOnMarkerClickListener { _, _ -> onObstacle(o); true }
                 } else {
                     setOnMarkerClickListener { _, _ -> false }
@@ -524,6 +583,43 @@ fun OsmMap(
             obstacleMarkers.add(m)
             mapView.overlays.add(m)
         }
+        // Auch beim Umschalten der Seezeichen: Deren Ebene kommt dabei ganz nach unten
+        // und muss wieder über die Linien.
+        symboleNachOben()
+        mapView.invalidate()
+    }
+
+    // Pegel mit ihrem Wasserstand und Meldungen von ELWIS.
+    LaunchedEffect(gauges, notices) {
+        waterMarkers.forEach { mapView.overlays.remove(it) }
+        waterMarkers.clear()
+        gauges.forEach { g ->
+            waterMarkers.add(
+                Marker(mapView).apply {
+                    position = GeoPoint(g.lat, g.lon)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    icon = gaugeDrawable(context, g.valueCm, g.level)
+                    title = g.name
+                    setOnMarkerClickListener { _, _ -> onGauge?.invoke(g); onGauge != null }
+                },
+            )
+        }
+        notices.forEach { n ->
+            waterMarkers.add(
+                Marker(mapView).apply {
+                    position = GeoPoint(n.anchor.lat, n.anchor.lon)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    icon = ContextCompat.getDrawable(
+                        context,
+                        if (n.isClosure) R.drawable.ic_marker_notice_closed else R.drawable.ic_marker_notice,
+                    )
+                    title = n.places.first().name
+                    setOnMarkerClickListener { _, _ -> onNotice?.invoke(n); onNotice != null }
+                },
+            )
+        }
+        waterMarkers.forEach { mapView.overlays.add(it) }
+        symboleNachOben()
         mapView.invalidate()
     }
 
@@ -550,31 +646,26 @@ fun OsmMap(
     }
 
     /**
-     * Seezeichen zum Antippen. Der Marker selbst ist **durchsichtig** — gezeichnet hat
-     * die Kachel von OpenSeaMap das Symbol längst, hier geht es nur um die Trefferfläche
-     * und die Sprechblase.
+     * Seezeichen zum Antippen. Gezeichnet hat die Kachel von OpenSeaMap das Symbol längst,
+     * hier geht es nur um den Tipp, siehe [SeamarkTapOverlay].
      *
      * Vorher wurde bei jedem Tipp irgendwo auf der Karte nachgefragt, was dort steht.
      * Das hieß Warten und meistens „nichts gefunden". Aus den Kartendaten wissen wir
      * vorher, wo etwas ist — und was.
      */
-    val seamarkMarkers = remember(mapView) { mutableListOf<Marker>() }
-    DisposableEffect(seamarks) {
-        seamarkMarkers.forEach { mapView.overlays.remove(it) }
-        seamarkMarkers.clear()
-        val hit = seamarkHitArea(context)
-        seamarks.forEach { poi ->
-            val info = de.kewl.boatspeedy.nav.SeamarkSource.describe(poi.tags) ?: return@forEach
-            val m = Marker(mapView).apply {
-                position = GeoPoint(poi.lat, poi.lon)
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                icon = hit
-                title = info.title
-                snippet = (info.lines + info.raw).joinToString("\n")
+    val seamarkTap = remember(mapView) { SeamarkTapOverlay(context.resources.displayMetrics.density) }
+    DisposableEffect(seamarks, onSeamark) {
+        // Die Auskunft in der Sprache der App: Deutsch nur, wenn die App deutsch spricht.
+        val englisch = context.resources.configuration.locales[0].language != "de"
+        val list = seamarks.mapNotNull { poi ->
+            de.kewl.boatspeedy.nav.SeamarkSource.describe(poi.tags, englisch)?.let { info ->
+                Triple(GeoPoint(poi.lat, poi.lon), info, poi.tags["seamark:type"].orEmpty())
             }
-            seamarkMarkers.add(m)
-            mapView.overlays.add(m)
         }
+        seamarkTap.items = list.map { it.first to it.second }
+        seamarkTap.types = list.map { it.third }
+        seamarkTap.onTap = onSeamark
+        if (!mapView.overlays.contains(seamarkTap)) mapView.overlays.add(seamarkTap)
         // **Die Schleuse liegt über den Seezeichen.** osmdroid reicht einen Tipp in
         // umgekehrter Reihenfolge durch die Ebenen, das zuletzt Eingehängte fragt zuerst.
         // Bei Wettin liegen im Umkreis von 400 m ein Hafen, eine Slipanlage, ein Liegeplatz
@@ -596,7 +687,8 @@ fun OsmMap(
                     position = GeoPoint(sign.lat, sign.lon)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                     icon = speedSignDrawable(context, sign.kmh)
-                    title = sign.raw
+                    // Der Tipp geht durch zum Seezeichen darunter und öffnet dessen Auskunft.
+                    setOnMarkerClickListener { _, _ -> false }
                 }
                 signMarkers.add(m)
                 mapView.overlays.add(m)
@@ -722,6 +814,14 @@ fun OsmMap(
      */
     val reckoner = remember(mapView) { DeadReckoner() }
 
+    LaunchedEffect(focus?.key) {
+        val f = focus ?: return@LaunchedEffect
+        mapView.controller.animateTo(
+            GeoPoint(f.lat, f.lon),
+            maxOf(mapView.zoomLevelDouble, FOCUS_ZOOM),
+            600L,
+        )
+    }
     LaunchedEffect(recenterKey) {
         if (recenterKey <= 0) return@LaunchedEffect
         val la = reckoner.lat ?: currentLat ?: return@LaunchedEffect
@@ -876,6 +976,7 @@ fun AnchorMap(
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             setTilesScaledToDpi(true)
+            setZoomRounding(true)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
         }
     }
@@ -906,7 +1007,7 @@ fun AnchorMap(
         }
         if (!centered) {
             mapView.post {
-                runCatching { mapView.zoomToBoundingBox(BoundingBox.fromGeoPointsSafe(circle.points), false, 48) }
+                runCatching { mapView.zoomToWholeLevel(BoundingBox.fromGeoPointsSafe(circle.points), 48) }
             }
             centered = true
         }

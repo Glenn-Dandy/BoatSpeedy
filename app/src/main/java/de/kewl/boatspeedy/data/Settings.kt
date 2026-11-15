@@ -175,6 +175,8 @@ data class Settings(
     val craft: Craft = Craft.MOTORBOAT,
     /** Seezeichen (OpenSeaMap) über der Karte einblenden. */
     val seamarks: Boolean = true,
+    /** Pegel (PEGELONLINE) und Schifffahrtsmeldungen (ELWIS) der WSV auf der Karte. */
+    val waterInfo: Boolean = true,
     /** Norden oben, oder die Karte in Fahrtrichtung drehen. */
     val mapOrientation: MapOrientation = MapOrientation.NORTH,
     /** Positionssymbol als Motorboot oder Kanu nach [craft]; aus = der Pfeil. */

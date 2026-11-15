@@ -1,7 +1,7 @@
-## Seit 1.5.2
+## Seit 1.6.0
 
 Noch nichts.
 
-## Since 1.5.2
+## Since 1.6.0
 
 Nothing yet.

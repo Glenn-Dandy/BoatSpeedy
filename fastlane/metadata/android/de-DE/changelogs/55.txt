@@ -1,0 +1,5 @@
+1.6.0
+* Pegel und Schifffahrtsmeldungen der WSV auf der Karte und an der Route
+* Schleusen mit amtlichen Betriebszeiten und aktuellen Meldungen von ELWIS
+* Seezeichen in Klartext, auf Deutsch oder Englisch
+* Karte schärfer und aufgeräumter, Brücken mit nur einem Schild

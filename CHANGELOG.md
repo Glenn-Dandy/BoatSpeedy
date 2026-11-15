@@ -2,6 +2,38 @@
 
 Alle nennenswerten Änderungen an BoatSpeedy werden hier dokumentiert.
 
+## [1.6.0] - 2026-11-15
+
+### Neu
+- **Pegel und Schifffahrtsmeldungen der WSV.** Auf der Karte stehen Pegel mit
+  Wasserstand (PEGELONLINE) und Sperrungen oder Einschränkungen von ELWIS. Antippen zeigt
+  Lage und Änderung der letzten Stunde bzw. den Meldungstext im Wortlaut. Mit Route stehen
+  nur die Meldungen an der Route auf der Karte und im Kasten unten links, Sperrungen in
+  Rot. Der Ortsname im Meldungsfenster führt zur Stelle auf der Karte. Sind die Meldungen
+  älter als eine Stunde, etwa ohne Netz, steht ihr Stand dabei. Nur Bundeswasserstraßen,
+  abschaltbar unter Einstellungen, Navigation.
+- **Schleusen mit amtlichen Betriebszeiten und Meldungen.** Das Schleusenfenster zeigt die
+  Betriebszeiten von ELWIS je Zeitraum und Wochentag, mit Quelle. Weichen Kammern ab, etwa
+  eine Sportbootschleuse, steht jede für sich da. Darunter die aktuellen Meldungen, etwa
+  Sperrungen oder geänderte Zeiten. Ohne ELWIS-Zeiten bleiben die aus OSM. Die Zeiten holt
+  der Kachelserver einmal am Tag.
+- **wozise-Logo auf der Über-Seite**, antippen öffnet wozise.de.
+- **Kartendaten:** Die App nennt dem Kachelserver ihre Version.
+
+### Geändert
+- **Seezeichen verständlich.** Schilder zeigen oben fett ihre Art („Verbot") und darunter
+  ihre Bedeutung („Wenden verboten"), dann Hinweistext und Richtung („gilt zu Berg und zu
+  Tal"). Mehrere Schilder an einem Mast stehen einzeln da. Tonnen, Baken, Häfen,
+  Sportbooteinrichtungen und weitere Zeichen in Klartext, auf Deutsch oder Englisch nach
+  App-Sprache. Nicht Übersetzbares liegt eingeklappt unter „Weitere Angaben". Antippen
+  trifft das nächste Zeichen, nicht mehr die Dalbe daneben.
+- **Brücken: nur noch ein Schild.** Mit Seezeichen zeigt OpenSeaMap die Höhe und unser
+  Symbol entfällt, ohne Seezeichen trägt unser Symbol die Höhe als Zahl. Die Seezeichen
+  liegen jetzt über der Routenlinie.
+- **Karte schärfer:** Der Zoom rastet auf ganze Stufen ein.
+- **Karte aufgeräumt:** Schleusen, Wehre und Kraftwerke erscheinen erst beim
+  Hineinzoomen, zusammen mit den Seezeichen. Brücken und Anleger kommen früher.
+
 ## [1.5.2] - 2026-10-25
 
 ### Neu

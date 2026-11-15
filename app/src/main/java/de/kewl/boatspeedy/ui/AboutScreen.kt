@@ -50,8 +50,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -259,6 +261,18 @@ fun AboutScreen(
                     modifier = Modifier.clickable { openUrl(Repo.WEBSITE_URL) },
                 )
             }
+            Spacer(Modifier.size(12.dp))
+            Image(
+                painterResource(
+                    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
+                        R.drawable.ic_wozise_logo_dark
+                    } else {
+                        R.drawable.ic_wozise_logo
+                    },
+                ),
+                contentDescription = Repo.WEBSITE_LABEL,
+                modifier = Modifier.clickable { openUrl(Repo.WEBSITE_URL) },
+            )
             Spacer(Modifier.size(24.dp))
         }
     }

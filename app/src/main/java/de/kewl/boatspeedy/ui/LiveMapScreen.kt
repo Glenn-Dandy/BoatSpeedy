@@ -70,6 +70,7 @@ import de.kewl.boatspeedy.data.Settings
 import de.kewl.boatspeedy.nav.LandingKind
 import de.kewl.boatspeedy.nav.LatLon
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import de.kewl.boatspeedy.nav.MapTiles
 import de.kewl.boatspeedy.nav.NavMode
 import de.kewl.boatspeedy.nav.NavRepository
@@ -82,6 +83,10 @@ import de.kewl.boatspeedy.nav.SpeedSignSource
 import de.kewl.boatspeedy.nav.RouteError
 import de.kewl.boatspeedy.nav.RouteResult
 import de.kewl.boatspeedy.nav.WaterRouter
+import de.kewl.boatspeedy.nav.Gauge
+import de.kewl.boatspeedy.nav.Gauges
+import de.kewl.boatspeedy.nav.WaterNotice
+import de.kewl.boatspeedy.nav.WaterNotices
 import de.kewl.boatspeedy.nav.bearingDeg
 import de.kewl.boatspeedy.nav.distanceM
 import de.kewl.boatspeedy.nav.relativeBearing
@@ -201,6 +206,10 @@ fun LiveMapScreen(
     var craftHint by remember { mutableStateOf<CraftHint?>(null) }
     // Angetippte Schleuse — Öffnungszeiten, Telefon, Maße.
     var obstacleInfo by remember { mutableStateOf<de.kewl.boatspeedy.nav.Obstacle?>(null) }
+    var gaugeInfo by remember { mutableStateOf<Gauge?>(null) }
+    var noticeInfo by remember { mutableStateOf<List<WaterNotice>?>(null) }
+    var seamarkInfo by remember { mutableStateOf<de.kewl.boatspeedy.nav.SeamarkInfo?>(null) }
+    var focus by remember { mutableStateOf<FocusRequest?>(null) }
     val scope = rememberCoroutineScope()
 
     // Verbrauch je Kilometer aus der laufenden Fahrt; erst ab etwas Strecke sinnvoll.
@@ -392,10 +401,95 @@ fun LiveMapScreen(
             // Gedeckelt: Am Elbe-Lübeck-Kanal stehen allein in einer Kachel 146 Brücken
             // mit Höhenangabe. Auf Zoomstufe 11 wäre der halbe Bildschirm voller Symbole.
             WaterRouter.obstaclesIn(dir, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
-                // Ein- und Ausstiege erst näher dran. Es sind viele, und sie betreffen
-                // nur den, der schon am Wehr steht, nicht den, der die Fahrt plant.
-                .filter { it.kind != ObstacleKind.LANDING || zoomLevel >= LANDING_MIN_ZOOM }
+                // Brücken und Anleger schon von weitem, alles andere erst näher dran: OSM
+                // kennt Wehre an jedem Bach und Graben, auch wo nie ein Boot fährt. In
+                // Berlin stand sonst ein Dutzend roter Zeichen da.
+                .filter {
+                    it.kind == ObstacleKind.BRIDGE || it.kind == ObstacleKind.LANDING ||
+                        zoomLevel >= OBSTACLE_DETAIL_MIN_ZOOM
+                }
                 .take(MAX_OBSTACLES)
+        }
+    }
+
+    // **Pegel und Schifffahrtsmeldungen der WSV.** Beide gelten für ganz Deutschland und
+    // sind klein genug, um sie am Stück zu halten: Pegel direkt von PEGELONLINE, die
+    // Meldungen von ELWIS über den Kachelserver. Nur im Vordergrund nachgefragt.
+    var allGauges by remember { mutableStateOf<List<Gauge>>(emptyList()) }
+    var allNotices by remember { mutableStateOf<List<WaterNotice>>(emptyList()) }
+    var noticesAt by remember { mutableStateOf<java.time.Instant?>(null) }
+    var allLockHours by remember { mutableStateOf<List<de.kewl.boatspeedy.nav.LockHours>>(emptyList()) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(settings.waterInfo) {
+        if (!settings.waterInfo) {
+            allGauges = emptyList()
+            allNotices = emptyList()
+            allLockHours = emptyList()
+            return@LaunchedEffect
+        }
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                allGauges = withContext(Dispatchers.IO) { Gauges.load(context.cacheDir) }
+                allNotices = withContext(Dispatchers.IO) { WaterNotices.load(context.cacheDir) }
+                allLockHours = withContext(Dispatchers.IO) {
+                    de.kewl.boatspeedy.nav.LockHoursSource.load(context.cacheDir)
+                }
+                noticesAt = withContext(Dispatchers.IO) { WaterNotices.generatedAt(context.cacheDir) }
+                delay(WATER_INFO_REFRESH_MS)
+            }
+        }
+    }
+    // Was heute und in den nächsten Tagen gilt. Eine Anordnung, die erst nächste Woche
+    // beginnt, stört die Fahrt von heute nicht.
+    val activeNotices = remember(allNotices) {
+        val heute = java.time.LocalDate.now()
+        allNotices.filter { WaterNotices.activeBetween(it, heute, heute.plusDays(NOTICE_DAYS_AHEAD)) }
+    }
+    val visibleGauges = remember(allGauges, mapBox, zoomLevel, weatherMode) {
+        val box = mapBox
+        if (weatherMode || box == null || zoomLevel < WATER_INFO_MIN_ZOOM) {
+            emptyList()
+        } else {
+            Gauges.inBox(allGauges, box.latSouth, box.lonWest, box.latNorth, box.lonEast).take(MAX_WATER_MARKERS)
+        }
+    }
+    // Was an der Route liegt, steht immer auf der Karte, auch weit herausgezoomt.
+    val routeNotices = remember(activeNotices, navTarget) {
+        navTarget?.takeIf { it.mode == NavMode.ROUTE }?.let { t ->
+            WaterNotices.alongRoute(activeNotices, t.water.ifEmpty { t.path })
+        }.orEmpty()
+    }
+    val shownObstacles = remember(navTarget, areaObstacles) {
+        (navTarget?.obstacles.orEmpty() + areaObstacles).distinctBy { "%.4f,%.4f".format(it.lat, it.lon) }
+    }
+    // Schleusen mit Meldungen von ELWIS. Sie sind antippbar, auch wenn OSM nichts über sie
+    // weiß: Eine Sperrung ist genau das, was man an der Schleuse wissen will.
+    val locksWithNotices = remember(shownObstacles, activeNotices, allLockHours) {
+        if (activeNotices.isEmpty() && allLockHours.isEmpty()) {
+            emptySet()
+        } else {
+            // Auch mit Betriebszeiten von ELWIS: Die will man wissen, bevor man ankommt.
+            shownObstacles.filter { it.kind == ObstacleKind.LOCK && !it.isGate }
+                .filter {
+                    WaterNotices.atLock(activeNotices, it.lat, it.lon, it.line).isNotEmpty() ||
+                        de.kewl.boatspeedy.nav.LockHoursSource.atLock(allLockHours, it.lat, it.lon, it.line).isNotEmpty()
+                }
+                .toSet()
+        }
+    }
+    // Mit Route nur, was an ihr liegt. In Berlin stehen sonst Dutzende Meldungen auf der
+    // Karte, und die eine an der eigenen Strecke geht darin unter.
+    val routeActive = navTarget?.mode == NavMode.ROUTE
+    val visibleNotices = remember(activeNotices, routeNotices, routeActive, mapBox, zoomLevel, weatherMode) {
+        val box = mapBox
+        when {
+            weatherMode -> emptyList()
+            routeActive -> routeNotices
+            box == null || zoomLevel < WATER_INFO_MIN_ZOOM -> routeNotices
+            else -> (
+                routeNotices + WaterNotices.inBox(activeNotices, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
+                    .take(MAX_WATER_MARKERS)
+                ).distinctBy { it.id }
         }
     }
 
@@ -563,10 +657,10 @@ fun LiveMapScreen(
                 obstacles = if (weatherMode) {
                     emptyList()
                 } else {
-                    (navTarget?.obstacles.orEmpty() + areaObstacles)
-                        .distinctBy { "%.4f,%.4f".format(it.lat, it.lon) }
+                    shownObstacles
                 },
                 onObstacle = { obstacleInfo = it },
+                obstaclesWithNotices = locksWithNotices,
                 navBlockedPaths = if (weatherMode) emptyList() else navTarget?.restricted.orEmpty(),
                 navPortagePaths = if (weatherMode) emptyList() else navTarget?.portage.orEmpty(),
                 flowRivers = flowRivers,
@@ -576,6 +670,12 @@ fun LiveMapScreen(
                 showSeamarks = settings.seamarks && !weatherMode,
                 speedSigns = speedSigns,
                 seamarks = seamarks,
+                onSeamark = { seamarkInfo = it },
+                focus = focus,
+                gauges = visibleGauges,
+                onGauge = { gaugeInfo = it },
+                notices = visibleNotices,
+                onNotice = { noticeInfo = listOf(it) },
                 planStart = if (weatherMode) null else planStart,
                 // In der Wetteransicht bleibt Norden oben: dort betrachtet man Regen,
                 // man fährt nicht.
@@ -728,8 +828,10 @@ fun LiveMapScreen(
                 // Umtragen steht in Metern: Es sind selten mehr als ein paar hundert, und
                 // gerundete Kilometer würden daraus eine Null machen.
                 val umtragenM = t.portageM.takeIf { it >= 1.0 }?.roundToInt()
+                val sperrungen = routeNotices.count { it.isClosure }
+                val meldungen = routeNotices.size - sperrungen
                 if (locks > 0 || weirs > 0 || restrictedKm != null || aufKm != null ||
-                    abKm != null || umtragenM != null
+                    abKm != null || umtragenM != null || routeNotices.isNotEmpty()
                 ) {
                     Surface(
                         modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 16.dp),
@@ -764,6 +866,26 @@ fun LiveMapScreen(
                                         if (km < 10) String.format(Locale.getDefault(), "%.1f", km) else km.roundToInt().toString(),
                                     ),
                                     color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                            // Meldungen von ELWIS: Sperrungen in Rot, der Rest zum Nachlesen.
+                            // Antippen zeigt alle im Wortlaut.
+                            if (sperrungen > 0) {
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_marker_notice_closed,
+                                    text = if (sperrungen == 1) stringResource(R.string.nav_notices_closed_one)
+                                    else stringResource(R.string.nav_notices_closed, sperrungen),
+                                    color = MaterialTheme.colorScheme.error,
+                                    onClick = { noticeInfo = routeNotices },
+                                )
+                            }
+                            if (meldungen > 0) {
+                                ObstacleLine(
+                                    iconRes = R.drawable.ic_marker_notice,
+                                    text = if (meldungen == 1) stringResource(R.string.nav_notices_other_one)
+                                    else stringResource(R.string.nav_notices_other, meldungen),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    onClick = { noticeInfo = routeNotices },
                                 )
                             }
                             // Umtragen ist kein Hindernis, sondern der Weg daran vorbei.
@@ -1048,6 +1170,20 @@ fun LiveMapScreen(
     // Auskunft zu einer angetippten Schleuse. Die Angaben stehen so da, wie OSM sie führt
     // — die Öffnungszeiten zu übersetzen hieße, sie zu raten, und davor steht man dann am
     // geschlossenen Tor.
+    gaugeInfo?.let { g -> GaugeDialog(g) { gaugeInfo = null } }
+    noticeInfo?.let { n ->
+        NoticeDialog(
+            n,
+            stand = noticesAt,
+            onGoTo = { p ->
+                noticeInfo = null
+                follow = false
+                focus = FocusRequest((focus?.key ?: 0) + 1, p.lat, p.lon)
+            },
+        ) { noticeInfo = null }
+    }
+    seamarkInfo?.let { i -> SeamarkDialog(i) { seamarkInfo = null } }
+
     obstacleInfo?.let { o ->
         AlertDialog(
             onDismissRequest = { obstacleInfo = null },
@@ -1065,7 +1201,7 @@ fun LiveMapScreen(
                 )
             },
             text = {
-                Column {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     // Wozu die Stelle am Ufer taugt. Ohne das stünde dort nur ein Name
                     // oder gar nichts, und das Symbol bliebe ein Rätsel.
                     o.landingKind?.let {
@@ -1089,11 +1225,22 @@ fun LiveMapScreen(
                     o.clearanceWidthM?.let {
                         InfoZeile(stringResource(R.string.bridge_width), "$it m")
                     }
-                    o.openingHours?.let {
-                        InfoZeile(
-                            stringResource(R.string.lock_hours),
-                            de.kewl.boatspeedy.nav.openingHoursLines(it),
-                        )
+                    // Die Zeiten von ELWIS gehen vor: Sie sind amtlich und vollständig, in
+                    // OSM fehlen sie oft oder sind veraltet. Nur ohne sie bleibt OSM.
+                    val elwisZeiten = remember(o, allLockHours) {
+                        if (o.kind == ObstacleKind.LOCK) {
+                            de.kewl.boatspeedy.nav.LockHoursSource.atLock(allLockHours, o.lat, o.lon, o.line)
+                        } else {
+                            emptyList()
+                        }
+                    }
+                    if (elwisZeiten.isEmpty()) {
+                        o.openingHours?.let {
+                            InfoZeile(
+                                stringResource(R.string.lock_hours),
+                                de.kewl.boatspeedy.nav.openingHoursLines(it),
+                            )
+                        }
                     }
                     o.phone?.let { InfoZeile(stringResource(R.string.lock_phone), it) }
                     o.vhf?.let { InfoZeile(stringResource(R.string.lock_vhf), it) }
@@ -1102,6 +1249,17 @@ fun LiveMapScreen(
                         InfoZeile(stringResource(R.string.lock_size), "${masse[0]} × ${masse[1]} m")
                     }
                     o.cemt?.let { InfoZeile(stringResource(R.string.lock_cemt), it) }
+                    if (elwisZeiten.isNotEmpty()) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+                        LockHoursEntries(elwisZeiten)
+                    }
+                    // Was heute an der Schleuse gilt: Sperrungen, geänderte Zeiten, Hinweise.
+                    if (o.kind == ObstacleKind.LOCK) {
+                        val meldungen = remember(o, activeNotices) {
+                            WaterNotices.atLock(activeNotices, o.lat, o.lon, o.line)
+                        }
+                        NoticeEntries(meldungen, onGoTo = null, stand = noticesAt)
+                    }
                 }
             },
             confirmButton = {
@@ -1222,8 +1380,16 @@ private fun InfoZeile(label: String, wert: String) {
 
 /** Eine Zeile im Hinderniskasten: Symbol plus Anzahl. */
 @Composable
-private fun ObstacleLine(iconRes: Int, text: String, color: androidx.compose.ui.graphics.Color) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 1.dp)) {
+private fun ObstacleLine(
+    iconRes: Int,
+    text: String,
+    color: androidx.compose.ui.graphics.Color,
+    onClick: (() -> Unit)? = null,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = (if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 1.dp),
+    ) {
         Icon(
             painterResource(iconRes),
             contentDescription = null,
@@ -1245,13 +1411,25 @@ private val GERMANY_CENTER = LatLon(51.2, 10.4)
 private const val SEAMARK_MIN_ZOOM = 13.0
 
 /**
- * Ab hier werden Schleusen und Wehre im Blickfeld gezeigt. Etwas früher als bei den
- * Seezeichen: Es sind viel weniger, und wo eine Schleuse liegt, will man früher wissen.
+ * Ab hier Pegel und Meldungen im Blickfeld. Sie sind dünn gesät, an der Elbe etwa alle
+ * 20 km ein Pegel, und auf rund 60 km Blickbreite will man sie schon sehen.
  */
+private const val WATER_INFO_MIN_ZOOM = 10.0
+
+/** Höchstens so viele Pegel und so viele Meldungen auf einmal. */
+private const val MAX_WATER_MARKERS = 40
+
+/** PEGELONLINE meldet alle 15 Minuten, der Kachelserver holt ELWIS alle 30. */
+private const val WATER_INFO_REFRESH_MS = 15 * 60_000L
+
+/** Meldungen, die heute oder in den nächsten zwei Tagen gelten. */
+private const val NOTICE_DAYS_AHEAD = 2L
+
+/** Ab hier werden Brücken und Anleger im Blickfeld gezeigt, etwas früher als der Rest. */
 private const val OBSTACLE_MIN_ZOOM = 11.0
 
-/** Ab hier stehen auch die Ein- und Ausstiege am Ufer auf der Karte. */
-private const val LANDING_MIN_ZOOM = 13.0
+/** Ab hier auch Schleusen, Wehre und Kraftwerke, zusammen mit den Seezeichen. */
+private const val OBSTACLE_DETAIL_MIN_ZOOM = 13.0
 
 /** Ab hier zeigen Winkel auf den Flüssen die Fließrichtung. */
 private const val FLOW_MIN_ZOOM = 14.0
