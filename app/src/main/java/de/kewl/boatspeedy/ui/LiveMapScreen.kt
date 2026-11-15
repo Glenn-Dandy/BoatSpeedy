@@ -472,7 +472,7 @@ fun LiveMapScreen(
         when {
             weatherMode -> emptyList()
             routeActive -> routeNotices
-            box == null || zoomLevel < WATER_INFO_MIN_ZOOM -> routeNotices
+            box == null || zoomLevel < NOTICE_MIN_ZOOM -> routeNotices
             else -> (
                 routeNotices + WaterNotices.inBox(activeNotices, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
                     .take(MAX_WATER_MARKERS)
@@ -1383,10 +1383,17 @@ private val GERMANY_CENTER = LatLon(51.2, 10.4)
 private const val SEAMARK_MIN_ZOOM = 13.0
 
 /**
- * Ab hier Pegel und Meldungen im Blickfeld. Sie sind dünn gesät, an der Elbe etwa alle
+ * Ab hier Pegel im Blickfeld. Sie sind dünn gesät, an der Elbe etwa alle
  * 20 km ein Pegel, und auf rund 60 km Blickbreite will man sie schon sehen.
  */
 private const val WATER_INFO_MIN_ZOOM = 10.0
+
+/**
+ * Meldungen im Blickfeld erst ab hier, zusammen mit den Seezeichen. Weiter draußen
+ * stehen in Berlin und an der Elbe so viele Ausrufezeichen, dass die Karte darunter
+ * verschwindet. Meldungen an der Route stehen trotzdem immer da.
+ */
+private const val NOTICE_MIN_ZOOM = SEAMARK_MIN_ZOOM
 
 /** Höchstens so viele Pegel und so viele Meldungen auf einmal. */
 private const val MAX_WATER_MARKERS = 40
