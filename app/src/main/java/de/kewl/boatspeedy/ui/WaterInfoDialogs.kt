@@ -26,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -183,7 +185,7 @@ private fun NoticeBody(n: WaterNotice, mitName: Boolean, onGoTo: ((LatLon) -> Un
     zeitraum(n.from, n.to)?.let { Zeile(stringResource(R.string.notice_valid), it) }
     n.text?.let {
         Spacer(Modifier.height(4.dp))
-        SelectionContainer { Text(it.trim(), fontSize = 13.sp) }
+        SelectionContainer { Text(noticeText(it), fontSize = 13.sp) }
     }
     n.by?.let { Quelle(it) }
 }
@@ -256,6 +258,21 @@ fun SeamarkDialog(info: SeamarkInfo, onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         },
     )
+}
+
+/**
+ * Der Meldungstext, so wie ELWIS ihn gestaltet hat. Einige Stellen schreiben HTML hinein
+ * (`<p>`, `<br>`, `<font color="red"><b>`). Roh angezeigt stand das Markup mitten im Text.
+ * Der Wortlaut bleibt unverändert, nur die Auszeichnung wird dargestellt.
+ */
+private val HTML_TAG = Regex("<\\s*/?\\s*[a-zA-Z][^>]*>")
+
+internal fun noticeText(raw: String): AnnotatedString {
+    if (!HTML_TAG.containsMatchIn(raw)) return AnnotatedString(raw.trim())
+    val html = AnnotatedString.fromHtml(raw.trim())
+    val start = html.text.indexOfFirst { !it.isWhitespace() }.coerceAtLeast(0)
+    val end = html.text.indexOfLast { !it.isWhitespace() } + 1
+    return if (end <= start) AnnotatedString("") else html.subSequence(start, end)
 }
 
 @Composable

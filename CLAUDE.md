@@ -124,4 +124,7 @@ das merkt man erst auf dem Wasser.
 - Akku: Daly/JK an echter Hardware prüfen, Redodo-Stromvorzeichen unter Last,
   Reihe/Parallel mit echtem Mehr-Akku-Aufbau.
 - Website: Radar- und Akku-Screenshots veraltet; Impressum/Datenschutz fehlen noch.
+- Vektorkarte (15.11.2026): Einrasten auf ganze Zoomstufen half wenig. Später auf einem
+  eigenen Zweig ausprobieren: MapLibre statt osmdroid, Quelle OpenFreeMap (austauschbar,
+  auch OSM-Shortbread oder eigener Server), OpenSeaMap als Bildebene darüber.
 - `TODO.md` ist seit Juli nicht gepflegt (`.aab` für Play Store usw.).
