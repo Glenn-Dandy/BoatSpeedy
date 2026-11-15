@@ -48,7 +48,7 @@ das merkt man erst auf dem Wasser.
   (F-Droid liest den versionName statisch aus).
 - Release-APK immer aus einem frischen Clone des Tags, von Gradle signiert.
 
-# Projektstand (13.10.2026)
+# Projektstand (15.11.2026)
 
 ## Eckdaten
 
@@ -83,6 +83,10 @@ das merkt man erst auf dem Wasser.
 
 ## Erledigt
 
+- **1.6.0** (versionCode 55, 15.11.2026): Pegel (PEGELONLINE) und ELWIS-Meldungen auf der
+  Karte und an der Route, Schleusen mit ELWIS-Betriebszeiten (`locks.json`, Dienst
+  `mapdata-locks`) und Meldungen, Seezeichen in Klartext DE/EN, ein Brückenschild, Zoom auf
+  ganze Stufen, Schleusen/Wehre/Kraftwerke erst ab Zoom 13 (Brücken, Anleger ab 11).
 - **1.5.2** (versionCode 53, 25.10.2026): Regenradar neu (fester Vorhersagelauf, Zoom 8,
   ohne GPS Deutschland, Ladebalken, runde Umrisse), Kanu umträgt `canoe=no`-Stücke wie ein
   Wehr (Zeiss-Wehr Saalfeld), wozise.de-Link auf der Über-Seite.
@@ -97,7 +101,8 @@ das merkt man erst auf dem Wasser.
   über ein Wehr; Hinweis zur Navigation unter „Über → Daten, Karten & Navigation";
   Symbole wieder über der Route. F-Droid hat 1.5.0 aufgenommen.
 - Ältere Versionen siehe `CHANGELOG.md`.
-- `dev` steht auf **1.5.3 / versionCode 54** (seit 25.10., wozise-Logo auf der Über-Seite).
+- `dev` steht nach dem Release noch auf **1.6.0 / versionCode 55**. Vor der nächsten
+  Änderung auf 1.6.1 / 56 öffnen, sonst lehnt Android die Dev-Builds ab.
 
 ## Wichtige Entscheidungen
 

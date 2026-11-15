@@ -1,0 +1,5 @@
+1.6.0
+* Gauges and waterway notices from the German waterways administration on the map and along the route
+* Locks with official operating hours and current notices from ELWIS
+* Seamarks in plain words, in English or German
+* Sharper, tidier map, bridges with a single sign
