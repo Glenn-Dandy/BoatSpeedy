@@ -61,6 +61,17 @@ import java.io.File
  * Position. [interactive]=false → schwenkfrei (für die Mini-Kachel; Tap/​Scroll regelt
  * ein Overlay in der aufrufenden UI).
  */
+/**
+ * Die Kacheln sind Bilder für ganze Zoomstufen. Auf einer Zwischenstufe wie 9,4 werden
+ * die Kacheln der Stufe 9 zusätzlich vergrößert, und die Karte wird unscharf. Deshalb
+ * rasten alle Karten auf ganze Stufen ein (`setZoomRounding`), auch beim Einpassen eines
+ * Bereichs: abgerundet, damit er ganz sichtbar bleibt.
+ */
+internal fun MapView.zoomToWholeLevel(box: BoundingBox, borderPx: Int) {
+    zoomToBoundingBox(box, false, borderPx)
+    controller.setZoom(kotlin.math.floor(zoomLevelDouble))
+}
+
 /** Eine Stelle, zu der die Karte einmal hinschieben soll. */
 data class FocusRequest(val key: Int, val lat: Double, val lon: Double)
 
@@ -183,6 +194,7 @@ fun OsmMap(
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(interactive)
             setTilesScaledToDpi(true)
+            setZoomRounding(true)
             zoomController.setVisibility(
                 if (interactive) CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT
                 else CustomZoomButtonsController.Visibility.NEVER,
@@ -968,6 +980,7 @@ fun AnchorMap(
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             setTilesScaledToDpi(true)
+            setZoomRounding(true)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
         }
     }
@@ -998,7 +1011,7 @@ fun AnchorMap(
         }
         if (!centered) {
             mapView.post {
-                runCatching { mapView.zoomToBoundingBox(BoundingBox.fromGeoPointsSafe(circle.points), false, 48) }
+                runCatching { mapView.zoomToWholeLevel(BoundingBox.fromGeoPointsSafe(circle.points), 48) }
             }
             centered = true
         }

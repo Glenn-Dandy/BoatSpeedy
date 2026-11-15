@@ -18,6 +18,8 @@
   darunter Hinweistext und Richtung („gilt zu Berg und zu Tal"). Mehrere Schilder an
   einem Mast stehen einzeln da. Tonnen und Baken ohne englische Kürzel, nicht
   Übersetzbares liegt eingeklappt unter „Weitere Angaben".
+- Karte: Der Zoom rastet auf ganze Stufen ein. Zwischenstufen vergrößerten die Kacheln
+  zusätzlich, die Karte wurde unscharf.
 
 ## Since 1.5.2
 
@@ -39,3 +41,5 @@
   extra text and direction below. Several signs on one post are listed one by one.
   Buoys and beacons without English codes, anything untranslated is folded away under
   "More details".
+- Map: zoom snaps to whole levels. In-between levels scaled the tiles up further and
+  made the map blurry.
