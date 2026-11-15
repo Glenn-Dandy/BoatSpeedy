@@ -313,13 +313,13 @@ fun SeamarkDialog(info: SeamarkInfo, onDismiss: () -> Unit) {
     var roh by remember(info) { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        // Bei einem Schild zweizeilig: oben fett was es ist („Verbot"), darunter ebenfalls
-        // fett und kleiner, was es sagt („Ankern verboten").
+        // Bei einem Schild zweizeilig: oben fett was es ist („Verbot"), darunter kleiner
+        // und normal, was es sagt („Ankern verboten"). Mehrere Schilder genauso.
         title = {
             Column {
                 Text(info.title, fontWeight = if (info.subtitle != null) FontWeight.Bold else null)
                 info.subtitle?.let {
-                    Text(it, fontSize = 18.sp, fontWeight = FontWeight.Bold, lineHeight = 22.sp)
+                    Text(it, fontSize = 18.sp, lineHeight = 22.sp)
                 }
             }
         },
@@ -329,7 +329,7 @@ fun SeamarkDialog(info: SeamarkInfo, onDismiss: () -> Unit) {
                 info.groups.forEachIndexed { i, g ->
                     if (i > 0 || info.lines.isNotEmpty()) Spacer(Modifier.height(12.dp))
                     g.function?.let { Text(it, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-                    Text(g.heading, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(g.heading, fontSize = 14.sp)
                     g.lines.forEach { Text(it, fontSize = 14.sp) }
                 }
                 if (info.raw.isNotEmpty()) {
