@@ -208,6 +208,8 @@ fun LiveMapScreen(
     var obstacleInfo by remember { mutableStateOf<de.kewl.boatspeedy.nav.Obstacle?>(null) }
     var gaugeInfo by remember { mutableStateOf<Gauge?>(null) }
     var noticeInfo by remember { mutableStateOf<List<WaterNotice>?>(null) }
+    var seamarkInfo by remember { mutableStateOf<de.kewl.boatspeedy.nav.SeamarkInfo?>(null) }
+    var focus by remember { mutableStateOf<FocusRequest?>(null) }
     val scope = rememberCoroutineScope()
 
     // Verbrauch je Kilometer aus der laufenden Fahrt; erst ab etwas Strecke sinnvoll.
@@ -446,10 +448,14 @@ fun LiveMapScreen(
             WaterNotices.alongRoute(activeNotices, t.water.ifEmpty { t.path })
         }.orEmpty()
     }
-    val visibleNotices = remember(activeNotices, routeNotices, mapBox, zoomLevel, weatherMode) {
+    // Mit Route nur, was an ihr liegt. In Berlin stehen sonst Dutzende Meldungen auf der
+    // Karte, und die eine an der eigenen Strecke geht darin unter.
+    val routeActive = navTarget?.mode == NavMode.ROUTE
+    val visibleNotices = remember(activeNotices, routeNotices, routeActive, mapBox, zoomLevel, weatherMode) {
         val box = mapBox
         when {
             weatherMode -> emptyList()
+            routeActive -> routeNotices
             box == null || zoomLevel < WATER_INFO_MIN_ZOOM -> routeNotices
             else -> (
                 routeNotices + WaterNotices.inBox(activeNotices, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
@@ -635,6 +641,8 @@ fun LiveMapScreen(
                 showSeamarks = settings.seamarks && !weatherMode,
                 speedSigns = speedSigns,
                 seamarks = seamarks,
+                onSeamark = { seamarkInfo = it },
+                focus = focus,
                 gauges = visibleGauges,
                 onGauge = { gaugeInfo = it },
                 notices = visibleNotices,
@@ -1134,7 +1142,17 @@ fun LiveMapScreen(
     // — die Öffnungszeiten zu übersetzen hieße, sie zu raten, und davor steht man dann am
     // geschlossenen Tor.
     gaugeInfo?.let { g -> GaugeDialog(g) { gaugeInfo = null } }
-    noticeInfo?.let { n -> NoticeDialog(n) { noticeInfo = null } }
+    noticeInfo?.let { n ->
+        NoticeDialog(
+            n,
+            onGoTo = { p ->
+                noticeInfo = null
+                follow = false
+                focus = FocusRequest((focus?.key ?: 0) + 1, p.lat, p.lon)
+            },
+        ) { noticeInfo = null }
+    }
+    seamarkInfo?.let { i -> SeamarkDialog(i) { seamarkInfo = null } }
 
     obstacleInfo?.let { o ->
         AlertDialog(

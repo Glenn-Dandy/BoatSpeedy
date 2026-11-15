@@ -1,5 +1,6 @@
 package de.kewl.boatspeedy.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +12,8 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,16 +24,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.kewl.boatspeedy.R
 import de.kewl.boatspeedy.nav.Gauge
 import de.kewl.boatspeedy.nav.GaugeLevel
 import de.kewl.boatspeedy.nav.Gauges
+import de.kewl.boatspeedy.nav.LatLon
 import de.kewl.boatspeedy.nav.NoticeLimit
 import de.kewl.boatspeedy.nav.NoticePeriod
+import de.kewl.boatspeedy.nav.SeamarkInfo
 import de.kewl.boatspeedy.nav.WaterNotice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -115,23 +122,28 @@ fun GaugeDialog(g: Gauge, onDismiss: () -> Unit) {
  * Nutzungsbedingungen. Darüber, was eingeschränkt ist und wann, aus den Codes der Meldung.
  */
 @Composable
-fun NoticeDialog(notices: List<WaterNotice>, onDismiss: () -> Unit) {
+fun NoticeDialog(notices: List<WaterNotice>, onGoTo: ((LatLon) -> Unit)?, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(
-                if (notices.size == 1) {
-                    notices[0].places.first().name ?: stringResource(R.string.notice_title)
-                } else {
-                    stringResource(R.string.notice_route_title)
-                },
-            )
+            if (notices.size == 1) {
+                val n = notices[0]
+                OrtLink(
+                    n.places.first().name ?: stringResource(R.string.notice_title),
+                    ziel = n.places.firstOrNull()?.points?.firstOrNull(),
+                    onGoTo = onGoTo,
+                    style = LocalTextStyle.current,
+                    farbe = LocalContentColor.current,
+                )
+            } else {
+                Text(stringResource(R.string.notice_route_title))
+            }
         },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 notices.forEachIndexed { i, n ->
                     if (i > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
-                    NoticeBody(n, mitName = notices.size > 1)
+                    NoticeBody(n, mitName = notices.size > 1, onGoTo = onGoTo)
                 }
                 Quelle(stringResource(R.string.notice_source))
                 Quelle(stringResource(R.string.notice_disclaimer))
@@ -144,13 +156,15 @@ fun NoticeDialog(notices: List<WaterNotice>, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun NoticeBody(n: WaterNotice, mitName: Boolean) {
+private fun NoticeBody(n: WaterNotice, mitName: Boolean, onGoTo: ((LatLon) -> Unit)?) {
     val ort = n.places.first()
     if (mitName) {
-        Text(
+        OrtLink(
             ort.name ?: stringResource(R.string.notice_title),
-            fontWeight = FontWeight.Bold,
-            color = if (n.isClosure) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+            ziel = ort.points.firstOrNull(),
+            onGoTo = onGoTo,
+            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Bold),
+            farbe = if (n.isClosure) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
         )
     }
     ort.fairway?.takeIf { it != ort.name }?.let {
@@ -172,6 +186,76 @@ private fun NoticeBody(n: WaterNotice, mitName: Boolean) {
         SelectionContainer { Text(it.trim(), fontSize = 13.sp) }
     }
     n.by?.let { Quelle(it) }
+}
+
+/**
+ * Ortsname als Link: Antippen schließt das Fenster und schiebt die Karte zur Stelle.
+ * Ohne Ziel oder ohne Karte bleibt es ein gewöhnlicher Text.
+ */
+@Composable
+private fun OrtLink(
+    text: String,
+    ziel: LatLon?,
+    onGoTo: ((LatLon) -> Unit)?,
+    style: androidx.compose.ui.text.TextStyle,
+    farbe: Color,
+) {
+    if (ziel == null || onGoTo == null) {
+        Text(text, style = style, color = farbe)
+        return
+    }
+    Text(
+        text,
+        style = style.copy(textDecoration = TextDecoration.Underline),
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .clickable(onClickLabel = stringResource(R.string.notice_show_on_map)) { onGoTo(ziel) }
+            .padding(vertical = 2.dp),
+    )
+}
+
+/**
+ * Auskunft zu einem Seezeichen. Was sich nicht übersetzen ließ, liegt eingeklappt unter
+ * „Weitere Angaben", damit es nicht stört und trotzdem nicht verloren geht.
+ */
+@Composable
+fun SeamarkDialog(info: SeamarkInfo, onDismiss: () -> Unit) {
+    var roh by remember(info) { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(info.title) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                info.lines.forEach { Text(it, fontSize = 14.sp) }
+                info.groups.forEachIndexed { i, g ->
+                    if (i > 0 || info.lines.isNotEmpty()) Spacer(Modifier.height(10.dp))
+                    Text(g.heading, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    g.lines.forEach { Text(it, fontSize = 14.sp) }
+                }
+                if (info.raw.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        (if (roh) "▾ " else "▸ ") + stringResource(R.string.seamark_more),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { roh = !roh }.padding(vertical = 6.dp),
+                    )
+                    if (roh) {
+                        SelectionContainer {
+                            Text(
+                                info.raw.joinToString("\n"),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+        },
+    )
 }
 
 @Composable

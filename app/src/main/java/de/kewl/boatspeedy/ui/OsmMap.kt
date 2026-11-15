@@ -61,6 +61,12 @@ import java.io.File
  * Position. [interactive]=false → schwenkfrei (für die Mini-Kachel; Tap/​Scroll regelt
  * ein Overlay in der aufrufenden UI).
  */
+/** Eine Stelle, zu der die Karte einmal hinschieben soll. */
+data class FocusRequest(val key: Int, val lat: Double, val lon: Double)
+
+/** So weit wird hineingezoomt, wenn die Karte zu einer Stelle springt. */
+private const val FOCUS_ZOOM = 14.0
+
 @Composable
 fun OsmMap(
     points: List<TrackPoint>,
@@ -120,12 +126,19 @@ fun OsmMap(
     speedSigns: List<de.kewl.boatspeedy.nav.SpeedSign> = emptyList(),
     /** Antippbare Seezeichen aus den Kartendaten – die Kacheln selbst sind nur Bilder. */
     seamarks: List<de.kewl.boatspeedy.nav.SeamarkPoi> = emptyList(),
+    /** Antippen eines Seezeichens. Ohne öffnet sich die Sprechblase von osmdroid. */
+    onSeamark: ((de.kewl.boatspeedy.nav.SeamarkInfo) -> Unit)? = null,
     /** Pegel der WSV mit Wasserstand. */
     gauges: List<de.kewl.boatspeedy.nav.Gauge> = emptyList(),
     onGauge: ((de.kewl.boatspeedy.nav.Gauge) -> Unit)? = null,
     /** Schifffahrtsmeldungen von ELWIS. */
     notices: List<de.kewl.boatspeedy.nav.WaterNotice> = emptyList(),
     onNotice: ((de.kewl.boatspeedy.nav.WaterNotice) -> Unit)? = null,
+    /**
+     * Einmal zu einer Stelle schieben, etwa zu einer Meldung. Jede neue Anfrage (neuer
+     * [FocusRequest.key]) schiebt einmal, unter Zoom 14 wird dabei hineingezoomt.
+     */
+    focus: FocusRequest? = null,
     /**
      * Wohin die Karte geht, solange es keine Position gibt, und mit welchem Zoom. `null`
      * heißt warten. Die Wetteransicht braucht keinen Fix: Ohne Position blieb sie leer, das
@@ -639,7 +652,9 @@ fun OsmMap(
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 icon = hit
                 title = info.title
-                snippet = (info.lines + info.raw).joinToString("\n")
+                snippet = (info.lines + info.groups.flatMap { listOf(it.heading) + it.lines } + info.raw)
+                    .joinToString("\n")
+                if (onSeamark != null) setOnMarkerClickListener { _, _ -> onSeamark(info); true }
             }
             seamarkMarkers.add(m)
             mapView.overlays.add(m)
@@ -791,6 +806,14 @@ fun OsmMap(
      */
     val reckoner = remember(mapView) { DeadReckoner() }
 
+    LaunchedEffect(focus?.key) {
+        val f = focus ?: return@LaunchedEffect
+        mapView.controller.animateTo(
+            GeoPoint(f.lat, f.lon),
+            maxOf(mapView.zoomLevelDouble, FOCUS_ZOOM),
+            600L,
+        )
+    }
     LaunchedEffect(recenterKey) {
         if (recenterKey <= 0) return@LaunchedEffect
         val la = reckoner.lat ?: currentLat ?: return@LaunchedEffect
