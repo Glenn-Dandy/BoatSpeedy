@@ -15,8 +15,11 @@ import org.json.JSONObject
 fun openingHoursLines(raw: String): String =
     raw.split(";").map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
 
-/** Ein Schild von mehreren am selben Mast. */
-data class SeamarkGroup(val heading: String, val lines: List<String>)
+/**
+ * Ein Schild von mehreren am selben Mast: was es ist ([function], etwa „Verbot") und was
+ * es sagt ([heading], etwa „Ankern verboten").
+ */
+data class SeamarkGroup(val function: String?, val heading: String, val lines: List<String>)
 
 /** Ein Seezeichen an der angetippten Stelle, in lesbarer Form. */
 data class SeamarkInfo(
@@ -27,6 +30,8 @@ data class SeamarkInfo(
     val raw: List<String>,
     /** Mehrere Schilder an einem Mast (`notice:1:`, `notice:2:` …), je eins mit Überschrift. */
     val groups: List<SeamarkGroup> = emptyList(),
+    /** Zweite Zeile unter dem Titel, fett: bei einem Schild seine Bedeutung. */
+    val subtitle: String? = null,
 )
 
 /**
@@ -102,6 +107,45 @@ object SeamarkSource {
         "obstruction" to "Hindernis",
         "cable_submarine" to "Unterwasserkabel",
         "pipeline_submarine" to "Unterwasserleitung",
+        "small_craft_facility" to "Für Sportboote",
+        "seabed_area" to "Gewässergrund",
+        "gate" to "Tor",
+        "signal_station_traffic" to "Signalstelle",
+        "signal_station_warning" to "Warnsignalstelle",
+        "signal_station" to "Signalstelle",
+        "cable_overhead" to "Freileitung",
+        "pipeline_overhead" to "Rohrleitung über dem Wasser",
+        "weed" to "Bewuchs",
+        "seagrass" to "Seegras",
+        "rescue_station" to "Rettungsstation",
+        "building" to "Gebäude",
+        "anchor_berth" to "Ankerplatz",
+        "crane" to "Kran",
+        "buoy_installation" to "Anlagetonne",
+        "waterway_gauge" to "Pegel",
+        "calling-in_point" to "Meldepunkt",
+        "shoreline_construction" to "Uferbauwerk",
+        "sea_area" to "Gewässer",
+        "radar_station" to "Radarstation",
+        "radar_reflector" to "Radarreflektor",
+        "pilot_boarding" to "Lotsenversetzpunkt",
+        "fishing_facility" to "Fischereianlage",
+        "daymark" to "Tageszeichen",
+        "pylon" to "Mast",
+        "radio_station" to "Funkstation",
+        "virtual_aton" to "Virtuelles Seezeichen",
+        "marine_farm" to "Aquakultur",
+        "coastguard_station" to "Küstenwache",
+        "minor_berth" to "Liegeplatz",
+        "turning_basin" to "Wendebecken",
+        "bunker_station" to "Bunkerstation",
+        "pontoon" to "Ponton",
+        "fog_signal" to "Nebelsignal",
+        "tank" to "Tank",
+        "dam" to "Damm",
+        "buoy" to "Tonne",
+        "light" to "Leuchtfeuer",
+        "light_float" to "Leuchttonne",
     )
 
     private val COLOURS = mapOf(
@@ -109,18 +153,21 @@ object SeamarkSource {
         "white" to "weiß", "blue" to "blau", "orange" to "orange", "grey" to "grau",
         "brown" to "braun", "amber" to "bernstein", "violet" to "violett",
         "magenta" to "magenta",
+        "pink" to "rosa",
     )
 
     private val BUOY_SHAPES = mapOf(
         "conical" to "Spitztonne", "can" to "Stumpftonne", "spherical" to "Kugeltonne",
         "pillar" to "Bakentonne", "spar" to "Spierentonne", "barrel" to "Fasstonne",
         "super-buoy" to "Großtonne", "ice-buoy" to "Eistonne",
+        "sphere" to "Kugeltonne",
     )
 
     private val BEACON_SHAPES = mapOf(
         "stake" to "Stangenbake", "pole" to "Stangenbake", "pile" to "Pfahlbake",
         "withy" to "Pricke", "tower" to "Turmbake", "lattice" to "Gitterbake",
         "cairn" to "Steinbake", "buoyant" to "schwimmende Bake",
+        "perch" to "Pricke", "post" to "Pfahlbake", "dolphin" to "Dalbe",
     )
 
     /** Toppzeichen und Tageszeichen, so wie sie in der Seekarte beschrieben werden. */
@@ -135,6 +182,14 @@ object SeamarkSource {
         "x-shape" to "Kreuz (X)", "cross" to "Kreuz", "square" to "Quadrat",
         "board" to "Tafel", "rhombus" to "Raute", "triangle, point up" to "Dreieck, Spitze oben",
         "triangle, point down" to "Dreieck, Spitze unten", "flag" to "Flagge",
+        "sphere over rhombus" to "Kugel über Raute",
+        "cylinder over sphere" to "Zylinder über Kugel",
+        "cone, point up over sphere" to "Kegel, Spitze oben, über Kugel",
+        "besom, point up" to "Besen, Spitze oben",
+        "besom, point down" to "Besen, Spitze unten",
+        "rectangle, vertical" to "Rechteck, senkrecht",
+        "rectangle, horizontal" to "Rechteck, waagerecht",
+        "circle" to "Kreis",
     )
 
     private val CARDINALS = mapOf(
@@ -163,6 +218,13 @@ object SeamarkSource {
         "harbour_left" to "Hafeneinfahrt links",
         "harbour_right" to "Hafeneinfahrt rechts",
         "bridge_pier" to "Brückenpfeiler",
+        "channel_left_bank" to "Fahrrinne am linken Ufer",
+        "channel_right_bank" to "Fahrrinne am rechten Ufer",
+        "crossover_left" to "Übergang der Fahrrinne zum linken Ufer",
+        "crossover_right" to "Übergang der Fahrrinne zum rechten Ufer",
+        "waterway_separation" to "Wasserstraßenteilung",
+        "lateral_port" to "Backbord",
+        "lateral_starboard" to "Steuerbord",
     )
 
     /** Was ein Schild ist: die fünf Gruppen der Binnenschifffahrtszeichen (A bis E). */
@@ -172,6 +234,7 @@ object SeamarkSource {
         "restriction" to "Einschränkung",
         "recommendation" to "Empfehlung",
         "information" to "Hinweis",
+        "recommandation" to "Empfehlung",
     )
 
     /** Was auf dem Schild steht. */
@@ -283,6 +346,23 @@ object SeamarkSource {
         "waterbikes_permitted" to "Wassermotorräder erlaubt",
         "radio_information" to "Nautischer Informationsfunk",
         "speed_limit_ends" to "Ende der Geschwindigkeitsbegrenzung",
+        // Kommen so in den Daten vor, meist als Schreibvariante.
+        "berthing_lateral_limits" to "Liegen erlaubt in der angegebenen Breite",
+        "berthing_rafting_limit" to "Liegen erlaubt, Fahrzeuge nebeneinander höchstens",
+        "no_swimming" to "Baden verboten",
+        "entry_permitted" to "Einfahrt erlaubt",
+        "lock" to "Schleuse",
+        "use_shore_power" to "Landstrom benutzen",
+        "restricted_area" to "Sperrgebiet",
+        "kitesurfing_permitted" to "Kitesurfen erlaubt",
+        "no_kitesurfing" to "Kitesurfen verboten",
+        "sailing_craft" to "Segelboote",
+        "sport_craft" to "Sportboote",
+        "sports_craft" to "Sportboote",
+        "motor_craft" to "Motorboote",
+        "unpowered_craft" to "Boote ohne Motor",
+        "waterskiing" to "Wasserski",
+        "waterbikes" to "Wassermotorräder",
     )
 
     /** Für welche Fahrtrichtung oder Seite ein Schild gilt. */
@@ -291,6 +371,143 @@ object SeamarkSource {
         "downstream" to "zu Tal",
         "left_bank" to "am linken Ufer",
         "right_bank" to "am rechten Ufer",
+        "to_harbour" to "in den Hafen",
+        "from_harbour" to "aus dem Hafen",
+        "bank_to_bank" to "von Ufer zu Ufer",
+    )
+
+    /** Arten der übrigen Zeichen, je Typ. Sonderzeichen gelten für Tonne und Bake. */
+    private val TYPE_CATEGORIES: Map<String, Map<String, String>> = mapOf(
+        "small_craft_facility" to mapOf(
+            "slipway" to "Slipanlage", "visitor_berth" to "Gastliegeplatz",
+            "visitors_mooring" to "Gastfestmacher", "gelbe_welle" to "Gastliegeplatz (Gelbe Welle)",
+            "toilets" to "Toiletten", "showers" to "Duschen", "fuel_station" to "Tankstelle",
+            "berth" to "Liegeplatz", "pump-out" to "Fäkalienabsaugung", "boat_hoist" to "Bootskran",
+            "electricity" to "Landstrom", "laundrette" to "Waschmaschine",
+            "launderette" to "Waschmaschine", "boatyard" to "Bootswerft",
+            "chandler" to "Bootszubehör", "water_tap" to "Trinkwasser", "water" to "Trinkwasser",
+            "refuse_bin" to "Müllentsorgung", "nautical_club" to "Wassersportverein",
+            "sailmaker" to "Segelmacher", "restaurant" to "Restaurant", "public_inn" to "Gaststätte",
+            "provisions" to "Lebensmittel", "picnic_area" to "Picknickplatz",
+            "car_park" to "Parkplatz", "bottle_gas" to "Gasflaschen",
+            "mechanics_workshop" to "Motorenwerkstatt", "crane" to "Kran",
+            "emergency_telephone" to "Notruftelefon", "kitchen" to "Küche",
+        ),
+        "mooring" to mapOf(
+            "dolphin" to "Dalbe", "deviation_dolphin" to "Deviationsdalbe", "pile" to "Pfahl",
+            "post" to "Pfosten", "bollard" to "Poller", "buoy" to "Festmachetonne",
+            "wall" to "Kaimauer", "ring" to "Festmachering", "chain" to "Kette",
+        ),
+        "pile" to mapOf("post" to "Pfosten", "stake" to "Pfahl", "bollard" to "Poller"),
+        "landmark" to mapOf(
+            "windmotor" to "Windrad", "mast" to "Mast", "tower" to "Turm",
+            "flagstaff" to "Flaggenmast", "monument" to "Denkmal", "chimney" to "Schornstein",
+            "dish_aerial" to "Parabolantenne", "windsock" to "Windsack", "windmill" to "Windmühle",
+            "spire" to "Turmspitze", "column" to "Säule", "cross" to "Kreuz", "statue" to "Statue",
+            "dome" to "Kuppel", "cairn" to "Steinmal", "boulder" to "Findling",
+        ),
+        "harbour" to mapOf(
+            "marina" to "Sportboothafen", "marina_no_facilities" to "Sportboothafen ohne Versorgung",
+            "harbour" to "Hafen", "ferry" to "Fährhafen", "fishing" to "Fischereihafen",
+            "passenger" to "Fahrgasthafen", "cargo" to "Frachthafen", "bulk" to "Massenguthafen",
+            "tanker" to "Tankerhafen", "container" to "Containerhafen", "roro" to "RoRo-Hafen",
+            "shipyard" to "Werft", "naval" to "Marinehafen", "commercial" to "Handelshafen",
+        ),
+        "bridge" to mapOf(
+            "fixed" to "feste Brücke", "opening" to "bewegliche Brücke", "swing" to "Drehbrücke",
+            "bascule" to "Klappbrücke", "lifting" to "Hubbrücke", "drawbridge" to "Zugbrücke",
+            "footbridge" to "Fußgängerbrücke", "retractable" to "Schiebebrücke",
+            "pontoon" to "Pontonbrücke",
+        ),
+        "wreck" to mapOf(
+            "dangerous" to "gefährlich", "non-dangerous" to "ungefährlich",
+            "distributed_remains" to "verstreute Reste", "hull_showing" to "Rumpf sichtbar",
+            "mast_showing" to "Mast sichtbar",
+        ),
+        "obstruction" to mapOf(
+            "foul_ground" to "unreiner Grund", "foul_area" to "unreiner Grund",
+            "stump" to "Baumstumpf", "explosives" to "Munition", "reef" to "Riff", "wreck" to "Wrack",
+        ),
+        "signal_station_traffic" to mapOf(
+            "lock" to "Schleusensignal", "bridge_passage" to "Brückensignal",
+            "bridge" to "Brückensignal", "traffic_control_light" to "Verkehrsregelung",
+            "traffic_control" to "Verkehrsregelung", "port_entry_departure" to "Hafensignal",
+            "flood_barrage" to "Sperrwerk", "dock" to "Docksignal", "port_control" to "Hafenaufsicht",
+        ),
+        "signal_station" to mapOf("lock" to "Schleusensignal"),
+        "signal_station_warning" to mapOf(
+            "vertical_clearance" to "Durchfahrtshöhe", "depth" to "Wassertiefe",
+            "tide_gauge" to "Tidepegel", "tide_scale" to "Pegellatte", "storm" to "Sturmwarnung",
+            "water_level_gauge" to "Pegel", "level" to "Wasserstand", "current" to "Strömung",
+            "military" to "militärisch",
+        ),
+        "special_purpose" to mapOf(
+            "warning" to "Warnzeichen", "recreation_zone" to "Badezone", "recreational" to "Freizeit",
+            "yachting" to "Wassersport", "recording" to "Messstelle", "odas" to "Messboje",
+            "anchorage" to "Ankerplatz", "anchoring" to "Ankerplatz", "mooring" to "Festmacher",
+            "berthing" to "Liegeplatz", "unknown_purpose" to "Zweck unbekannt", "cable" to "Kabel",
+            "pipeline" to "Leitung", "outfall" to "Auslass", "firing_danger_area" to "Schießgebiet",
+            "notice" to "Hinweis", "restricted_entry" to "Einfahrt beschränkt",
+            "restricted_vertical_clearance" to "Begrenzte Durchfahrtshöhe",
+            "marine_farm" to "Aquakultur", "tss" to "Verkehrstrennung",
+            "spoil_ground" to "Verklappungsgebiet", "nature_reserve" to "Naturschutzgebiet",
+            "foul_ground" to "unreiner Grund", "target" to "Zielgebiet", "diving" to "Tauchgebiet",
+            "work_in_progress" to "Baustelle", "leading" to "Leitzeichen",
+            "maximum_vessel_draught" to "Größter Tiefgang", "refuge_beacon" to "Rettungsbake",
+            "customs" to "Zoll", "private" to "privat", "control" to "Kontrolle",
+            "ferry_crossing" to "Fährstelle",
+        ),
+        "rescue_station" to mapOf(
+            "lifeboat_on_mooring" to "Rettungsboot an der Boje", "lifeboat" to "Rettungsboot",
+            "first_aid" to "Erste Hilfe",
+        ),
+        "waterway_gauge" to mapOf(
+            "recording_remote_access" to "Fernpegel",
+            "recording_remote_access_indicator" to "Fernpegel mit Anzeige",
+            "recording_external_indicator" to "Pegel mit Anzeige",
+            "recording" to "Schreibpegel", "staff" to "Pegellatte",
+        ),
+        "anchor_berth" to mapOf(
+            "small_craft" to "für Sportboote", "tanker" to "für Tanker",
+            "dry_cargo" to "für Trockenfracht", "limited_period" to "begrenzte Dauer",
+            "unrestricted" to "ohne Beschränkung", "24_hour" to "24 Stunden", "48_hour" to "48 Stunden",
+        ),
+        "gate" to mapOf(
+            "flood_barrage" to "Sperrwerk", "lock" to "Schleusentor", "sluice" to "Siel",
+            "sluice_gate" to "Siel", "dyke" to "Deichtor",
+        ),
+        "cable_overhead" to mapOf("power" to "Stromleitung", "ferry" to "Fährseil"),
+        "pylon" to mapOf("power" to "Strommast", "ferry" to "Fährmast"),
+        "berth" to mapOf(
+            "loading" to "Ladestelle", "unloading" to "Entladestelle",
+            "passenger" to "Fahrgastanleger", "vehicle_loading" to "Fahrzeugverladung",
+            "police" to "Polizei", "overnight_accommodation" to "Übernachtung",
+        ),
+        "weed" to mapOf("sea_grass" to "Seegras", "sea_weed" to "Seetang"),
+        "shoreline_construction" to mapOf("fender" to "Fender", "slipway" to "Slipanlage", "ramp" to "Rampe"),
+        "fishing_facility" to mapOf("stake" to "Fischpfahl", "trap" to "Reuse"),
+        "radar_station" to mapOf("surveillance" to "Überwachung", "coast" to "Küstenradar"),
+    )
+
+    /** Die Arten für einen Typ. Sonderzeichen teilen sich Tonne und Bake. */
+    private fun typeCategories(type: String): Map<String, String>? = when {
+        type.endsWith("_special_purpose") -> TYPE_CATEGORIES["special_purpose"]
+        type == "anchorage" -> TYPE_CATEGORIES["anchor_berth"]
+        else -> TYPE_CATEGORIES[type]
+    }
+
+    /** Wie weit ein Stein, Wrack oder Festmacher aus dem Wasser ragt. */
+    private val WATER_LEVELS = mapOf(
+        "submerged" to "unter Wasser", "always_submerged" to "immer unter Wasser",
+        "dry" to "über Wasser", "above_mwl" to "über Mittelwasser",
+        "awash" to "in Höhe der Wasserlinie", "covers" to "fällt trocken",
+        "floods" to "zeitweise überflutet", "floating" to "schwimmend",
+        "partly-submerged" to "teilweise unter Wasser",
+    )
+
+    /** Radar: auffällig oder mit Reflektor. */
+    private val REFLECTIVITY = mapOf(
+        "conspicuous" to "radarauffällig", "reflector" to "mit Radarreflektor",
     )
 
     /**
@@ -309,29 +526,53 @@ object SeamarkSource {
     )
 
     private fun colours(v: String) =
-        v.split(";").joinToString(", ") { COLOURS[it] ?: it }
+        v.split(";").joinToString(", ") { lookup(COLOURS, it) ?: readable(it) }
 
-    /** Mehrere Werte (`a;b`) übersetzen, Unbekanntes bleibt wie es ist. */
+    /**
+     * Schlüssel ohne Unterschied zwischen `-` und `_` und in Kleinschrift: In den Daten
+     * steht `berthing_unmarked_non-pushing` neben `berthing_unmarked_non_pushing`.
+     */
+    private fun norm(v: String) = v.trim().lowercase().replace('-', '_')
+
+    private val normalized = HashMap<Map<String, String>, Map<String, String>>()
+
+    private fun lookup(map: Map<String, String>, v: String): String? =
+        map[v.trim()] ?: synchronized(normalized) {
+            normalized.getOrPut(map) { map.mapKeys { norm(it.key) } }
+        }[norm(v)]
+
+    /**
+     * Unbekanntes bleibt stehen, aber lesbar: `sailing_craft` wird `sailing craft`.
+     * Eine erfundene Bedeutung wäre schlimmer als ein englisches Wort.
+     */
+    private fun readable(v: String) = v.trim().replace('_', ' ')
+
+    /** Mehrere Werte (`a;b`) übersetzen, Unbekanntes bleibt lesbar stehen. */
     private fun many(v: String, map: Map<String, String>) =
-        v.split(";").map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ") { map[it] ?: it }
+        v.split(";").map { it.trim() }.filter { it.isNotEmpty() }
+            .joinToString(", ") { lookup(map, it) ?: readable(it) }
 
+    /**
+     * Für welche Richtung ein Schild gilt. Steht dort freier Text wie „gesamte Wakenitz",
+     * bleibt er, wie er ist.
+     */
     private fun impact(v: String): String {
         val teile = v.split(";").map { it.trim() }.filter { it.isNotEmpty() }
-        return "gilt " + teile.joinToString(" und ") { IMPACTS[it] ?: it }
+        val de = teile.map { lookup(IMPACTS, it) }
+        return if (de.all { it != null }) "gilt " + de.joinToString(" und ") else v.trim()
     }
 
     /**
-     * Ein Schild in der Form „Verbot: Wenden verboten". Ohne Funktion bleibt nur die
-     * Bedeutung, ohne beides das allgemeine Wort.
+     * Ein Schild als Paar aus Funktion („Verbot") und Bedeutung („Wenden verboten"). Ohne
+     * Bedeutung bleibt nur die Funktion, ohne beides das allgemeine Wort.
      */
-    internal fun noticeHeading(function: String?, category: String?): String {
+    internal fun noticeHeading(function: String?, category: String?): Pair<String?, String> {
         val f = function?.let { many(it, NOTICE_FUNCTIONS) }
         val c = category?.let { many(it, NOTICE_CATEGORIES) }
         return when {
-            f != null && c != null -> "$f: $c"
-            c != null -> c
-            f != null -> f
-            else -> TYPES.getValue("notice")
+            c != null -> f to c
+            f != null -> null to f
+            else -> null to TYPES.getValue("notice")
         }
     }
 
@@ -397,25 +638,31 @@ object SeamarkSource {
 
         // Art und Farbe, der Kern jedes Zeichens.
         attr("category")?.let { (_, c) ->
+            val eigene = typeCategories(type)
             lines.add(
-                LATERAL_CATEGORIES[c] ?: CARDINALS[c]?.let { "$it-Kardinalzeichen" }
-                    ?: many(c, NOTICE_CATEGORIES),
+                lookup(LATERAL_CATEGORIES, c) ?: CARDINALS[c]?.let { "$it-Kardinalzeichen" }
+                    ?: eigene?.let { many(c, it) } ?: many(c, NOTICE_CATEGORIES),
             )
         }
         attr("colour")?.let { (_, c) -> lines.add("Farbe: ${colours(c)}") }
         attr("shape")?.let { (von, s) ->
-            lines.add((if (von.startsWith("beacon_")) BEACON_SHAPES[s] else BUOY_SHAPES[s]) ?: s)
+            lines.add((if (von.startsWith("beacon_")) BEACON_SHAPES[s] else BUOY_SHAPES[s]) ?: readable(s))
+        }
+        attr("water_level")?.let { (_, w) -> lines.add(lookup(WATER_LEVELS, w) ?: readable(w)) }
+        attr("reflectivity")?.let { (von, r) ->
+            val de = lookup(REFLECTIVITY, r)
+            if (de != null) lines.add(de) else used.remove("seamark:$von:reflectivity")
         }
         // Das Betonnungssystem und das Farbmuster sagt die Farbe schon.
         attr("system")
         attr("colour_pattern")
         take("seamark:topmark:shape")?.let { s ->
             val c = take("seamark:topmark:colour")
-            lines.add("Toppzeichen: ${TOPMARK_SHAPES[s] ?: s}" + if (c != null) " (${colours(c)})" else "")
+            lines.add("Toppzeichen: ${TOPMARK_SHAPES[s] ?: readable(s)}" + if (c != null) " (${colours(c)})" else "")
         }
         take("seamark:daymark:shape")?.let { s ->
             val c = take("seamark:daymark:colour")
-            lines.add("Tageszeichen: ${TOPMARK_SHAPES[s] ?: s}" + if (c != null) " (${colours(c)})" else "")
+            lines.add("Tageszeichen: ${TOPMARK_SHAPES[s] ?: readable(s)}" + if (c != null) " (${colours(c)})" else "")
         }
 
         // Feuer: Kennung, Farbe, Wiederkehr.
@@ -461,20 +708,22 @@ object SeamarkSource {
         }.distinct().sorted()
 
         fun schild(prefix: String): SeamarkGroup {
-            val heading = noticeHeading(take("${prefix}function"), take("${prefix}category"))
+            val (function, heading) = noticeHeading(take("${prefix}function"), take("${prefix}category"))
             val lines = ArrayList<String>()
             take("${prefix}information")?.let { lines.add(it) }
             take("${prefix}national_information")?.let { lines.add(it) }
             take("${prefix}impact")?.let { lines.add(impact(it)) }
+            take("${prefix}system")
             tags.keys.filter { k -> k.startsWith(prefix) && NOTICE_HIDDEN.any { k == prefix + it } }
                 .forEach { used.add(it) }
-            return SeamarkGroup(heading, lines)
+            return SeamarkGroup(function, heading, lines)
         }
 
         // Ein Schild ohne Nummer zählt nur, wenn es mehr trägt als Angaben zum Aufbau.
         val hatEinfach = tags.keys.any { k ->
             val rest = k.removePrefix("seamark:notice:")
-            k.startsWith("seamark:notice:") && !rest.first().isDigit() && rest !in NOTICE_HIDDEN
+            k.startsWith("seamark:notice:") && !rest.first().isDigit() && rest !in NOTICE_HIDDEN &&
+                rest != "system"
         }
         val schilder = buildList {
             if (hatEinfach || nummern.isEmpty()) add(schild("seamark:notice:"))
@@ -485,9 +734,15 @@ object SeamarkSource {
 
         val kopf = listOfNotNull(name?.takeIf { it.isNotBlank() }?.let { "„$it\"" })
         val extra = listOfNotNull(take("seamark:information"), take("seamark:national_information"))
+        // Das Schildersystem (fast immer CEVNI) sagt das Schild selbst.
+        take("seamark:notice:system")
         if (schilder.size == 1) {
             val s = schilder.first()
-            return SeamarkInfo(s.heading, kopf + s.lines + extra, rawOf())
+            return if (s.function != null) {
+                SeamarkInfo(s.function, kopf + s.lines + extra, rawOf(), subtitle = s.heading)
+            } else {
+                SeamarkInfo(s.heading, kopf + s.lines + extra, rawOf())
+            }
         }
         return SeamarkInfo("${TYPES["notice"]} (${schilder.size})", kopf + extra, rawOf(), schilder)
     }

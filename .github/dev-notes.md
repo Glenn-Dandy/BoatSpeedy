@@ -14,10 +14,12 @@
 - Brücken: nur noch ein Schild. Mit Seezeichen zeigt OpenSeaMap die Höhe, unser
   Symbol entfällt; ohne Seezeichen trägt unser Symbol die Höhe als Zahl. Die Seezeichen
   liegen jetzt über der Routenlinie.
-- Seezeichen: Schilder heißen nach ihrer Bedeutung, etwa „Verbot: Wenden verboten",
-  darunter Hinweistext und Richtung („gilt zu Berg und zu Tal"). Mehrere Schilder an
-  einem Mast stehen einzeln da. Tonnen und Baken ohne englische Kürzel, nicht
-  Übersetzbares liegt eingeklappt unter „Weitere Angaben".
+- Seezeichen: Schilder zeigen oben ihre Art („Verbot") und darunter fett ihre Bedeutung
+  („Wenden verboten"), dann Hinweistext und Richtung („gilt zu Berg und zu Tal").
+  Mehrere Schilder an einem Mast stehen einzeln da. Tonnen, Baken, Häfen,
+  Sportbooteinrichtungen und weitere Zeichen auf Deutsch, nicht Übersetzbares liegt
+  eingeklappt unter „Weitere Angaben". Antippen trifft das nächste Zeichen, nicht mehr
+  die Dalbe daneben.
 - Karte: Der Zoom rastet auf ganze Stufen ein. Zwischenstufen vergrößerten die Kacheln
   zusätzlich, die Karte wurde unscharf.
 
@@ -37,9 +39,10 @@
 - Bridges: only one sign. With seamarks on, OpenSeaMap shows the clearance and our
   symbol is gone; with seamarks off, our symbol carries the clearance as a number.
   Seamarks now lie above the route line.
-- Seamarks: signs are named by their meaning, e.g. "Prohibition: no turning", with the
-  extra text and direction below. Several signs on one post are listed one by one.
-  Buoys and beacons without English codes, anything untranslated is folded away under
-  "More details".
+- Seamarks: signs show their kind on top and their meaning below in bold, then the
+  extra text and direction. Several signs on one post are listed one by one. Buoys,
+  beacons, harbours, small craft facilities and more are translated, anything else is
+  folded away under "More details". A tap hits the nearest mark, not the dolphin next
+  to it.
 - Map: zoom snaps to whole levels. In-between levels scaled the tiles up further and
   made the map blurry.

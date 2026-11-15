@@ -93,7 +93,8 @@ class SeamarkInfoTest {
             "seamark:notice:impact" to "upstream;downstream",
             "seamark:notice:information" to "Ölsperre 20m",
         ))!!
-        assertEquals("Verbot: Ankern verboten", info.title)
+        assertEquals("Verbot", info.title)
+        assertEquals("Ankern verboten", info.subtitle)
         assertEquals(listOf("Ölsperre 20m", "gilt zu Berg und zu Tal"), info.lines)
         // Die Zusatztafel ist am Schild zu sehen und gehört nicht in die Auskunft.
         assertTrue(info.raw.toString(), info.raw.isEmpty())
@@ -106,7 +107,8 @@ class SeamarkInfoTest {
             "seamark:notice:category" to "no_turning",
             "seamark:notice:function" to "prohibition",
         ))!!
-        assertEquals("Verbot: Wenden verboten", info.title)
+        assertEquals("Verbot", info.title)
+        assertEquals("Wenden verboten", info.subtitle)
         assertTrue(info.lines.isEmpty())
     }
 
@@ -129,8 +131,9 @@ class SeamarkInfoTest {
             "seamark:notice:3:impact" to "upstream",
         ))!!
         assertEquals("Schifffahrtszeichen (3)", info.title)
+        assertEquals(listOf("Gebot", "Gebot", "Hinweis"), info.groups.map { it.function })
         assertEquals(
-            listOf("Gebot: Höchstgeschwindigkeit", "Gebot: Besondere Vorsicht", "Hinweis: Ende des Verbots"),
+            listOf("Höchstgeschwindigkeit", "Besondere Vorsicht", "Ende des Verbots"),
             info.groups.map { it.heading },
         )
         assertEquals(listOf("5 km/h", "gilt zu Tal"), info.groups[0].lines)
@@ -148,7 +151,7 @@ class SeamarkInfoTest {
         assertEquals("Begrenzte Wassertiefe", info.title)
     }
 
-    /** Unbekannte Bedeutungen bleiben stehen, statt erfunden zu werden. */
+    /** Unbekannte Bedeutungen bleiben stehen, statt erfunden zu werden, nur ohne Unterstrich. */
     @Test
     fun `unbekannte Bedeutung bleibt roh`() {
         val info = SeamarkSource.describe(mapOf(
@@ -156,7 +159,8 @@ class SeamarkInfoTest {
             "seamark:notice:category" to "etwas_neues",
             "seamark:notice:function" to "prohibition",
         ))!!
-        assertEquals("Verbot: etwas_neues", info.title)
+        assertEquals("Verbot", info.title)
+        assertEquals("etwas neues", info.subtitle)
     }
 
     /**
@@ -177,12 +181,15 @@ class SeamarkInfoTest {
             "seamark:topmark:shape" to "cone, point down",
         ))!!
         assertEquals(
-            listOf("Wasserstraße, rechte Seite", "Farbe: rot", "Stangenbake", "Toppzeichen: Kegel, Spitze unten (rot)"),
+            listOf(
+                "Wasserstraße, rechte Seite", "Farbe: rot", "Stangenbake", "radarauffällig",
+                "Toppzeichen: Kegel, Spitze unten (rot)",
+            ),
             info.lines,
         )
         // Was sich widerspricht oder nicht sicher zu deuten ist, bleibt roh.
         assertEquals(
-            listOf("beacon_lateral:colour = red;white", "beacon_lateral:reflectivity = conspicuous"),
+            listOf("beacon_lateral:colour = red;white"),
             info.raw,
         )
     }
@@ -217,5 +224,60 @@ class SeamarkInfoTest {
             "seamark:name" to "Kiel Leuchtturm",
         ))!!
         assertEquals("Leuchtfeuer „Kiel Leuchtturm\"", info.title)
+    }
+
+    /** Kommt so in Deutschland vor (Kacheln vom 15.11.2026). */
+    @Test
+    fun `Gastliegeplatz`() {
+        val info = SeamarkSource.describe(mapOf(
+            "seamark:type" to "small_craft_facility",
+            "seamark:small_craft_facility:category" to "visitor_berth;toilets;showers",
+        ))!!
+        assertEquals("Für Sportboote", info.title)
+        assertEquals(listOf("Gastliegeplatz, Toiletten, Duschen"), info.lines)
+    }
+
+    @Test
+    fun `Baken an Fluessen`() {
+        fun cat(c: String) = SeamarkSource.describe(mapOf(
+            "seamark:type" to "beacon_lateral",
+            "seamark:beacon_lateral:category" to c,
+            "seamark:beacon_lateral:shape" to "perch",
+        ))!!.lines
+        assertEquals(listOf("Fahrrinne am rechten Ufer", "Pricke"), cat("channel_right_bank"))
+        assertEquals(listOf("Übergang der Fahrrinne zum linken Ufer", "Pricke"), cat("crossover_left"))
+    }
+
+    @Test
+    fun `Segelboote verboten als blosse Art`() {
+        val info = SeamarkSource.describe(mapOf(
+            "seamark:type" to "notice",
+            "seamark:notice:category" to "sailing_craft",
+            "seamark:notice:function" to "prohibition",
+            "seamark:notice:system" to "cevni",
+        ))!!
+        assertEquals("Verbot", info.title)
+        assertEquals("Segelboote", info.subtitle)
+        assertTrue(info.raw.toString(), info.raw.isEmpty())
+    }
+
+    /** Schreibvarianten aus den Daten: Bindestrich statt Unterstrich, Mehrzahl. */
+    @Test
+    fun `Schreibvarianten werden erkannt`() {
+        val info = SeamarkSource.describe(mapOf(
+            "seamark:type" to "notice",
+            "seamark:notice:category" to "berthing_unmarked_non_pushing",
+        ))!!
+        assertEquals("Liegestelle ohne blauen Kegel, außer Schubverbände", info.title)
+    }
+
+    @Test
+    fun `freier Text bei der Richtung bleibt`() {
+        val info = SeamarkSource.describe(mapOf(
+            "seamark:type" to "notice",
+            "seamark:notice:category" to "speed_limit",
+            "seamark:notice:impact" to "gesamte Wakenitz",
+        ))!!
+        assertEquals(listOf("gesamte Wakenitz"), info.lines)
     }
 }

@@ -137,7 +137,7 @@ fun OsmMap(
     speedSigns: List<de.kewl.boatspeedy.nav.SpeedSign> = emptyList(),
     /** Antippbare Seezeichen aus den Kartendaten – die Kacheln selbst sind nur Bilder. */
     seamarks: List<de.kewl.boatspeedy.nav.SeamarkPoi> = emptyList(),
-    /** Antippen eines Seezeichens. Ohne öffnet sich die Sprechblase von osmdroid. */
+    /** Antippen eines Seezeichens. Ohne ist es nicht antippbar. */
     onSeamark: ((de.kewl.boatspeedy.nav.SeamarkInfo) -> Unit)? = null,
     /** Pegel der WSV mit Wasserstand. */
     gauges: List<de.kewl.boatspeedy.nav.Gauge> = emptyList(),
@@ -644,33 +644,24 @@ fun OsmMap(
     }
 
     /**
-     * Seezeichen zum Antippen. Der Marker selbst ist **durchsichtig** — gezeichnet hat
-     * die Kachel von OpenSeaMap das Symbol längst, hier geht es nur um die Trefferfläche
-     * und die Sprechblase.
+     * Seezeichen zum Antippen. Gezeichnet hat die Kachel von OpenSeaMap das Symbol längst,
+     * hier geht es nur um den Tipp, siehe [SeamarkTapOverlay].
      *
      * Vorher wurde bei jedem Tipp irgendwo auf der Karte nachgefragt, was dort steht.
      * Das hieß Warten und meistens „nichts gefunden". Aus den Kartendaten wissen wir
      * vorher, wo etwas ist — und was.
      */
-    val seamarkMarkers = remember(mapView) { mutableListOf<Marker>() }
-    DisposableEffect(seamarks) {
-        seamarkMarkers.forEach { mapView.overlays.remove(it) }
-        seamarkMarkers.clear()
-        val hit = seamarkHitArea(context)
-        seamarks.forEach { poi ->
-            val info = de.kewl.boatspeedy.nav.SeamarkSource.describe(poi.tags) ?: return@forEach
-            val m = Marker(mapView).apply {
-                position = GeoPoint(poi.lat, poi.lon)
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                icon = hit
-                title = info.title
-                snippet = (info.lines + info.groups.flatMap { listOf(it.heading) + it.lines } + info.raw)
-                    .joinToString("\n")
-                if (onSeamark != null) setOnMarkerClickListener { _, _ -> onSeamark(info); true }
+    val seamarkTap = remember(mapView) { SeamarkTapOverlay(context.resources.displayMetrics.density) }
+    DisposableEffect(seamarks, onSeamark) {
+        val list = seamarks.mapNotNull { poi ->
+            de.kewl.boatspeedy.nav.SeamarkSource.describe(poi.tags)?.let { info ->
+                Triple(GeoPoint(poi.lat, poi.lon), info, poi.tags["seamark:type"].orEmpty())
             }
-            seamarkMarkers.add(m)
-            mapView.overlays.add(m)
         }
+        seamarkTap.items = list.map { it.first to it.second }
+        seamarkTap.types = list.map { it.third }
+        seamarkTap.onTap = onSeamark
+        if (!mapView.overlays.contains(seamarkTap)) mapView.overlays.add(seamarkTap)
         // **Die Schleuse liegt über den Seezeichen.** osmdroid reicht einen Tipp in
         // umgekehrter Reihenfolge durch die Ebenen, das zuletzt Eingehängte fragt zuerst.
         // Bei Wettin liegen im Umkreis von 400 m ein Hafen, eine Slipanlage, ein Liegeplatz
@@ -692,7 +683,8 @@ fun OsmMap(
                     position = GeoPoint(sign.lat, sign.lon)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                     icon = speedSignDrawable(context, sign.kmh)
-                    title = sign.raw
+                    // Der Tipp geht durch zum Seezeichen darunter und öffnet dessen Auskunft.
+                    setOnMarkerClickListener { _, _ -> false }
                 }
                 signMarkers.add(m)
                 mapView.overlays.add(m)

@@ -225,12 +225,22 @@ fun SeamarkDialog(info: SeamarkInfo, onDismiss: () -> Unit) {
     var roh by remember(info) { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(info.title) },
+        // Bei einem Schild zweizeilig: oben was es ist („Verbot"), darunter fett und etwas
+        // kleiner, was es sagt („Ankern verboten").
+        title = {
+            Column {
+                Text(info.title)
+                info.subtitle?.let {
+                    Text(it, fontSize = 18.sp, fontWeight = FontWeight.Bold, lineHeight = 22.sp)
+                }
+            }
+        },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 info.lines.forEach { Text(it, fontSize = 14.sp) }
                 info.groups.forEachIndexed { i, g ->
-                    if (i > 0 || info.lines.isNotEmpty()) Spacer(Modifier.height(10.dp))
+                    if (i > 0 || info.lines.isNotEmpty()) Spacer(Modifier.height(12.dp))
+                    g.function?.let { Text(it, fontSize = 15.sp) }
                     Text(g.heading, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     g.lines.forEach { Text(it, fontSize = 14.sp) }
                 }
@@ -324,8 +334,8 @@ private fun periodText(p: NoticePeriod): String? {
     // Durchgehend: Die Uhrzeiten gehören zu Anfang und Ende, nicht zu jedem Tag.
     // „13.11.2026 13:20 bis 20.11.2026 14:51“, nicht „täglich 13:20 bis 14:51“.
     if (p.interval == null || p.interval == "CON") {
-        val anfang = listOfNotNull(p.from?.format(f), p.timeFrom).joinToString(" ")
-        val ende = listOfNotNull(p.to?.format(f), p.timeTo).joinToString(" ")
+        val anfang = listOfNotNull(p.from?.format(f), uhrzeit(p.timeFrom)).joinToString(" ")
+        val ende = listOfNotNull(p.to?.format(f), uhrzeit(p.timeTo)).joinToString(" ")
         return when {
             anfang.isNotEmpty() && ende.isNotEmpty() && anfang != ende -> "$anfang $bis $ende"
             anfang.isNotEmpty() -> anfang
@@ -350,6 +360,12 @@ private fun periodText(p: NoticePeriod): String? {
     }
     return teile.takeIf { it.isNotEmpty() }?.joinToString(", ")
 }
+
+/**
+ * Eine Uhrzeit am Anfang oder Ende eines Zeitraums. 00:00 lässt ELWIS stehen, wenn nur ein
+ * Tag gemeint ist; neben dem Datum sagt es nichts.
+ */
+internal fun uhrzeit(t: String?): String? = t?.trim()?.takeUnless { it.isEmpty() || it == "00:00" || it == "00:00:00" }
 
 @Composable
 private fun zeitraum(from: LocalDate?, to: LocalDate?): String? {
