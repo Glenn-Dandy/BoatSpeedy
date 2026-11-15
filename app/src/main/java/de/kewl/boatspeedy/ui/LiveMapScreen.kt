@@ -418,17 +418,22 @@ fun LiveMapScreen(
     var allGauges by remember { mutableStateOf<List<Gauge>>(emptyList()) }
     var allNotices by remember { mutableStateOf<List<WaterNotice>>(emptyList()) }
     var noticesAt by remember { mutableStateOf<java.time.Instant?>(null) }
+    var allLockHours by remember { mutableStateOf<List<de.kewl.boatspeedy.nav.LockHours>>(emptyList()) }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(settings.waterInfo) {
         if (!settings.waterInfo) {
             allGauges = emptyList()
             allNotices = emptyList()
+            allLockHours = emptyList()
             return@LaunchedEffect
         }
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             while (true) {
                 allGauges = withContext(Dispatchers.IO) { Gauges.load(context.cacheDir) }
                 allNotices = withContext(Dispatchers.IO) { WaterNotices.load(context.cacheDir) }
+                allLockHours = withContext(Dispatchers.IO) {
+                    de.kewl.boatspeedy.nav.LockHoursSource.load(context.cacheDir)
+                }
                 noticesAt = withContext(Dispatchers.IO) { WaterNotices.generatedAt(context.cacheDir) }
                 delay(WATER_INFO_REFRESH_MS)
             }
@@ -459,12 +464,16 @@ fun LiveMapScreen(
     }
     // Schleusen mit Meldungen von ELWIS. Sie sind antippbar, auch wenn OSM nichts über sie
     // weiß: Eine Sperrung ist genau das, was man an der Schleuse wissen will.
-    val locksWithNotices = remember(shownObstacles, activeNotices) {
-        if (activeNotices.isEmpty()) {
+    val locksWithNotices = remember(shownObstacles, activeNotices, allLockHours) {
+        if (activeNotices.isEmpty() && allLockHours.isEmpty()) {
             emptySet()
         } else {
+            // Auch mit Betriebszeiten von ELWIS: Die will man wissen, bevor man ankommt.
             shownObstacles.filter { it.kind == ObstacleKind.LOCK && !it.isGate }
-                .filter { WaterNotices.atLock(activeNotices, it.lat, it.lon, it.line).isNotEmpty() }
+                .filter {
+                    WaterNotices.atLock(activeNotices, it.lat, it.lon, it.line).isNotEmpty() ||
+                        de.kewl.boatspeedy.nav.LockHoursSource.atLock(allLockHours, it.lat, it.lon, it.line).isNotEmpty()
+                }
                 .toSet()
         }
     }
@@ -1216,11 +1225,22 @@ fun LiveMapScreen(
                     o.clearanceWidthM?.let {
                         InfoZeile(stringResource(R.string.bridge_width), "$it m")
                     }
-                    o.openingHours?.let {
-                        InfoZeile(
-                            stringResource(R.string.lock_hours),
-                            de.kewl.boatspeedy.nav.openingHoursLines(it),
-                        )
+                    // Die Zeiten von ELWIS gehen vor: Sie sind amtlich und vollständig, in
+                    // OSM fehlen sie oft oder sind veraltet. Nur ohne sie bleibt OSM.
+                    val elwisZeiten = remember(o, allLockHours) {
+                        if (o.kind == ObstacleKind.LOCK) {
+                            de.kewl.boatspeedy.nav.LockHoursSource.atLock(allLockHours, o.lat, o.lon, o.line)
+                        } else {
+                            emptyList()
+                        }
+                    }
+                    if (elwisZeiten.isEmpty()) {
+                        o.openingHours?.let {
+                            InfoZeile(
+                                stringResource(R.string.lock_hours),
+                                de.kewl.boatspeedy.nav.openingHoursLines(it),
+                            )
+                        }
                     }
                     o.phone?.let { InfoZeile(stringResource(R.string.lock_phone), it) }
                     o.vhf?.let { InfoZeile(stringResource(R.string.lock_vhf), it) }
@@ -1229,6 +1249,10 @@ fun LiveMapScreen(
                         InfoZeile(stringResource(R.string.lock_size), "${masse[0]} × ${masse[1]} m")
                     }
                     o.cemt?.let { InfoZeile(stringResource(R.string.lock_cemt), it) }
+                    if (elwisZeiten.isNotEmpty()) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+                        LockHoursEntries(elwisZeiten)
+                    }
                     // Was heute an der Schleuse gilt: Sperrungen, geänderte Zeiten, Hinweise.
                     if (o.kind == ObstacleKind.LOCK) {
                         val meldungen = remember(o, activeNotices) {

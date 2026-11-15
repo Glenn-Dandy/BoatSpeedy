@@ -11,6 +11,9 @@
   Schleuse zeigt ihre aktuellen Meldungen, etwa Sperrungen oder geänderte Zeiten. Sind
   die Meldungen älter als eine Stunde (etwa ohne Netz), steht ihr Stand dabei. Nur
   Bundeswasserstraßen, abschaltbar unter Einstellungen, Navigation.
+- Schleusen: Das Fenster zeigt die amtlichen Betriebszeiten von ELWIS, je Zeitraum und
+  Wochentag, mit Quelle. Weichen Kammern ab, etwa eine Sportbootschleuse, steht jede für
+  sich da. Ohne ELWIS-Zeiten bleiben die aus OSM. Nur Bundeswasserstraßen.
 
 **Geändert**
 - Brücken: nur noch ein Schild. Mit Seezeichen zeigt OpenSeaMap die Höhe, unser
@@ -40,6 +43,10 @@
   the map. A tapped lock shows its current notices, such as closures or changed hours.
   If the notices are more than an hour old (e.g. offline), their date is shown. Federal
   waterways only, can be switched off under Settings, Navigation.
+- Locks: the window shows the official operating hours from ELWIS, by period and
+  weekday, with the source. Chambers with other hours, such as a small craft lock, are
+  listed on their own. Without ELWIS hours, the ones from OSM remain. Federal waterways
+  only.
 
 **Changed**
 - Bridges: only one sign. With seamarks on, OpenSeaMap shows the clearance and our

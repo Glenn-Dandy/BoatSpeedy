@@ -183,6 +183,45 @@ fun NoticeEntries(notices: List<WaterNotice>, onGoTo: ((LatLon) -> Unit)?, stand
 }
 
 /**
+ * Die regulären Betriebszeiten laut ELWIS: je Zeitraum die Wochentage, gleiche
+ * nebeneinander zusammengefasst. Die Zeiten selbst stehen so da, wie ELWIS sie schreibt.
+ * Haben Kammern verschiedene Zeiten, steht über jeder Tabelle, wofür sie gilt.
+ */
+@Composable
+fun LockHoursEntries(entries: List<de.kewl.boatspeedy.nav.LockHours>) {
+    if (entries.isEmpty()) return
+    val gruppen = remember(entries) { de.kewl.boatspeedy.nav.LockHoursSource.grouped(entries) }
+    val locale = Locale.getDefault()
+    val tag = { i: Int -> java.time.DayOfWeek.of(i + 1).getDisplayName(java.time.format.TextStyle.SHORT, locale) }
+    Text(stringResource(R.string.lock_hours_elwis), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+    gruppen.forEachIndexed { gi, (namen, h) ->
+        if (gruppen.size > 1) {
+            Text(
+                namen.joinToString(", "),
+                fontSize = 13.sp,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                modifier = Modifier.padding(top = if (gi > 0) 8.dp else 4.dp),
+            )
+        }
+        h.rows.forEach { r ->
+            Text(r.period, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+            de.kewl.boatspeedy.nav.LockHoursSource.dayRuns(r.days).forEach { (von, bis, zeit) ->
+                Row(modifier = Modifier.padding(start = 8.dp)) {
+                    Text(
+                        if (von == bis) tag(von) else stringResource(R.string.lock_days_range, tag(von), tag(bis)),
+                        fontSize = 13.sp,
+                        modifier = Modifier.width(96.dp),
+                    )
+                    Text(zeit, fontSize = 13.sp)
+                }
+            }
+        }
+        h.remarks?.let { Text(it, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
+    }
+    Quelle(stringResource(R.string.notice_source))
+}
+
+/**
  * Wie alt die Meldungen sind, aber nur, wenn es zählt: ab einer Stunde. Sonst wäre es eine
  * Zeile mehr, die immer dasselbe sagt. Hervorgehoben, weil eine neue Sperrung fehlen kann.
  */

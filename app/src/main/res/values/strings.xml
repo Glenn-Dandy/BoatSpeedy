@@ -250,7 +250,7 @@
     <string name="license_value">MIT</string>
     <string name="about_feedback">Feedback</string>
     <string name="about_data">Data, maps &amp; navigation</string>
-    <string name="about_data_text">Maps: © OpenStreetMap contributors (ODbL).\n\nNavigation: routes are built from OpenStreetMap data entered by volunteers. They are a suggestion and not always right: a restriction for canoes or motorboats, a weir or a portage may be missing or wrong. What is signposted on site applies. You are always responsible for your trip.\n\nSeamarks: © OpenSeaMap contributors. Map tiles under CC BY-SA 2.0, underlying data under ODbL. OpenSeaMap is no substitute for official nautical charts.\n\nWeather warnings, rain radar and lightning: Deutscher Wetterdienst (DWD), licensed CC BY 4.0. Warnings retrieved via Bright Sky; radar via the DWD open GeoServer (WMS).\n\nGauges: PEGELONLINE of the German Federal Waterways and Shipping Administration (WSV), licensed DL-DE Zero 2.0. Waterway notices: ELWIS (www.elwis.de), WSV, shown verbatim. Some notices come from ports or foreign authorities and are not checked by the WSV.\n\nBoatSpeedy is not affiliated with the DWD or the WSV.</string>
+    <string name="about_data_text">Maps: © OpenStreetMap contributors (ODbL).\n\nNavigation: routes are built from OpenStreetMap data entered by volunteers. They are a suggestion and not always right: a restriction for canoes or motorboats, a weir or a portage may be missing or wrong. What is signposted on site applies. You are always responsible for your trip.\n\nSeamarks: © OpenSeaMap contributors. Map tiles under CC BY-SA 2.0, underlying data under ODbL. OpenSeaMap is no substitute for official nautical charts.\n\nWeather warnings, rain radar and lightning: Deutscher Wetterdienst (DWD), licensed CC BY 4.0. Warnings retrieved via Bright Sky; radar via the DWD open GeoServer (WMS).\n\nGauges: PEGELONLINE of the German Federal Waterways and Shipping Administration (WSV), licensed DL-DE Zero 2.0. Waterway notices and lock operating hours: ELWIS (www.elwis.de), WSV, shown verbatim. Some notices come from ports or foreign authorities and are not checked by the WSV.\n\nBoatSpeedy is not affiliated with the DWD or the WSV.</string>
     <string name="about_project">Project</string>
     <string name="update_section">Update</string>
     <string name="report_bug">Report a bug</string>
@@ -458,6 +458,8 @@
     <string name="notice_show_on_map">Show on map</string>
     <string name="seamark_more">More details</string>
     <string name="lock_notices">Notices (ELWIS)</string>
+    <string name="lock_hours_elwis">Operating hours (ELWIS)</string>
+    <string name="lock_days_range">%1$s to %2$s</string>
     <string name="notice_stale">Notices as of %1$s. Newer ones may be missing.</string>
     <string name="notice_route_title">Notices along the route</string>
     <string name="nav_notices_closed_one">1 closure (ELWIS)</string>
