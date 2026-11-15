@@ -7,7 +7,9 @@
   (PEGELONLINE) und Sperrungen oder Einschränkungen von ELWIS. Antippen zeigt Lage,
   Änderung der letzten Stunde bzw. den Meldungstext im Wortlaut. Mit Route stehen nur
   die Meldungen an der Route auf der Karte und im Kasten unten links, Sperrungen in Rot.
-  Der Ortsname im Meldungsfenster führt zur Stelle auf der Karte. Nur
+  Der Ortsname im Meldungsfenster führt zur Stelle auf der Karte. Eine angetippte
+  Schleuse zeigt ihre aktuellen Meldungen, etwa Sperrungen oder geänderte Zeiten. Sind
+  die Meldungen älter als eine Stunde (etwa ohne Netz), steht ihr Stand dabei. Nur
   Bundeswasserstraßen, abschaltbar unter Einstellungen, Navigation.
 
 **Geändert**
@@ -33,7 +35,9 @@
   Tap for the state and the change over the last hour, or the notice text verbatim.
   With a route, only notices along it appear on the map and in the box at the bottom
   left, closures in red. The place name in the notice window takes you to the spot on
-  the map. Federal waterways only, can be switched off under Settings, Navigation.
+  the map. A tapped lock shows its current notices, such as closures or changed hours.
+  If the notices are more than an hour old (e.g. offline), their date is shown. Federal
+  waterways only, can be switched off under Settings, Navigation.
 
 **Changed**
 - Bridges: only one sign. With seamarks on, OpenSeaMap shows the clearance and our

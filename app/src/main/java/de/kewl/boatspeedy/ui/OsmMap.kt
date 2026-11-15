@@ -131,6 +131,8 @@ fun OsmMap(
     flowRivers: List<List<LatLon>> = emptyList(),
     /** Antippen eines Hindernisses — für die Auskunft zu einer Schleuse. */
     onObstacle: ((de.kewl.boatspeedy.nav.Obstacle) -> Unit)? = null,
+    /** Hindernisse mit Meldungen, die auch ohne eigene Angaben antippbar sind. */
+    obstaclesWithNotices: Set<de.kewl.boatspeedy.nav.Obstacle> = emptySet(),
     /** Tonnen, Baken und Hinweiszeichen von OpenSeaMap einblenden. */
     showSeamarks: Boolean = false,
     /** Geschwindigkeitszeichen mit ihrem Wert; die Kacheln zeigen nur das leere Schild. */
@@ -541,7 +543,7 @@ fun OsmMap(
             mapView.overlays.add(it)
         }
     }
-    LaunchedEffect(obstacles, onObstacle != null, showSeamarks) {
+    LaunchedEffect(obstacles, onObstacle != null, showSeamarks, obstaclesWithNotices) {
         obstacleMarkers.forEach { mapView.overlays.remove(it) }
         obstacleMarkers.clear()
         obstacles.forEach { o ->
@@ -572,7 +574,7 @@ fun OsmMap(
                 title = o.name
                 // Nur was zu sagen hat, wird antippbar. Ein Tor ohne Merkmale würde nur
                 // eine leere Blase öffnen und den Eindruck erwecken, es sei etwas kaputt.
-                if (onObstacle != null && o.hasInfo) {
+                if (onObstacle != null && (o.hasInfo || o in obstaclesWithNotices)) {
                     setOnMarkerClickListener { _, _ -> onObstacle(o); true }
                 } else {
                     setOnMarkerClickListener { _, _ -> false }

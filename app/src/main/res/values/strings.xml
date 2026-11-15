@@ -457,6 +457,8 @@
     <string name="notice_disclaimer">No guarantee. Some notices come from ports or foreign authorities. What is ordered on site applies.</string>
     <string name="notice_show_on_map">Show on map</string>
     <string name="seamark_more">More details</string>
+    <string name="lock_notices">Notices (ELWIS)</string>
+    <string name="notice_stale">Notices as of %1$s. Newer ones may be missing.</string>
     <string name="notice_route_title">Notices along the route</string>
     <string name="nav_notices_closed_one">1 closure (ELWIS)</string>
     <string name="nav_notices_closed">%d closures (ELWIS)</string>

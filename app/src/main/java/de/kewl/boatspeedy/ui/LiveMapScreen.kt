@@ -413,6 +413,7 @@ fun LiveMapScreen(
     // Meldungen von ELWIS über den Kachelserver. Nur im Vordergrund nachgefragt.
     var allGauges by remember { mutableStateOf<List<Gauge>>(emptyList()) }
     var allNotices by remember { mutableStateOf<List<WaterNotice>>(emptyList()) }
+    var noticesAt by remember { mutableStateOf<java.time.Instant?>(null) }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(settings.waterInfo) {
         if (!settings.waterInfo) {
@@ -424,6 +425,7 @@ fun LiveMapScreen(
             while (true) {
                 allGauges = withContext(Dispatchers.IO) { Gauges.load(context.cacheDir) }
                 allNotices = withContext(Dispatchers.IO) { WaterNotices.load(context.cacheDir) }
+                noticesAt = withContext(Dispatchers.IO) { WaterNotices.generatedAt(context.cacheDir) }
                 delay(WATER_INFO_REFRESH_MS)
             }
         }
@@ -447,6 +449,20 @@ fun LiveMapScreen(
         navTarget?.takeIf { it.mode == NavMode.ROUTE }?.let { t ->
             WaterNotices.alongRoute(activeNotices, t.water.ifEmpty { t.path })
         }.orEmpty()
+    }
+    val shownObstacles = remember(navTarget, areaObstacles) {
+        (navTarget?.obstacles.orEmpty() + areaObstacles).distinctBy { "%.4f,%.4f".format(it.lat, it.lon) }
+    }
+    // Schleusen mit Meldungen von ELWIS. Sie sind antippbar, auch wenn OSM nichts über sie
+    // weiß: Eine Sperrung ist genau das, was man an der Schleuse wissen will.
+    val locksWithNotices = remember(shownObstacles, activeNotices) {
+        if (activeNotices.isEmpty()) {
+            emptySet()
+        } else {
+            shownObstacles.filter { it.kind == ObstacleKind.LOCK && !it.isGate }
+                .filter { WaterNotices.atLock(activeNotices, it.lat, it.lon, it.line).isNotEmpty() }
+                .toSet()
+        }
     }
     // Mit Route nur, was an ihr liegt. In Berlin stehen sonst Dutzende Meldungen auf der
     // Karte, und die eine an der eigenen Strecke geht darin unter.
@@ -628,10 +644,10 @@ fun LiveMapScreen(
                 obstacles = if (weatherMode) {
                     emptyList()
                 } else {
-                    (navTarget?.obstacles.orEmpty() + areaObstacles)
-                        .distinctBy { "%.4f,%.4f".format(it.lat, it.lon) }
+                    shownObstacles
                 },
                 onObstacle = { obstacleInfo = it },
+                obstaclesWithNotices = locksWithNotices,
                 navBlockedPaths = if (weatherMode) emptyList() else navTarget?.restricted.orEmpty(),
                 navPortagePaths = if (weatherMode) emptyList() else navTarget?.portage.orEmpty(),
                 flowRivers = flowRivers,
@@ -1145,6 +1161,7 @@ fun LiveMapScreen(
     noticeInfo?.let { n ->
         NoticeDialog(
             n,
+            stand = noticesAt,
             onGoTo = { p ->
                 noticeInfo = null
                 follow = false
@@ -1171,7 +1188,7 @@ fun LiveMapScreen(
                 )
             },
             text = {
-                Column {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     // Wozu die Stelle am Ufer taugt. Ohne das stünde dort nur ein Name
                     // oder gar nichts, und das Symbol bliebe ein Rätsel.
                     o.landingKind?.let {
@@ -1208,6 +1225,13 @@ fun LiveMapScreen(
                         InfoZeile(stringResource(R.string.lock_size), "${masse[0]} × ${masse[1]} m")
                     }
                     o.cemt?.let { InfoZeile(stringResource(R.string.lock_cemt), it) }
+                    // Was heute an der Schleuse gilt: Sperrungen, geänderte Zeiten, Hinweise.
+                    if (o.kind == ObstacleKind.LOCK) {
+                        val meldungen = remember(o, activeNotices) {
+                            WaterNotices.atLock(activeNotices, o.lat, o.lon, o.line)
+                        }
+                        NoticeEntries(meldungen, onGoTo = null, stand = noticesAt)
+                    }
                 }
             },
             confirmButton = {

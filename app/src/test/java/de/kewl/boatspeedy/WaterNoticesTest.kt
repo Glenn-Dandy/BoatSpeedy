@@ -120,4 +120,37 @@ class WaterNoticesTest {
     fun `Ausschnitt nach Lage`() {
         assertEquals(listOf("2026-3164"), WaterNotices.inBox(all, 52.5, 13.2, 52.6, 13.4).map { it.id })
     }
+
+    /**
+     * Schleuse Mühlendamm, Meldungen vom 15.11.2026: die Sperrung der Nordkammer (LKB) und
+     * eine Brücke 150 m daneben (BRI), gekürzt. Am Symbol der Schleuse gehört nur die
+     * Kammer dazu.
+     */
+    @Test
+    fun `Meldungen zur Schleuse`() {
+        val all = WaterNotices.parse(
+            """
+            {"generated":"2026-11-15T09:30Z","messages":[
+             {"id":"2026-3099","subject":"ANNOUN","from":"2026-11-11","to":"2026-11-30",
+              "places":[{"name":"Mühlendamm, Nordkammer","type":"LKB","points":[[52.5149,13.4102]],
+                "limits":[{"code":"OBSTRU"}]}]},
+             {"id":"brücke","subject":"ANNOUN","from":"2026-11-11","to":"2026-11-30",
+              "places":[{"name":"Mühlendammbrücke","type":"BRI","points":[[52.5151,13.4080]],
+                "limits":[{"code":"CAUTIO"}]}]}
+            ]}
+            """.trimIndent(),
+        )
+        assertEquals(listOf("2026-3099"), WaterNotices.atLock(all, 52.5148, 13.4105).map { it.id })
+        // Eine andere Schleuse 2 km weiter bekommt sie nicht.
+        assertTrue(WaterNotices.atLock(all, 52.5300, 13.4105).isEmpty())
+        // Liegt die Kammer als Linie vor, zählt der Abstand zu ihr.
+        val kammer = listOf(LatLon(52.5160, 13.4060), LatLon(52.5150, 13.4100))
+        assertEquals(1, WaterNotices.atLock(all, 52.5200, 13.4000, kammer).size)
+    }
+
+    @Test
+    fun `Stand der Meldungen`() {
+        assertEquals(java.time.Instant.parse("2026-11-14T21:40:00Z"), WaterNotices.generated(json))
+        assertEquals(null, WaterNotices.generated("{}"))
+    }
 }

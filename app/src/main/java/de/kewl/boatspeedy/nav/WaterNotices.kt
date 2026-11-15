@@ -106,6 +106,24 @@ object WaterNotices {
         return if (f.exists()) runCatching { parse(f.readText()) }.getOrDefault(emptyList()) else emptyList()
     }
 
+    /**
+     * Wann der Server die Meldungen zuletzt bei ELWIS geholt hat, aus der gespeicherten
+     * Fassung. Ohne Netz zeigt die App diese Fassung weiter, und dann muss man sehen
+     * können, wie alt sie ist.
+     */
+    fun generatedAt(cacheDir: File): java.time.Instant? {
+        val f = File(cacheDir, FILE)
+        if (!f.exists()) return null
+        return runCatching { generated(f.readText()) }.getOrNull()
+    }
+
+    internal fun generated(json: String): java.time.Instant? = runCatching {
+        java.time.OffsetDateTime.parse(JSONObject(json).optString("generated")).toInstant()
+    }.getOrNull()
+
+    /** Ab diesem Alter steht der Stand der Meldungen im Fenster. */
+    const val STALE_MS = 60 * 60 * 1000L
+
     fun parse(json: String): List<WaterNotice> {
         val arr = JSONObject(json).optJSONArray("messages") ?: return emptyList()
         return (0 until arr.length()).mapNotNull { i ->
@@ -179,6 +197,26 @@ object WaterNotices {
         east: Double,
     ): List<WaterNotice> = all.filter { n ->
         n.places.any { p -> p.points.any { it.lat in south..north && it.lon in west..east } }
+    }
+
+    /** So weit darf eine Schleusenmeldung vom Symbol oder der Kammer in OSM entfernt sein. */
+    const val LOCK_RADIUS_M = 300.0
+
+    /** Arten von Orten in ELWIS, die eine Schleuse oder eine ihrer Kammern meinen. */
+    private val LOCK_TYPES = setOf("LCK", "LKB")
+
+    /**
+     * Die Meldungen zu einer Schleuse. Gesucht wird an der Kammer, wenn OSM sie als Linie
+     * kennt, sonst am Symbol. Nur Orte, die ELWIS selbst als Schleuse oder Kammer führt:
+     * Eine Brücke 200 m daneben ist eine andere Auskunft.
+     */
+    fun atLock(all: List<WaterNotice>, lat: Double, lon: Double, line: List<LatLon> = emptyList()): List<WaterNotice> {
+        val ziel = line.ifEmpty { listOf(LatLon(lat, lon)) }
+        return all.filter { n ->
+            n.places.any { p ->
+                p.type in LOCK_TYPES && p.points.any { distanceToPathM(it, ziel) <= LOCK_RADIUS_M }
+            }
+        }
     }
 
     /** Die Meldungen, die an der Strecke [path] liegen. */

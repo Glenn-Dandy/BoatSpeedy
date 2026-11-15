@@ -455,6 +455,8 @@
     <string name="notice_disclaimer">Ohne Gewähr. Manche Meldungen stammen von Häfen oder ausländischen Stellen. Es gilt, was vor Ort angeordnet ist.</string>
     <string name="notice_show_on_map">Auf der Karte zeigen</string>
     <string name="seamark_more">Weitere Angaben</string>
+    <string name="lock_notices">Meldungen (ELWIS)</string>
+    <string name="notice_stale">Stand der Meldungen: %1$s. Neuere fehlen vielleicht.</string>
     <string name="notice_route_title">Meldungen an der Strecke</string>
     <string name="nav_notices_closed_one">1 Sperrung (ELWIS)</string>
     <string name="nav_notices_closed">%d Sperrungen (ELWIS)</string>

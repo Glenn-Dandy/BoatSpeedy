@@ -124,7 +124,12 @@ fun GaugeDialog(g: Gauge, onDismiss: () -> Unit) {
  * Nutzungsbedingungen. Darüber, was eingeschränkt ist und wann, aus den Codes der Meldung.
  */
 @Composable
-fun NoticeDialog(notices: List<WaterNotice>, onGoTo: ((LatLon) -> Unit)?, onDismiss: () -> Unit) {
+fun NoticeDialog(
+    notices: List<WaterNotice>,
+    stand: java.time.Instant? = null,
+    onGoTo: ((LatLon) -> Unit)?,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -147,6 +152,7 @@ fun NoticeDialog(notices: List<WaterNotice>, onGoTo: ((LatLon) -> Unit)?, onDism
                     if (i > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
                     NoticeBody(n, mitName = notices.size > 1, onGoTo = onGoTo)
                 }
+                StandHinweis(stand)
                 Quelle(stringResource(R.string.notice_source))
                 Quelle(stringResource(R.string.notice_disclaimer))
             }
@@ -154,6 +160,49 @@ fun NoticeDialog(notices: List<WaterNotice>, onGoTo: ((LatLon) -> Unit)?, onDism
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         },
+    )
+}
+
+/**
+ * Meldungen eingebettet in ein anderes Fenster, etwa das einer Schleuse: Überschrift,
+ * jede Meldung wie im Meldungsfenster, Quelle und Haftungshinweis.
+ */
+@Composable
+fun NoticeEntries(notices: List<WaterNotice>, onGoTo: ((LatLon) -> Unit)?, stand: java.time.Instant? = null) {
+    if (notices.isEmpty()) return
+    HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+    Text(stringResource(R.string.lock_notices), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+    Spacer(Modifier.height(6.dp))
+    notices.forEachIndexed { i, n ->
+        if (i > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        NoticeBody(n, mitName = true, onGoTo = onGoTo)
+    }
+    StandHinweis(stand)
+    Quelle(stringResource(R.string.notice_source))
+    Quelle(stringResource(R.string.notice_disclaimer))
+}
+
+/**
+ * Wie alt die Meldungen sind, aber nur, wenn es zählt: ab einer Stunde. Sonst wäre es eine
+ * Zeile mehr, die immer dasselbe sagt. Hervorgehoben, weil eine neue Sperrung fehlen kann.
+ */
+@Composable
+private fun StandHinweis(stand: java.time.Instant?) {
+    val t = stand ?: return
+    if (System.currentTimeMillis() - t.toEpochMilli() < de.kewl.boatspeedy.nav.WaterNotices.STALE_MS) return
+    val lokal = t.atZone(ZoneId.systemDefault())
+    val uhr = lokal.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+    val wann = if (lokal.toLocalDate() == LocalDate.now()) {
+        uhr
+    } else {
+        lokal.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)) + ", " + uhr
+    }
+    Text(
+        stringResource(R.string.notice_stale, wann),
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.padding(top = 10.dp),
     )
 }
 
