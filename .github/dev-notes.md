@@ -19,7 +19,7 @@
 - Brücken: nur noch ein Schild. Mit Seezeichen zeigt OpenSeaMap die Höhe, unser
   Symbol entfällt; ohne Seezeichen trägt unser Symbol die Höhe als Zahl. Die Seezeichen
   liegen jetzt über der Routenlinie.
-- Seezeichen: Schilder zeigen oben ihre Art („Verbot") und darunter fett ihre Bedeutung
+- Seezeichen: Schilder zeigen oben fett ihre Art („Verbot") und darunter fett und kleiner ihre Bedeutung
   („Wenden verboten"), dann Hinweistext und Richtung („gilt zu Berg und zu Tal").
   Mehrere Schilder an einem Mast stehen einzeln da. Tonnen, Baken, Häfen,
   Sportbooteinrichtungen und weitere Zeichen auf Deutsch, nicht Übersetzbares liegt
@@ -52,7 +52,7 @@
 - Bridges: only one sign. With seamarks on, OpenSeaMap shows the clearance and our
   symbol is gone; with seamarks off, our symbol carries the clearance as a number.
   Seamarks now lie above the route line.
-- Seamarks: signs show their kind on top and their meaning below in bold, then the
+- Seamarks: signs show their kind on top in bold and their meaning below in smaller bold, then the
   extra text and direction. Several signs on one post are listed one by one. Buoys,
   beacons, harbours, small craft facilities and more are described in plain words, in
   English or German following the app language, anything else is folded away under
