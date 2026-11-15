@@ -653,8 +653,10 @@ fun OsmMap(
      */
     val seamarkTap = remember(mapView) { SeamarkTapOverlay(context.resources.displayMetrics.density) }
     DisposableEffect(seamarks, onSeamark) {
+        // Die Auskunft in der Sprache der App: Deutsch nur, wenn die App deutsch spricht.
+        val englisch = context.resources.configuration.locales[0].language != "de"
         val list = seamarks.mapNotNull { poi ->
-            de.kewl.boatspeedy.nav.SeamarkSource.describe(poi.tags)?.let { info ->
+            de.kewl.boatspeedy.nav.SeamarkSource.describe(poi.tags, englisch)?.let { info ->
                 Triple(GeoPoint(poi.lat, poi.lon), info, poi.tags["seamark:type"].orEmpty())
             }
         }

@@ -18,8 +18,8 @@
   („Wenden verboten"), dann Hinweistext und Richtung („gilt zu Berg und zu Tal").
   Mehrere Schilder an einem Mast stehen einzeln da. Tonnen, Baken, Häfen,
   Sportbooteinrichtungen und weitere Zeichen auf Deutsch, nicht Übersetzbares liegt
-  eingeklappt unter „Weitere Angaben". Antippen trifft das nächste Zeichen, nicht mehr
-  die Dalbe daneben.
+  eingeklappt unter „Weitere Angaben". In der englischen App auf Englisch. Antippen
+  trifft das nächste Zeichen, nicht mehr die Dalbe daneben.
 - Karte: Der Zoom rastet auf ganze Stufen ein. Zwischenstufen vergrößerten die Kacheln
   zusätzlich, die Karte wurde unscharf.
 
@@ -41,8 +41,9 @@
   Seamarks now lie above the route line.
 - Seamarks: signs show their kind on top and their meaning below in bold, then the
   extra text and direction. Several signs on one post are listed one by one. Buoys,
-  beacons, harbours, small craft facilities and more are translated, anything else is
-  folded away under "More details". A tap hits the nearest mark, not the dolphin next
+  beacons, harbours, small craft facilities and more are described in plain words, in
+  English or German following the app language, anything else is folded away under
+  "More details". A tap hits the nearest mark, not the dolphin next
   to it.
 - Map: zoom snaps to whole levels. In-between levels scaled the tiles up further and
   made the map blurry.

@@ -280,4 +280,48 @@ class SeamarkInfoTest {
         ))!!
         assertEquals(listOf("gesamte Wakenitz"), info.lines)
     }
+
+    /** Die englische App: OSM-Werte lesbar, eigene Fassung wo das holpert. */
+    @Test
+    fun `auf Englisch`() {
+        val schild = SeamarkSource.describe(mapOf(
+            "seamark:type" to "notice",
+            "seamark:notice:category" to "no_anchoring",
+            "seamark:notice:function" to "prohibition",
+            "seamark:notice:impact" to "upstream;downstream",
+            "seamark:notice:information" to "Ölsperre 20m",
+        ), inEnglish = true)!!
+        assertEquals("Prohibition", schild.title)
+        assertEquals("No anchoring", schild.subtitle)
+        assertEquals(listOf("Ölsperre 20m", "applies upstream and downstream"), schild.lines)
+
+        val tonne = SeamarkSource.describe(mapOf(
+            "seamark:type" to "buoy_lateral",
+            "seamark:name" to "K 6",
+            "seamark:buoy_lateral:category" to "channel_right_bank",
+            "seamark:buoy_lateral:colour" to "red;white",
+            "seamark:buoy_lateral:shape" to "can",
+            "seamark:topmark:shape" to "cylinder",
+        ), inEnglish = true)!!
+        assertEquals("Lateral buoy \u201CK 6\u201D", tonne.title)
+        assertEquals(
+            listOf("Channel near the right bank", "Colour: red, white", "Can buoy", "Topmark: cylinder"),
+            tonne.lines,
+        )
+
+        val steg = SeamarkSource.describe(mapOf(
+            "seamark:type" to "small_craft_facility",
+            "seamark:small_craft_facility:category" to "visitor_berth;electricity",
+        ), inEnglish = true)!!
+        assertEquals(listOf("Visitor berth, Shore power"), steg.lines)
+    }
+
+    /** Deutsch bleibt Deutsch, auch wenn vorher englisch gefragt wurde. */
+    @Test
+    fun `Sprache bleibt nicht haengen`() {
+        val t = mapOf("seamark:type" to "notice", "seamark:notice:category" to "no_turning")
+        assertEquals("Wenden verboten", SeamarkSource.describe(t, inEnglish = true)!!.let {
+            SeamarkSource.describe(t)!!.title
+        })
+    }
 }

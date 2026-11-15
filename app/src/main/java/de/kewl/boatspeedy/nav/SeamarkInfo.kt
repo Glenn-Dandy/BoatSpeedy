@@ -525,6 +525,221 @@ object SeamarkSource {
         "Al" to "Wechselfeuer", "FFl" to "Fest- und Blitzfeuer",
     )
 
+    /* ------------------------- Englisch ------------------------- */
+
+    /**
+     * Die OSM-Werte sind selbst englisch. Für Englisch genügt meist der Wert ohne
+     * Unterstrich (`no_turning` wird „No turning"), nur wo das holpert, steht hier eine
+     * eigene Fassung. Bekannt sein muss der Wert trotzdem in der deutschen Liste, sonst
+     * gilt er als unübersetzt.
+     */
+    private val EN_TYPES = mapOf(
+        "buoy_lateral" to "Lateral buoy", "buoy_cardinal" to "Cardinal buoy",
+        "buoy_safe_water" to "Safe water buoy", "buoy_special_purpose" to "Special purpose buoy",
+        "buoy_isolated_danger" to "Isolated danger buoy", "beacon_lateral" to "Lateral beacon",
+        "beacon_cardinal" to "Cardinal beacon", "beacon_safe_water" to "Safe water beacon",
+        "beacon_special_purpose" to "Special purpose beacon",
+        "beacon_isolated_danger" to "Isolated danger beacon",
+        "light_major" to "Light", "light_minor" to "Light", "notice" to "Notice mark",
+        "lock_basin" to "Lock", "small_craft_facility" to "For small craft",
+        "calling-in_point" to "Calling-in point", "virtual_aton" to "Virtual aid to navigation",
+        "signal_station_traffic" to "Traffic signal station",
+        "signal_station_warning" to "Warning signal station",
+        "cable_overhead" to "Overhead cable", "cable_submarine" to "Submarine cable",
+        "pipeline_submarine" to "Submarine pipeline", "pipeline_overhead" to "Overhead pipeline",
+        "buoy_installation" to "Installation buoy", "waterway_gauge" to "Gauge",
+        "seabed_area" to "Seabed", "pile" to "Pile", "obstruction" to "Obstruction",
+    )
+    private val EN_BUOY_SHAPES = mapOf(
+        "conical" to "Conical buoy", "can" to "Can buoy", "spherical" to "Spherical buoy",
+        "sphere" to "Spherical buoy", "pillar" to "Pillar buoy", "spar" to "Spar buoy",
+        "barrel" to "Barrel buoy", "super-buoy" to "Super buoy", "ice-buoy" to "Ice buoy",
+    )
+    private val EN_BEACON_SHAPES = mapOf(
+        "pile" to "Pile beacon", "tower" to "Beacon tower", "lattice" to "Lattice beacon",
+        "buoyant" to "Buoyant beacon",
+    )
+    private val EN_LATERAL = mapOf(
+        "preferred_channel_port" to "Port, preferred channel",
+        "preferred_channel_starboard" to "Starboard, preferred channel",
+        "channel_left" to "Channel, left side", "channel_right" to "Channel, right side",
+        "waterway_left" to "Waterway, left side", "waterway_right" to "Waterway, right side",
+        "danger_left" to "Danger point, left side", "danger_right" to "Danger point, right side",
+        "channel_left_bank" to "Channel near the left bank",
+        "channel_right_bank" to "Channel near the right bank",
+        "crossover_left" to "Channel crosses to the left bank",
+        "crossover_right" to "Channel crosses to the right bank",
+        "turnoff_left" to "Turn-off left", "turnoff_right" to "Turn-off right",
+        "harbour_left" to "Harbour entrance left", "harbour_right" to "Harbour entrance right",
+        "lateral_port" to "Port", "lateral_starboard" to "Starboard",
+    )
+    private val EN_NOTICE = mapOf(
+        "no_passing" to "No passing or overtaking", "no_mooring" to "No mooring to the bank",
+        "no_wash" to "Avoid wash", "no_passage_left" to "No passage on the left",
+        "no_passage_right" to "No passage on the right", "no_sport_craft" to "No pleasure craft",
+        "no_sports_craft" to "No pleasure craft", "no_high_speeds" to "No high-speed craft",
+        "no_launching_beaching" to "No launching or beaching", "no_waterbikes" to "No water bikes",
+        "no_berthing_lateral_limit" to "No berthing within the width shown",
+        "no_sailboards" to "No windsurfing", "no_convoy_overtaking" to "No overtaking of convoys",
+        "move_to_left" to "Move to the left", "move_to_right" to "Move to the right",
+        "move_to_port" to "Move to port", "move_to_starboard" to "Move to starboard",
+        "keep_to_port" to "Keep to port", "keep_to_starboard" to "Keep to starboard",
+        "keep_to_left" to "Keep to the left", "keep_to_right" to "Keep to the right",
+        "cross_to_port" to "Cross to port", "cross_to_starboard" to "Cross to starboard",
+        "cross_to_left" to "Cross to the left", "cross_to_right" to "Cross to the right",
+        "proceed_to_left" to "Proceed to the left", "proceed_to_right" to "Proceed to the right",
+        "keep_lookout" to "Keep a sharp lookout",
+        "give_way_junction" to "Give way at the junction",
+        "give_way_crossing" to "Give way at the crossing",
+        "limited_width" to "Limited channel width",
+        "channel_distance_left" to "Channel at a distance from the left bank",
+        "channel_distance_right" to "Channel at a distance from the right bank",
+        "channel_two_way" to "Two-way traffic", "channel_one_way" to "One-way traffic",
+        "opening_to_left" to "Recommended passage on the left",
+        "opening_to_right" to "Recommended passage on the right",
+        "prohibition_ends" to "End of prohibition", "power_cable" to "Power line",
+        "ferry_non_independent" to "Ferry, not moving independently",
+        "ferry_independent" to "Ferry, moving independently",
+        "berthing_lateral_limit" to "Berthing permitted within the width shown",
+        "berthing_lateral_limits" to "Berthing permitted within the width shown",
+        "berth_rafting_limit" to "Berthing permitted, maximum abreast",
+        "berthing_rafting_limit" to "Berthing permitted, maximum abreast",
+        "berthing_unmarked" to "Berth for vessels without a blue cone",
+        "berthing_marked_1" to "Berth for vessels with one blue cone",
+        "berthing_marked_2" to "Berth for vessels with two blue cones",
+        "berthing_marked_3" to "Berth for vessels with three blue cones",
+        "berthing_unmarked_pushing" to "Berth for pushed convoys without a blue cone",
+        "berthing_marked_pushing_1" to "Berth for pushed convoys with one blue cone",
+        "berthing_marked_pushing_2" to "Berth for pushed convoys with two blue cones",
+        "berthing_marked_pushing_3" to "Berth for pushed convoys with three blue cones",
+        "berthing_unmarked_non-pushing" to "Berth without a blue cone, except pushed convoys",
+        "berthing_marked_non-pushing_1" to "Berth with one blue cone, except pushed convoys",
+        "berthing_marked_non-pushing_2" to "Berth with two blue cones, except pushed convoys",
+        "berthing_marked_non-pushing_3" to "Berth with three blue cones, except pushed convoys",
+        "secondary_waterway_crossing" to "Crossing with a secondary waterway",
+        "secondary_waterway_right" to "Secondary waterway on the right",
+        "secondary_waterway_left" to "Secondary waterway on the left",
+        "main_waterway_crossing" to "Crossing with a main waterway",
+        "main_waterway_right" to "Main waterway on the right",
+        "main_waterway_left" to "Main waterway on the left",
+        "main_waterway_junction" to "Junction with a main waterway",
+        "secondary_waterway_junction" to "Junction with a secondary waterway",
+        "sport_craft_permitted" to "Pleasure craft permitted",
+        "sailboards_permitted" to "Windsurfing permitted",
+        "high_speeds_permitted" to "High-speed craft permitted",
+        "launching_beaching_permitted" to "Launching and beaching permitted",
+        "waterbikes_permitted" to "Water bikes permitted",
+        "radio_information" to "Nautical radio information",
+        "sport_craft" to "Pleasure craft", "sports_craft" to "Pleasure craft",
+        "waterskiing" to "Water skiing", "waterskiing_permitted" to "Water skiing permitted",
+        "no_waterskiing" to "No water skiing", "waterbikes" to "Water bikes",
+        "use_shore_power" to "Use shore power",
+    )
+    private val EN_FUNCTIONS = mapOf("recommandation" to "Recommendation")
+    private val EN_IMPACTS = mapOf(
+        "left_bank" to "on the left bank", "right_bank" to "on the right bank",
+        "to_harbour" to "into the harbour", "from_harbour" to "out of the harbour",
+    )
+    private val EN_WATER_LEVELS = mapOf(
+        "covers" to "covers and uncovers", "above_mwl" to "above mean water level",
+    )
+    private val EN_REFLECTIVITY = mapOf(
+        "conspicuous" to "radar conspicuous", "reflector" to "with radar reflector",
+    )
+    private val EN_TYPE_CATEGORIES: Map<String, Map<String, String>> = mapOf(
+        "small_craft_facility" to mapOf(
+            "gelbe_welle" to "Visitor berth (Gelbe Welle)", "electricity" to "Shore power",
+            "chandler" to "Chandlery", "water_tap" to "Drinking water", "water" to "Drinking water",
+            "refuse_bin" to "Waste disposal", "nautical_club" to "Water sports club",
+            "public_inn" to "Inn", "boat_hoist" to "Boat hoist", "pump-out" to "Pump-out",
+        ),
+        "mooring" to mapOf(
+            "buoy" to "Mooring buoy", "wall" to "Quay wall", "ring" to "Mooring ring",
+        ),
+        "harbour" to mapOf(
+            "marina_no_facilities" to "Marina without facilities", "ferry" to "Ferry port",
+            "fishing" to "Fishing port", "passenger" to "Passenger port", "cargo" to "Cargo port",
+            "bulk" to "Bulk port", "tanker" to "Tanker port", "container" to "Container port",
+            "roro" to "RoRo port", "naval" to "Naval port", "commercial" to "Commercial port",
+        ),
+        "bridge" to mapOf(
+            "fixed" to "Fixed bridge", "opening" to "Opening bridge", "swing" to "Swing bridge",
+            "bascule" to "Bascule bridge", "lifting" to "Lift bridge",
+            "retractable" to "Retractable bridge", "pontoon" to "Pontoon bridge",
+        ),
+        "signal_station_traffic" to mapOf(
+            "lock" to "Lock signal", "bridge_passage" to "Bridge signal", "bridge" to "Bridge signal",
+            "traffic_control_light" to "Traffic control", "port_entry_departure" to "Port entry and departure",
+            "dock" to "Dock signal",
+        ),
+        "signal_station" to mapOf("lock" to "Lock signal"),
+        "special_purpose" to mapOf(
+            "odas" to "Data buoy", "tss" to "Traffic separation",
+            "maximum_vessel_draught" to "Maximum draught", "foul_ground" to "Foul ground",
+        ),
+        "waterway_gauge" to mapOf(
+            "recording_remote_access" to "Remote reading gauge",
+            "recording_remote_access_indicator" to "Remote reading gauge with display",
+            "recording_external_indicator" to "Gauge with display",
+            "recording" to "Recording gauge", "staff" to "Gauge staff",
+        ),
+        "anchor_berth" to mapOf(
+            "small_craft" to "For small craft", "tanker" to "For tankers",
+            "dry_cargo" to "For dry cargo", "24_hour" to "24 hours", "48_hour" to "48 hours",
+        ),
+        "gate" to mapOf("lock" to "Lock gate", "dyke" to "Dyke gate"),
+        "cable_overhead" to mapOf("power" to "Power line", "ferry" to "Ferry cable"),
+        "pylon" to mapOf("power" to "Power pylon", "ferry" to "Ferry pylon"),
+        "fishing_facility" to mapOf("stake" to "Fishing stake", "trap" to "Fish trap"),
+        "radar_station" to mapOf("coast" to "Coastal radar"),
+        "obstruction" to mapOf("foul_ground" to "Foul ground", "foul_area" to "Foul ground"),
+    )
+
+    /** Je deutscher Liste die englischen Ausnahmen; klein bleiben Farben und Zustände. */
+    private val EN_OVERRIDES: java.util.IdentityHashMap<Map<String, String>, Map<String, String>> by lazy {
+        java.util.IdentityHashMap<Map<String, String>, Map<String, String>>().apply {
+            put(TYPES, EN_TYPES); put(BUOY_SHAPES, EN_BUOY_SHAPES)
+            put(BEACON_SHAPES, EN_BEACON_SHAPES); put(LATERAL_CATEGORIES, EN_LATERAL)
+            put(NOTICE_CATEGORIES, EN_NOTICE); put(NOTICE_FUNCTIONS, EN_FUNCTIONS)
+            put(IMPACTS, EN_IMPACTS); put(WATER_LEVELS, EN_WATER_LEVELS)
+            put(REFLECTIVITY, EN_REFLECTIVITY)
+            TYPE_CATEGORIES.forEach { (t, m) -> put(m, EN_TYPE_CATEGORIES[t].orEmpty()) }
+        }
+    }
+    private val EN_LOWERCASE: Set<Map<String, String>> by lazy {
+        java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Map<String, String>, Boolean>()).apply {
+            add(COLOURS); add(IMPACTS); add(WATER_LEVELS); add(REFLECTIVITY); add(TOPMARK_SHAPES)
+        }
+    }
+
+    /** Feste Wörter der Auskunft. */
+    private class Words(val en: Boolean) {
+        fun w(de: String, en: String) = if (this.en) en else de
+        val colour get() = w("Farbe", "Colour")
+        val topmark get() = w("Toppzeichen", "Topmark")
+        val daymark get() = w("Tageszeichen", "Daymark")
+        val light get() = w("Feuer", "Light")
+        val period get() = w("Wiederkehr", "period")
+        val range get() = w("Tragweite", "Range")
+        val nm get() = w("sm", "nm")
+        val km get() = w("Kilometer", "km")
+        val applies get() = w("gilt", "applies")
+        val and get() = w("und", "and")
+        fun cardinal(dir: String) = w("$dir-Kardinalzeichen", "$dir cardinal mark")
+        fun quoted(name: String) = w("„$name\"", "“$name”")
+    }
+
+    private val CARDINALS_EN = mapOf("north" to "North", "east" to "East", "south" to "South", "west" to "West")
+
+    private val LIGHT_CHARACTER_EN = mapOf(
+        "F" to "fixed", "Fl" to "flashing", "LFl" to "long-flashing", "Oc" to "occulting",
+        "Iso" to "isophase", "Q" to "quick", "VQ" to "very quick", "IQ" to "interrupted quick",
+        "Mo" to "Morse code", "Al" to "alternating", "FFl" to "fixed and flashing",
+    )
+
+    /** Sprache der laufenden Übersetzung, für [describe] gesetzt. */
+    private val english = ThreadLocal.withInitial { false }
+
     private fun colours(v: String) =
         v.split(";").joinToString(", ") { lookup(COLOURS, it) ?: readable(it) }
 
@@ -534,12 +749,20 @@ object SeamarkSource {
      */
     private fun norm(v: String) = v.trim().lowercase().replace('-', '_')
 
-    private val normalized = HashMap<Map<String, String>, Map<String, String>>()
+    private val normalized = java.util.IdentityHashMap<Map<String, String>, Map<String, String>>()
 
-    private fun lookup(map: Map<String, String>, v: String): String? =
-        map[v.trim()] ?: synchronized(normalized) {
-            normalized.getOrPut(map) { map.mapKeys { norm(it.key) } }
-        }[norm(v)]
+    private fun normalizedOf(map: Map<String, String>): Map<String, String> =
+        synchronized(normalized) { normalized.getOrPut(map) { map.mapKeys { norm(it.key) } } }
+
+    /** Übersetzung eines Werts aus einer der Listen, `null` wenn er dort nicht steht. */
+    private fun lookup(map: Map<String, String>, v: String): String? {
+        val de = map[v.trim()] ?: normalizedOf(map)[norm(v)] ?: return null
+        if (!english.get()) return de
+        val over = EN_OVERRIDES[map]
+        over?.let { o -> (o[v.trim()] ?: normalizedOf(o)[norm(v)])?.let { return it } }
+        val plain = readable(v)
+        return if (map in EN_LOWERCASE) plain else plain.replaceFirstChar { it.uppercase() }
+    }
 
     /**
      * Unbekanntes bleibt stehen, aber lesbar: `sailing_craft` wird `sailing craft`.
@@ -559,7 +782,8 @@ object SeamarkSource {
     private fun impact(v: String): String {
         val teile = v.split(";").map { it.trim() }.filter { it.isNotEmpty() }
         val de = teile.map { lookup(IMPACTS, it) }
-        return if (de.all { it != null }) "gilt " + de.joinToString(" und ") else v.trim()
+        val w = Words(english.get())
+        return if (de.all { it != null }) "${w.applies} " + de.joinToString(" ${w.and} ") else v.trim()
     }
 
     /**
@@ -572,7 +796,7 @@ object SeamarkSource {
         return when {
             c != null -> f to c
             f != null -> null to f
-            else -> null to TYPES.getValue("notice")
+            else -> null to lookup(TYPES, "notice")!!
         }
     }
 
@@ -583,7 +807,17 @@ object SeamarkSource {
      * weggelassen oder geraten zu werden: Bei einem Zeichen auf dem Wasser ist eine
      * erfundene Bedeutung schlimmer als ein unübersetztes Kürzel.
      */
-    internal fun describe(tags: Map<String, String>): SeamarkInfo? {
+    fun describe(tags: Map<String, String>, inEnglish: Boolean = false): SeamarkInfo? {
+        val vorher = english.get()
+        english.set(inEnglish)
+        try {
+            return describeIn(tags, Words(inEnglish))
+        } finally {
+            english.set(vorher)
+        }
+    }
+
+    private fun describeIn(tags: Map<String, String>, w: Words): SeamarkInfo? {
         val type = tags["seamark:type"] ?: return null
         if (type == "sounding" || type.isBlank()) return null
         // **Schleusentore sind keine eigene Auskunft.** An der Oeblitzschleuse tragen die
@@ -614,11 +848,11 @@ object SeamarkSource {
             .sortedBy { it.key }
             .map { "${it.key.removePrefix("seamark:")} = ${it.value}" }
 
-        if (type == "notice") return describeNotice(tags, name, ::take, used, ::rawOf)
+        if (type == "notice") return describeNotice(tags, name, ::take, used, ::rawOf, w)
 
         val title = buildString {
-            append(TYPES[type] ?: type.replace('_', ' '))
-            if (!name.isNullOrBlank()) append(" „").append(name).append('"')
+            append(lookup(TYPES, type) ?: readable(type))
+            if (!name.isNullOrBlank()) append(' ').append(w.quoted(name))
         }
         val lines = ArrayList<String>()
 
@@ -640,13 +874,14 @@ object SeamarkSource {
         attr("category")?.let { (_, c) ->
             val eigene = typeCategories(type)
             lines.add(
-                lookup(LATERAL_CATEGORIES, c) ?: CARDINALS[c]?.let { "$it-Kardinalzeichen" }
+                lookup(LATERAL_CATEGORIES, c)
+                    ?: (if (w.en) CARDINALS_EN[c] else CARDINALS[c])?.let { w.cardinal(it) }
                     ?: eigene?.let { many(c, it) } ?: many(c, NOTICE_CATEGORIES),
             )
         }
-        attr("colour")?.let { (_, c) -> lines.add("Farbe: ${colours(c)}") }
+        attr("colour")?.let { (_, c) -> lines.add("${w.colour}: ${colours(c)}") }
         attr("shape")?.let { (von, s) ->
-            lines.add((if (von.startsWith("beacon_")) BEACON_SHAPES[s] else BUOY_SHAPES[s]) ?: readable(s))
+            lines.add(lookup(if (von.startsWith("beacon_")) BEACON_SHAPES else BUOY_SHAPES, s) ?: readable(s))
         }
         attr("water_level")?.let { (_, w) -> lines.add(lookup(WATER_LEVELS, w) ?: readable(w)) }
         attr("reflectivity")?.let { (von, r) ->
@@ -658,11 +893,11 @@ object SeamarkSource {
         attr("colour_pattern")
         take("seamark:topmark:shape")?.let { s ->
             val c = take("seamark:topmark:colour")
-            lines.add("Toppzeichen: ${TOPMARK_SHAPES[s] ?: readable(s)}" + if (c != null) " (${colours(c)})" else "")
+            lines.add("${w.topmark}: ${lookup(TOPMARK_SHAPES, s) ?: readable(s)}" + if (c != null) " (${colours(c)})" else "")
         }
         take("seamark:daymark:shape")?.let { s ->
             val c = take("seamark:daymark:colour")
-            lines.add("Tageszeichen: ${TOPMARK_SHAPES[s] ?: readable(s)}" + if (c != null) " (${colours(c)})" else "")
+            lines.add("${w.daymark}: ${lookup(TOPMARK_SHAPES, s) ?: readable(s)}" + if (c != null) " (${colours(c)})" else "")
         }
 
         // Feuer: Kennung, Farbe, Wiederkehr.
@@ -676,18 +911,18 @@ object SeamarkSource {
                 append(character)
                 if (!group.isNullOrBlank()) append('(').append(group).append(')')
                 if (col != null) append(' ').append(colours(col))
-                if (period != null) append(", Wiederkehr ").append(period).append(" s")
+                if (period != null) append(", ${w.period} ").append(period).append(" s")
             }
-            lines.add("Feuer: $short")
-            if (LIGHT_CHARACTER[character] != null) lines.add("  ${LIGHT_CHARACTER[character]}")
-            if (range != null) lines.add("  Tragweite $range sm")
+            lines.add("${w.light}: $short")
+            (if (w.en) LIGHT_CHARACTER_EN else LIGHT_CHARACTER)[character]?.let { lines.add("  $it") }
+            if (range != null) lines.add("  ${w.range} $range ${w.nm}")
         }
 
         attr("information")?.let { (_, v) -> lines.add(v) }
         attr("national_information")?.let { (_, v) -> lines.add(v) }
         take("seamark:information")?.let { lines.add(it) }
         take("seamark:national_information")?.let { lines.add(it) }
-        take("seamark:distance_mark:distance")?.let { lines.add("Kilometer $it") }
+        take("seamark:distance_mark:distance")?.let { lines.add("${w.km} $it") }
 
         return SeamarkInfo(title, lines, rawOf())
     }
@@ -702,6 +937,7 @@ object SeamarkSource {
         take: (String) -> String?,
         used: MutableSet<String>,
         rawOf: () -> List<String>,
+        w: Words,
     ): SeamarkInfo {
         val nummern = tags.keys.mapNotNull {
             Regex("^seamark:notice:(\\d+):").find(it)?.groupValues?.get(1)?.toInt()
@@ -732,7 +968,7 @@ object SeamarkSource {
         // Tafeln und Dreiecke am Schild ohne Nummer, auch wenn es selbst nichts sagt.
         NOTICE_HIDDEN.forEach { take("seamark:notice:$it") }
 
-        val kopf = listOfNotNull(name?.takeIf { it.isNotBlank() }?.let { "„$it\"" })
+        val kopf = listOfNotNull(name?.takeIf { it.isNotBlank() }?.let { w.quoted(it) })
         val extra = listOfNotNull(take("seamark:information"), take("seamark:national_information"))
         // Das Schildersystem (fast immer CEVNI) sagt das Schild selbst.
         take("seamark:notice:system")
@@ -744,6 +980,7 @@ object SeamarkSource {
                 SeamarkInfo(s.heading, kopf + s.lines + extra, rawOf())
             }
         }
-        return SeamarkInfo("${TYPES["notice"]} (${schilder.size})", kopf + extra, rawOf(), schilder)
+        val mehrere = if (w.en) "Notice marks" else TYPES.getValue("notice")
+        return SeamarkInfo("$mehrere (${schilder.size})", kopf + extra, rawOf(), schilder)
     }
 }
