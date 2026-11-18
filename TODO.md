@@ -1,25 +1,6 @@
 # TODO
 
-Geparkte Aufgaben / Ideen für BoatSpeedy.
-
-## Build & Release
-- [ ] **App-Bundle (`.aab`) für den Play Store** ergänzen
-  - `./gradlew bundleRelease`, signiert mit demselben Keystore
-  - CI: bei `v*`-Tags zusätzlich `.aab` bauen (Play-Upload ggf. via `r0adkll/upload-google-play` später)
-  - Hinweis: für den Play Store „Play App Signing" beachten (Upload-Key vs. App-Signing-Key)
-
-## Batterie – noch zu prüfen/erweitern
-- [ ] **Feldtest JBD mit laufendem Motor**: Strom-Vorzeichen (Laden/Entladen) und Reichweiten-/Zeitrechnung verifizieren
-- [ ] **Daly & JK am echten Gerät testen** (experimentell): UUIDs/Offsets kalibrieren, v. a. JK02-Offsets und SOC-Position
-- [ ] Auto-Reconnect bei Verbindungsabbruch; aktive gespeicherte Akkus beim Start automatisch verbinden (Reconnect ohne Scan)
-- [ ] Reihen-/Parallel-Kombination am echten Mehr-Akku-Aufbau verifizieren (v0.4.0 ist ungetestet)
-
-## Erledigt
-- [x] v0.1.0: Fahrt Start/Stopp (Hintergrund), Trip-Distanz, Session-Statistik
-- [x] v0.1.1: „Über"-Screen mit GitHub-Infos, Versionsanzeige und Update-Prüfung (Download bei neuer Version)
-- [x] v0.2.0: Batterie-Anbindung (JBD-BLE), Reichweite/Zeit, seitliches Drawer-Menü
-- [x] v0.2.1: SoC/Reichweite/Zeit am Tacho; BMS-Auswahl + Scan/Liste/Wechsel-Flow; Daly & JK (experimentell)
-- [x] v0.3.0: Dashboard-Kacheln (Batterie/Reichweite zuschaltbar), Sprache EN/DE (EN Standard), Settings gruppiert, „Batterie wechseln"-Scanfehler behoben, Batterie-Konfig entfernt
-- [x] v0.3.1: Einstellungen in Kategorien mit Unterseiten (Dashboard/Darstellung/Sprache)
-- [x] v0.4.0: Mehrere Batterien gleichzeitig (Liste, hinzufügen/verbinden/entfernen), Verschaltungs-Modus (Einzeln/Parallel/Reihe) mit Kombi-Rechnung, Dashboard-Auswahl A/B/Σ, Kacheln immer sichtbar
-- [x] v0.4.1: JBD-Strom-Vorzeichen im Feldtest bestätigt; Reichweite/Restzeit über Zeitfenster geglättet (Strom + Speed gemittelt, Aus/15/30/60 s)
+- [ ] App-Bundle (`.aab`) für den Play Store
+- [ ] Daly und JK am echten Gerät prüfen, v. a. JK02-Offsets und SOC-Position
+- [ ] Auto-Reconnect bei Verbindungsabbruch, gespeicherte Akkus beim Start verbinden
+- [ ] Reihe und Parallel am echten Mehr-Akku-Aufbau prüfen
