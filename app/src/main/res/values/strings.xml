@@ -115,7 +115,7 @@
     <string name="gps_signal">Signal</string>
     <string name="gps_constellations">Constellations</string>
     <string name="gps_altitude">Altitude</string>
-    <string name="gps_provider_note">Uses the fused location provider — all GNSS your device supports (GPS, GLONASS, Galileo, BeiDou …), not just GPS.</string>
+    <string name="gps_provider_note">Device GPS only (GNSS: GPS, GLONASS, Galileo, BeiDou). No Wi-Fi, no cell network, no Google services.</string>
     <string name="compass_points">N,NE,E,SE,S,SW,W,NW</string>
 
     <!-- Battery -->

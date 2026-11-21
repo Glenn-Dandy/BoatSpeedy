@@ -612,18 +612,15 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
         if (!v) WeatherRepository.clear() else maybeWeather(force = true)
     }
 
-    /** Beste verfügbare Position: Fused-GPS aus dem State, sonst LocationManager-Last-Known
-     *  (den Fake-GPS-Apps meist füttern, auch wenn der Fused-Provider sie nicht durchreicht). */
+    /** Beste verfügbare Position: der GPS-Wert aus dem State, sonst der letzte bekannte vom
+     *  GPS-Provider. Nur GPS, kein WLAN und kein Mobilfunk (Issue #59). */
     @SuppressLint("MissingPermission")
     private fun bestPosition(): Pair<Double, Double>? {
         val g = _gps.value
         if (g.latitude != null && g.longitude != null) return g.latitude!! to g.longitude!!
         val lm = getApplication<Application>().getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        for (p in listOf(LocationManager.GPS_PROVIDER, LocationManager.FUSED_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
-            val loc = runCatching { lm.getLastKnownLocation(p) }.getOrNull()
-            if (loc != null) return loc.latitude to loc.longitude
-        }
-        return null
+        val loc = runCatching { lm.getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
+        return loc?.let { it.latitude to it.longitude }
     }
     fun setWeatherAlarmOn(v: Boolean) = viewModelScope.launch { settingsRepo.setWeatherAlarmOn(v) }
     fun setDevMode(v: Boolean) = viewModelScope.launch { settingsRepo.setDevMode(v) }

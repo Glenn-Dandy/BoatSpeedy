@@ -113,7 +113,7 @@
     <string name="gps_signal">Signal</string>
     <string name="gps_constellations">Konstellationen</string>
     <string name="gps_altitude">Höhe</string>
-    <string name="gps_provider_note">Nutzt den Fused-Location-Provider — alle vom Gerät unterstützten GNSS (GPS, GLONASS, Galileo, BeiDou …), nicht nur GPS.</string>
+    <string name="gps_provider_note">Nur GPS des Geräts (GNSS: GPS, GLONASS, Galileo, BeiDou). Kein WLAN, kein Mobilfunk, keine Google-Dienste.</string>
     <string name="compass_points">N,NO,O,SO,S,SW,W,NW</string>
 
     <!-- Batterie -->
